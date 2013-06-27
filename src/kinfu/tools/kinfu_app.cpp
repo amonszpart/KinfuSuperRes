@@ -1168,6 +1168,7 @@ mainKinfuApp (int argc, char* argv[])
     {
       triggered_capture = true;
       bool repeat = false; // Only run ONI file once
+      std::cout << "oni: " << oni_file << std::endl;
       capture.reset (new pcl::ONIGrabber (oni_file, repeat, ! triggered_capture));
     }
     else if (pc::parse_argument (argc, argv, "-pcd", pcd_dir) > 0)

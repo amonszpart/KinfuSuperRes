@@ -145,11 +145,14 @@ class SimpleOpenNIProcessor
         }
 };
 
-mainKinfuApp (int argc, char* argv[]);
+int mainKinfuApp (int argc, char* argv[]);
 
 int
-main ()
+main (int argc, char* argv[] )
 {
+    std::cout << "running main.cpp" << std::endl;
+    return mainKinfuApp( argc, argv );
+
     SimpleONIProcessor v;
     v.run ();
     return 0;
