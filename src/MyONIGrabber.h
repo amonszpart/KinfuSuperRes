@@ -15,7 +15,7 @@ class SimpleONIProcessor
 
         void cloud_cb_ (const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr &cloud);
         void imageDepthImageCallback (const boost::shared_ptr<openni_wrapper::Image>& c_img, const boost::shared_ptr<openni_wrapper::DepthImage>& d_img, float constant );
-        void run ();
+        void run ( std::string path = "" );
 };
 
 

@@ -39,6 +39,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/openni_grabber.h>
 #include <pcl/common/time.h>
+#include <pcl/console/parse.h>
 
 #include "util/MaUtil.h"
 #include <opencv2/highgui/highgui.hpp>
@@ -150,11 +151,24 @@ int mainKinfuApp (int argc, char* argv[]);
 int
 main (int argc, char* argv[] )
 {
+#if 0
     std::cout << "running main.cpp" << std::endl;
     return mainKinfuApp( argc, argv );
+#endif
+    std::string oni_file;
+    boost::shared_ptr<pcl::Grabber> capture;
 
-    SimpleONIProcessor v;
-    v.run ();
+    if (pcl::console::parse_argument (argc, argv, "-oni", oni_file) > 0)
+    {
+      std::cout << "oni: " << oni_file << std::endl;
+
+      SimpleONIProcessor v;
+      v.run ( oni_file );
+
+      std::cout << "finished reading oni..." << std::endl;
+    }
+
+
     return 0;
 }
 

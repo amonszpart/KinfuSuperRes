@@ -91,12 +91,12 @@ SimpleONIProcessor::imageDepthImageCallback (const boost::shared_ptr<openni_wrap
     cv::waitKey(5);
 }
 
-void SimpleONIProcessor::run ()
+void SimpleONIProcessor::run ( std::string path )
 {
     save = false;
 
     // create a new grabber for OpenNI devices
-    pcl::Grabber* interface = new pcl::ONIGrabber("/home/bontius/workspace/rec/chair_n_ball.bak.oni", false, true );
+    pcl::Grabber* interface = new pcl::ONIGrabber( path.c_str(), false, true );
 
     // make callback function from member function
     boost::function<void (const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr&)> f =
