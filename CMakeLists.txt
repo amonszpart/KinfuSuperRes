@@ -4,10 +4,15 @@ cmake_minimum_required(VERSION 2.8)
 INCLUDE(localcfg.cmake)
 
 # PARAMS
-#SET( PCL_TRUNK ~/3rdparty/pcl-trunk )
-SET( PCL_LOC ~/3rdparty/pcl-trunk/build/install )
-SET( CUDA_PATH /usr/local/cuda-5.0 )
-SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
+if(TROLL)
+    SET( PCL_LOC ~/3rdparty/pcl-trunk/build/install )
+    SET( CUDA_PATH /usr/local/cuda-5.0 )
+    SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
+else(TROLL) # Ubul
+    SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/build/install )
+    SET( CUDA_PATH /usr/local/cuda-5.0 )
+    SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
+endif(TROLL)
 
 # PACKAGES
 FIND_PACKAGE( OpenCV REQUIRED )
