@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+   <FileVersion major="1" minor="6" />
+   <Project>
+      <Option title="SuperRes-NI-1-5" />
+      <Option makefile_is_custom="1" />
+      <Option compiler="gcc" />
+      <Option virtualFolders="CMake Files\;" />
+      <Build>
+      <Target title="all">
+         <Option working_dir="/home/amonszpart/cpp_projects/SuperRes-NI-1-5" />
+         <Option type="4" />
+         <MakeCommands>
+            <Build command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 all" />
+            <CompileFile command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 &quot;$file&quot;" />
+            <Clean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+            <DistClean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+         </MakeCommands>
+      </Target>
+      <Target title="SuperRes-NI-1-5">
+         <Option output="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/build/SuperRes-NI-1-5" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/build" />
+         <Option object_output="./" />
+         <Option type="1" />
+         <Option compiler="gcc" />
+         <Compiler>
+            <Add option="-D__x86_64__=1" />
+            <Add option="-Dlinux=1" />
+            <Add option="-DHAVE_OPENCV=1" />
+            <Add option="-DHAVE_OPENNI=1" />
+            <Add directory="/home/amonszpart/3rdparty/opencv-2.4.5/localInstall/include" />
+            <Add directory="/home/amonszpart/3rdparty/pcl-trunk/build/install/include/pcl-1.7" />
+            <Add directory="/home/amonszpart/3rdparty/pcl-trunk/build/install/include/pcl-1.7/io" />
+            <Add directory="/home/amonszpart/3rdparty/pcl-trunk/build/install/include/pcl-1.7/pcl/visualization" />
+            <Add directory="/usr/include/eigen3" />
+            <Add directory="/usr/include/openni" />
+            <Add directory="/usr/include/vtk-5.8" />
+            <Add directory="/usr/local/cuda-5.0/include" />
+         </Compiler>
+         <MakeCommands>
+            <Build command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 SuperRes-NI-1-5" />
+            <CompileFile command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 &quot;$file&quot;" />
+            <Clean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+            <DistClean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+         </MakeCommands>
+      </Target>
+      <Target title="SuperRes-NI-1-5/fast">
+         <Option output="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/build/SuperRes-NI-1-5" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/build" />
+         <Option object_output="./" />
+         <Option type="1" />
+         <Option compiler="gcc" />
+         <Compiler>
+            <Add option="-D__x86_64__=1" />
+            <Add option="-Dlinux=1" />
+            <Add option="-DHAVE_OPENCV=1" />
+            <Add option="-DHAVE_OPENNI=1" />
+            <Add directory="/home/amonszpart/3rdparty/opencv-2.4.5/localInstall/include" />
+            <Add directory="/home/amonszpart/3rdparty/pcl-trunk/build/install/include/pcl-1.7" />
+            <Add directory="/home/amonszpart/3rdparty/pcl-trunk/build/install/include/pcl-1.7/io" />
+            <Add directory="/home/amonszpart/3rdparty/pcl-trunk/build/install/include/pcl-1.7/pcl/visualization" />
+            <Add directory="/usr/include/eigen3" />
+            <Add directory="/usr/include/openni" />
+            <Add directory="/usr/include/vtk-5.8" />
+            <Add directory="/usr/local/cuda-5.0/include" />
+         </Compiler>
+         <MakeCommands>
+            <Build command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 SuperRes-NI-1-5/fast" />
+            <CompileFile command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 &quot;$file&quot;" />
+            <Clean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+            <DistClean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+         </MakeCommands>
+      </Target>
+      <Target title="rebuild_cache">
+         <Option working_dir="/home/amonszpart/cpp_projects/SuperRes-NI-1-5" />
+         <Option type="4" />
+         <MakeCommands>
+            <Build command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 rebuild_cache" />
+            <CompileFile command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 &quot;$file&quot;" />
+            <Clean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+            <DistClean command="/usr/bin/make -f &quot;/home/amonszpart/cpp_projects/SuperRes-NI-1-5/Makefile&quot;  VERBOSE=1 clean" />
+         </MakeCommands>
+      </Target>
+      </Build>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/BilateralFiltering.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/HomographyCalculator.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/MaCvImageBroadcaster.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/io/CvImageDumper.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/io/Recorder.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/main.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/util/MaUtil.cpp">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/BilateralFiltering.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/HomographyCalculator.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/MaCvImageBroadcaster.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/amCommon.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/io/CvImageDumper.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/io/Recorder.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/util/MaUtil.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/src/util/XnVUtil.h">
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/CMakeLists.txt">
+          <Option virtualFolder="CMake Files\" />
+      </Unit>
+      <Unit filename="/home/amonszpart/cpp_projects/SuperRes-NI-1-5/localcfg.cmake">
+          <Option virtualFolder="CMake Files\" />
+      </Unit>
+   </Project>
+</CodeBlocks_project_file>
