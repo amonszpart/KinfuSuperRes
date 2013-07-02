@@ -1,4 +1,4 @@
-project(PclTest)
+project(MyKinfuApp)
 cmake_minimum_required(VERSION 2.8)
 
 INCLUDE(localcfg.cmake)
@@ -40,7 +40,9 @@ SET( KINFU_HEADERS_LIST
 SET( HEADERS_LIST
     src/util/MaUtil.h
     src/util/XnVUtil.h
-    src/MyONIGrabber.h
+    src/myopenni/MyONIGrabber.h
+    src/myopenni/MyOpenNIGrabber.h
+    src/
     ${KINFU_HEADERS_LIST}
 )
 
@@ -54,7 +56,8 @@ SET( KINFU_SRC_LIST
 
 SET( SRC_LIST src/main.cpp
               src/util/MaUtil.cpp
-              src/MyONIGrabber.cpp
+              src/myopenni/MyONIGrabber.cpp
+              src/myopenni/MyOpenNIGrabber.cpp
               ${KINFU_SRC_LIST}
 )
 

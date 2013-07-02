@@ -253,11 +253,11 @@ getViewerPose (visualization::PCLVisualizer& viewer)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename CloudT> void
-writeCloudFile (int format, const CloudT& cloud);
+writeCloudFile (int format, const CloudT& cloud, std::string fileName = "cloud");
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void 
-writePolygonMeshFile (int format, const pcl::PolygonMesh& mesh);
+writePolygonMeshFile (int format, const pcl::PolygonMesh& mesh, string fileName);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -961,32 +961,50 @@ struct KinFuApp
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         void
-        writeCloud (int format) const
+        writeCloud (int format, std::string fileName = "cloud" ) const
         {
             const SceneCloudView& view = scene_cloud_view_;
 
             if(view.point_colors_ptr_->points.empty()) // no colors
             {
                 if (view.valid_combined_)
-                    writeCloudFile (format, view.combined_ptr_);
+                    writeCloudFile (format, view.combined_ptr_, fileName);
                 else
-                    writeCloudFile (format, view.cloud_ptr_);
+                    writeCloudFile (format, view.cloud_ptr_, fileName);
             }
             else
             {
                 if (view.valid_combined_)
-                    writeCloudFile (format, merge<PointXYZRGBNormal>(*view.combined_ptr_, *view.point_colors_ptr_));
+                    writeCloudFile (format, merge<PointXYZRGBNormal>(*view.combined_ptr_, *view.point_colors_ptr_), fileName);
                 else
-                    writeCloudFile (format, merge<PointXYZRGB>(*view.cloud_ptr_, *view.point_colors_ptr_));
+                    writeCloudFile (format, merge<PointXYZRGB>(*view.cloud_ptr_, *view.point_colors_ptr_), fileName);
             }
         }
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         void
-        writeMesh(int format) const
+        writeMesh( int format, std::string fileName = "mesh" )
         {
-            if (scene_cloud_view_.mesh_ptr_)
-                writePolygonMeshFile(format, *scene_cloud_view_.mesh_ptr_);
+            if ( !scene_cloud_view_.mesh_ptr_ )
+            {
+                std::cout << "scene_cloud_view_.mesh_ptr_ is empty, so extracting mesh..." << std::endl;
+                extractMeshFromVolume ();
+            }
+            writePolygonMeshFile(format, *scene_cloud_view_.mesh_ptr_, fileName );
+        }
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        void
+        extractMeshFromVolume()
+        {
+            ScopeTimeT time ( "Mesh Extraction" );
+            cout << "\nGetting mesh... " << flush;
+
+            if ( !scene_cloud_view_.marching_cubes_ )
+                scene_cloud_view_.marching_cubes_ = MarchingCubes::Ptr( new MarchingCubes() );
+
+            DeviceArray<PointXYZ> triangles_device = scene_cloud_view_.marching_cubes_->run(kinfu_.volume(), scene_cloud_view_.triangles_buffer_device_);
+            scene_cloud_view_.mesh_ptr_ = convertToMesh( triangles_device );
         }
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1093,23 +1111,23 @@ struct KinFuApp
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename CloudPtr> void
-writeCloudFile (int format, const CloudPtr& cloud_prt)
+writeCloudFile (int format, const CloudPtr& cloud_prt, std::string fileName )
 {
     if (format == KinFuApp::PCD_BIN)
     {
-        cout << "Saving point cloud to 'cloud_bin.pcd' (binary)... " << flush;
-        pcl::io::savePCDFile ("cloud_bin.pcd", *cloud_prt, true);
+        cout << "Saving point cloud to '" + fileName + "_bin.pcd' (binary)... " << flush;
+        pcl::io::savePCDFile (fileName + "_bin.pcd", *cloud_prt, true);
     }
     else
         if (format == KinFuApp::PCD_ASCII)
         {
-            cout << "Saving point cloud to 'cloud.pcd' (ASCII)... " << flush;
-            pcl::io::savePCDFile ("cloud.pcd", *cloud_prt, false);
+            cout << "Saving point cloud to '" + fileName + ".pcd' (ASCII)... " << flush;
+            pcl::io::savePCDFile (fileName + ".pcd", *cloud_prt, false );
         }
         else   /* if (format == KinFuApp::PLY) */
         {
-            cout << "Saving point cloud to 'cloud.ply' (ASCII)... " << flush;
-            pcl::io::savePLYFileASCII ("cloud.ply", *cloud_prt);
+            cout << "Saving point cloud to '" + fileName + ".ply' (ASCII)... " << flush;
+            pcl::io::savePLYFileASCII (fileName + ".ply", *cloud_prt );
 
         }
     cout << "Done" << endl;
@@ -1118,20 +1136,24 @@ writeCloudFile (int format, const CloudPtr& cloud_prt)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void
-writePolygonMeshFile (int format, const pcl::PolygonMesh& mesh)
+writePolygonMeshFile (int format, const pcl::PolygonMesh& mesh, std::string fileName)
 {
     if (format == KinFuApp::MESH_PLY)
     {
-        cout << "Saving mesh to to 'mesh.ply'... " << flush;
-        pcl::io::savePLYFile("mesh.ply", mesh);
+        cout << "Saving mesh to '" + fileName + "_mesh.ply'... " << flush;
+        pcl::io::savePLYFile( fileName + "_mesh.ply", mesh );
     }
     else /* if (format == KinFuApp::MESH_VTK) */
     {
-        cout << "Saving mesh to to 'mesh.vtk'... " << flush;
-        pcl::io::saveVTKFile("mesh.vtk", mesh);
+        cout << "Saving mesh to '" + fileName + "_mesh.vtk'... " << flush;
+        pcl::io::saveVTKFile(fileName + "_mesh.vtk", mesh);
     }
     cout << "Done" << endl;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1222,10 +1244,13 @@ mainKinfuApp (int argc, char* argv[])
     float volume_size = 3.f;
     pc::parse_argument (argc, argv, "-volume_size", volume_size);
 
-    int icp = 1, visualization = 1;
+    int icp = 1, visualization = 0;
     pc::parse_argument (argc, argv, "--icp", icp);
     pc::parse_argument (argc, argv, "--viz", visualization);
     std::cout << "visualisation: " << (visualization ? "yes" : "no") << std::endl;
+
+    std::string outFileName = "cloud";
+    pc::parse_argument (argc, argv, "-out", outFileName );
 
     KinFuApp app (*capture, volume_size, icp, visualization);
 
@@ -1257,7 +1282,9 @@ mainKinfuApp (int argc, char* argv[])
     catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
 
     std::cout << "writing..." << std::endl;
-    app.writeCloud( KinFuApp::PLY );
+    app.writeCloud ( KinFuApp::PLY, outFileName );
+    app.writeMesh ( KinFuApp::MESH_PLY, outFileName );
+    app.writeCloud ( KinFuApp::PCD_BIN, outFileName );
 
 #ifdef HAVE_OPENCV
     for (size_t t = 0; t < app.image_view_.views_.size (); ++t)
