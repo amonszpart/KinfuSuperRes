@@ -1,1 +1,0 @@
-/home/amonszpart/cpp_projects/SuperRes-NI-1-5/CMakeFiles/SuperRes-NI-1-5.dir
