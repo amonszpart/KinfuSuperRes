@@ -2,21 +2,23 @@ project(MyKinfuApp)
 cmake_minimum_required(VERSION 2.8)
 
 INCLUDE(localcfg.cmake)
+#add_subdirectory( src/kinfu_large_scale )
 
 # PARAMS
 if(TROLL)
     SET( PCL_LOC ~/3rdparty/pcl-trunk/build/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
+    SET(OPENNI_INCLUDE /usr/include/openni)
 else(TROLL) # Ubul
     SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/build/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
-    SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
+    #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
+    SET(OPENNI_INCLUDE /usr/include/ni)
 endif(TROLL)
 
 # PACKAGES
 FIND_PACKAGE( OpenCV REQUIRED )
-
 
 #FIND_PACKAGE( PCL 1.3 REQUIRED COMPONENTS common io )
 #link_directories(${PCL_LIBRARY_DIRS})
@@ -32,17 +34,21 @@ set( LIBRARY_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 
 # HEADERS
 SET( KINFU_HEADERS_LIST
+    src/kinfu/tools/kinfu_pcl_headers.h
     src/kinfu/tools/evaluation.h
     src/kinfu/tools/openni_capture.h
     src/kinfu/tools/tsdf_volume.h
     src/kinfu/tools/tsdf_volume.hpp
+    src/kinfu/tools/scene_cloud_view.h
+    src/kinfu/tools/point_cloud_color_handler_rgb_cloud.hpp
+    src/kinfu/tools/image_view.h
+    src/kinfu/tools/kinfu_util.h
 )
 SET( HEADERS_LIST
     src/util/MaUtil.h
     src/util/XnVUtil.h
     src/myopenni/MyONIGrabber.h
     src/myopenni/MyOpenNIGrabber.h
-    src/
     ${KINFU_HEADERS_LIST}
 )
 
@@ -52,6 +58,9 @@ SET( KINFU_SRC_LIST
     #src/kinfu/tools/capture.cpp
     src/kinfu/tools/evaluation.cpp
     #src/kinfu/tools/record_tsdfvolume.cpp
+    src/kinfu/tools/scene_cloud_view.cpp
+    src/kinfu/tools/image_view.cpp
+    src/kinfu/tools/kinfu_util.cpp
 )
 
 SET( SRC_LIST src/main.cpp
@@ -59,7 +68,9 @@ SET( SRC_LIST src/main.cpp
               src/myopenni/MyONIGrabber.cpp
               src/myopenni/MyOpenNIGrabber.cpp
               ${KINFU_SRC_LIST}
+              ${KINFU_LS_SRC_LIST}
 )
+message(STATUS "KINFU_LS_SRC_LIST: " ${KINFU_LS_SRC_LIST})
 
 # FLAGS
 SET(CMAKE_CXX_FLAGS "-std=c++0x")
@@ -74,7 +85,7 @@ include_directories(
     #/usr/local/include/pcl-1.6/pcl/visualization
     /usr/include/eigen3/
     #${OPENNI_LOC}/Include
-    /usr/include/openni/
+    ${OPENNI_INCLUDE}
 
     /usr/include/vtk-5.8/
     #${PCL_TRUNK}/include
@@ -122,5 +133,6 @@ TARGET_LINK_LIBRARIES(${PROJECT_NAME}
     vtkCommon
     vtkFiltering
     vtkRendering
+#    kinfu_large_scale
 )
 
