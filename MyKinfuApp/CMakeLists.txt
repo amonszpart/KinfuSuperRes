@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 INCLUDE(localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
-SET( CMAKE_CXX_COMPILER /usr/bin/g++)
+SET( CMAKE_CXX_COMPILER /usr/bin/g++ )
 
 # PARAMS
 if(TROLL)
