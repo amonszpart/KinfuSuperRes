@@ -512,7 +512,7 @@ namespace am
         boost::function<void (const DepthImagePtr&)> func2 = is_oni ? func2_oni : func2_dev;
 
         bool need_colors = integrate_colors_ || registration_ || 1;
-        //boost::signals2::connection c = need_colors ? capture_.registerCallback (func1) : capture_.registerCallback (func2);
+        boost::signals2::connection c = need_colors ? capture_.registerCallback (func1) : capture_.registerCallback (func2);
 
         {
             boost::unique_lock<boost::mutex> lock(data_ready_mutex_);
