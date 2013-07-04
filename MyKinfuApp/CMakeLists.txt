@@ -122,7 +122,7 @@ TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} )
 SET( TSDF_VIS_NAME "TSDFVis" )
 
 SET( HEADER_LIST
-
+    src/kinfu/tools/tsdf_volume.h
 )
 
 SET( SRC_LIST
