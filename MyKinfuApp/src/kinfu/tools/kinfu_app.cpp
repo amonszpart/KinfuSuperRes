@@ -331,6 +331,18 @@ namespace am
         scene_cloud_view_.mesh_ptr_ = convertToMesh( triangles_device );
     }
 
+    void
+    KinFuApp::saveTSDFVolume( std::string fileName )
+    {
+        cout << "Saving TSDF volume to " + fileName + "_tsdf_volume.dat ... " << flush;
+        this->tsdf_volume_.save ( fileName + "_tsdf_volume.dat", true );
+        cout << "done [" << this->tsdf_volume_.size () << " voxels]" << endl;
+
+        cout << "Saving TSDF volume cloud to " + fileName + "_tsdf_cloud.pcd ... " << flush;
+        pcl::io::savePCDFile<pcl::PointXYZI> (fileName+"_tsdf_cloud.pcd", *this->tsdf_cloud_ptr_, true);
+        cout << "done [" << this->tsdf_cloud_ptr_->size () << " points]" << endl;
+    }
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void
     KinFuApp::printHelp ()
@@ -668,7 +680,8 @@ namespace am
         std::cout << "writing..." << std::endl;
         app.writeCloud ( nsKinFuApp::PLY, outFileName );
         app.writeMesh ( nsKinFuApp::MESH_PLY, outFileName );
-        app.writeCloud ( nsKinFuApp::PCD_BIN, outFileName );
+        //app.writeCloud ( nsKinFuApp::PCD_BIN, outFileName );
+        app.saveTSDFVolume( outFileName );
 
 #ifdef HAVE_OPENCV
         for (size_t t = 0; t < app.image_view_.views_.size (); ++t)
