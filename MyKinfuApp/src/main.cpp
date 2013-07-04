@@ -6,7 +6,10 @@
 
 #include "myopenni/MyONIGrabber.h"
 
-int mainKinfuApp ( int argc, char* argv[] );
+namespace am
+{
+    int mainKinfuApp ( int argc, char* argv[] );
+}
 
 int printUsage()
 {
@@ -39,7 +42,7 @@ main (int argc, char* argv[] )
     //--viz 0 -oni /home/amonszpart/cpp_projects/SuperRes-NI-1-5/build/out/imgs_20130701_1440/recording_push.oni
     //--viz 0 -oni /home/amonszpart/cpp_projects/SuperRes-NI-1-5/build/out/imgs_20130701_1627/recording_push.oni
     std::cout << "running main.cpp" << std::endl;
-    return mainKinfuApp( argc, argv );
+    return am::mainKinfuApp( argc, argv );
 #endif
 
     std::string oni_file;

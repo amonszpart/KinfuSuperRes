@@ -1,5 +1,6 @@
-#ifndef __KINFU_PCL_HEADERS
-#define __KINFU_PCL_HEADERS
+#pragma once
+#ifndef __MY_KINFU_PCL_HEADERS
+#define __MY_KINFU_PCL_HEADERS
 
 #include <pcl/console/parse.h>
 
@@ -18,6 +19,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/io/vtk_io.h>
+//#include <pcl/io/png_io.h>
 #include <pcl/io/openni_grabber.h>
 #include <pcl/io/oni_grabber.h>
 #include <pcl/io/pcd_grabber.h>
@@ -30,10 +32,9 @@
 #   include <opencv2/imgproc/imgproc.hpp>
 #   include <pcl/gpu/utils/timers_opencv.hpp>
 
-//# include "video_recorder.h"
-typedef pcl::gpu::ScopeTimerCV ScopeTimeT;
+/*       */ typedef pcl::gpu::ScopeTimerCV ScopeTimeT;
 #else
-typedef pcl::ScopeTime ScopeTimeT;
+/*       */ typedef pcl::ScopeTime ScopeTimeT;
 #endif
 
 namespace nsKinFuApp
@@ -41,4 +42,4 @@ namespace nsKinFuApp
         enum { PCD_BIN = 1, PCD_ASCII = 2, PLY = 3, MESH_PLY = 7, MESH_VTK = 8 };
 };
 
-#endif
+#endif // __MY_KINFU_PCL_HEADERS

@@ -34,6 +34,9 @@
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
+#ifndef __EVALUATION_PCL_H
+#define __EVALUATION_PCL_H
+
 #pragma once
 
 #include <string>
@@ -97,3 +100,4 @@ private:
   boost::shared_ptr<Impl> impl_;
 };
 
+#endif // __EVALUATION_PCL_H

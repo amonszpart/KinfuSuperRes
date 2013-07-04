@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 2.8)
 INCLUDE(localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
+SET( CMAKE_CXX_COMPILER /usr/bin/g++)
+
 # PARAMS
 if(TROLL)
     SET( PCL_LOC ~/3rdparty/pcl-trunk/install )
@@ -36,13 +38,14 @@ set( LIBRARY_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 SET( KINFU_HEADERS_LIST
     src/kinfu/tools/kinfu_pcl_headers.h
     src/kinfu/tools/evaluation.h
-    src/kinfu/tools/openni_capture.h
+    #src/kinfu/tools/openni_capture.h
     src/kinfu/tools/tsdf_volume.h
     src/kinfu/tools/tsdf_volume.hpp
     src/kinfu/tools/scene_cloud_view.h
     src/kinfu/tools/point_cloud_color_handler_rgb_cloud.hpp
     src/kinfu/tools/image_view.h
     src/kinfu/tools/kinfu_util.h
+    src/kinfu/tools/my_screenshot_manager.h
 )
 SET( HEADERS_LIST
     src/util/MaUtil.h
@@ -61,6 +64,7 @@ SET( KINFU_SRC_LIST
     src/kinfu/tools/scene_cloud_view.cpp
     src/kinfu/tools/image_view.cpp
     src/kinfu/tools/kinfu_util.cpp
+    src/kinfu/tools/my_screenshot_manager.cpp
 )
 
 SET( SRC_LIST src/main.cpp
@@ -68,7 +72,7 @@ SET( SRC_LIST src/main.cpp
               src/myopenni/MyONIGrabber.cpp
               src/myopenni/MyOpenNIGrabber.cpp
               ${KINFU_SRC_LIST}
-              ${KINFU_LS_SRC_LIST}
+              #${KINFU_LS_SRC_LIST}
 )
 message(STATUS "KINFU_LS_SRC_LIST: " ${KINFU_LS_SRC_LIST})
 
@@ -77,26 +81,16 @@ SET(CMAKE_CXX_FLAGS "-std=c++0x")
 
 # INCLUDES
 include_directories(
+
 	${PCL_LOC}/include/pcl-1.7
-	${PCL_LOC}/include/pcl-1.7/io
+    #${PCL_LOC}/include/pcl-1.7/io
 	${PCL_LOC}/include/pcl-1.7/pcl/visualization
-    #/usr/local/include/pcl-1.6/
-    #/usr/local/include/pcl-1.6/io/
-    #/usr/local/include/pcl-1.6/pcl/visualization
+
     /usr/include/eigen3/
-    #${OPENNI_LOC}/Include
+
     ${OPENNI_INCLUDE}
     /usr/include/vtk-5.8/
-    #${PCL_TRUNK}/include
-    #${PCL_TRUNK}/common/include
-    #${PCL_TRUNK}/build/include
-    #${PCL_TRUNK}/io/include
-    #${PCL_TRUNK}/visualization/include
-    #${PCL_TRUNK}/geometry/include
-    #${PCL_TRUNK}/search/include
-    #${PCL_TRUNK}/gpu/kinfu/include
-    #${PCL_TRUNK}/gpu/containers/include
-    #${PCL_TRUNK}/gpu/utils/include
+
     ${CUDA_PATH}/include
     )
 
@@ -113,25 +107,14 @@ TARGET_LINK_LIBRARIES(${PROJECT_NAME}
     ${PCL_LOC}/lib/libpcl_gpu_kinfu.so
     ${PCL_LOC}/lib/libpcl_gpu_containers.so
 
-    #${OPENNI_LOC}/Lib/libOpenNI.so
     OpenNI
 
-    ${PCL_COMMON_LIBRARIES}
-    ${PCL_IO_LIBRARIES}
-    #opencv_core
-    #opencv_highgui
-    #opencv_imgproc
-    #pcl_io
-    #pcl_common
-    #pcl_visualization
-    #pcl_io_ply
-    #OpenNI
     boost_system
     boost_filesystem
     boost_thread
     vtkCommon
     vtkFiltering
     vtkRendering
-#    kinfu_large_scale
 )
 
+message( STATUS "CMAKE_CXX_COMPILER: " ${CMAKE_CXX_COMPILER} )

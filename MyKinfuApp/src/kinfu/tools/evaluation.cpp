@@ -36,7 +36,7 @@
 
 #include "evaluation.h"
 
-#include<iostream>
+#include <iostream>
 
 using namespace pcl::gpu;
 using namespace std;
