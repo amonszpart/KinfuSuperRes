@@ -6,7 +6,7 @@ INCLUDE(localcfg.cmake)
 
 # PARAMS
 if(TROLL)
-    SET( PCL_LOC ~/3rdparty/pcl-trunk/build/install )
+    SET( PCL_LOC ~/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
@@ -86,7 +86,6 @@ include_directories(
     /usr/include/eigen3/
     #${OPENNI_LOC}/Include
     ${OPENNI_INCLUDE}
-
     /usr/include/vtk-5.8/
     #${PCL_TRUNK}/include
     #${PCL_TRUNK}/common/include
