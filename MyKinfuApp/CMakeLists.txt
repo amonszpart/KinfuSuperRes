@@ -4,7 +4,9 @@ cmake_minimum_required(VERSION 2.8)
 INCLUDE(localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
-SET( CMAKE_CXX_COMPILER /usr/bin/g++)
+# FLAGS
+SET( CMAKE_CXX_COMPILER /usr/bin/g++ )
+SET( CMAKE_CXX_FLAGS "-std=c++0x" )
 
 # PARAMS
 if(TROLL)
@@ -34,11 +36,42 @@ set( dir ${CMAKE_CURRENT_SOURCE_DIR}/build)
 set( EXECUTABLE_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 set( LIBRARY_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 
+# INCLUDES
+SET( MY_INCLUDES
+    /usr/include/eigen3/
+    /usr/include/vtk-5.8/
+    ${CUDA_PATH}/include
+    ${OPENNI_INCLUDE}
+    ${PCL_LOC}/include/pcl-1.7
+    ${PCL_LOC}/include/pcl-1.7/pcl/visualization
+)
+
+# LIBRARIES
+SET( MY_LIBRARIES
+    ${OpenCV_LIBS}
+    ${PCL_LOC}/lib/libpcl_common.so
+    ${PCL_LOC}/lib/libpcl_io.so
+    ${PCL_LOC}/lib/libpcl_visualization.so
+    ${PCL_LOC}/lib/libpcl_gpu_kinfu.so
+    ${PCL_LOC}/lib/libpcl_gpu_containers.so
+    OpenNI
+    boost_system
+    boost_filesystem
+    boost_thread
+    vtkCommon
+    vtkFiltering
+    vtkRendering
+)
+
+#############################################################################################
+
+
+############## MY_KINFU_APP ##############
+
 # HEADERS
 SET( KINFU_HEADERS_LIST
     src/kinfu/tools/kinfu_pcl_headers.h
     src/kinfu/tools/evaluation.h
-    #src/kinfu/tools/openni_capture.h
     src/kinfu/tools/tsdf_volume.h
     src/kinfu/tools/tsdf_volume.hpp
     src/kinfu/tools/scene_cloud_view.h
@@ -46,6 +79,7 @@ SET( KINFU_HEADERS_LIST
     src/kinfu/tools/image_view.h
     src/kinfu/tools/kinfu_util.h
     src/kinfu/tools/my_screenshot_manager.h
+    #src/kinfu/tools/openni_capture.h
 )
 SET( HEADERS_LIST
     src/util/MaUtil.h
@@ -72,50 +106,34 @@ SET( SRC_LIST src/main.cpp
               src/myopenni/MyONIGrabber.cpp
               src/myopenni/MyOpenNIGrabber.cpp
               ${KINFU_SRC_LIST}
-              #${KINFU_LS_SRC_LIST}
 )
-message(STATUS "KINFU_LS_SRC_LIST: " ${KINFU_LS_SRC_LIST})
-
-# FLAGS
-SET(CMAKE_CXX_FLAGS "-std=c++0x")
 
 # INCLUDES
-include_directories(
-
-	${PCL_LOC}/include/pcl-1.7
-    #${PCL_LOC}/include/pcl-1.7/io
-	${PCL_LOC}/include/pcl-1.7/pcl/visualization
-
-    /usr/include/eigen3/
-
-    ${OPENNI_INCLUDE}
-
-    /usr/include/vtk-5.8/
-
-    ${CUDA_PATH}/include
-    )
+INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 
 # EXECUTABLE
-add_executable(${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
+ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
 # LINK
-TARGET_LINK_LIBRARIES(${PROJECT_NAME}
-    ${OpenCV_LIBS}
+TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} )
 
-    ${PCL_LOC}/lib/libpcl_common.so
-    ${PCL_LOC}/lib/libpcl_io.so
-    ${PCL_LOC}/lib/libpcl_visualization.so
-    ${PCL_LOC}/lib/libpcl_gpu_kinfu.so
-    ${PCL_LOC}/lib/libpcl_gpu_containers.so
+############## TSDF_VIS ##############
 
-    OpenNI
+SET( TSDF_VIS_NAME "TSDFVis" )
 
-    boost_system
-    boost_filesystem
-    boost_thread
-    vtkCommon
-    vtkFiltering
-    vtkRendering
+SET( HEADER_LIST
+
 )
 
-message( STATUS "CMAKE_CXX_COMPILER: " ${CMAKE_CXX_COMPILER} )
+SET( SRC_LIST
+    src/tsdf_vis/main.cpp
+)
+
+# INCLUDES
+INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
+
+# EXECUTABLE
+ADD_EXECUTABLE( ${TSDF_VIS_NAME} ${SRC_LIST} ${HEADERS_LIST} )
+
+# LINK
+TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME} ${MY_LIBRARIES} )
