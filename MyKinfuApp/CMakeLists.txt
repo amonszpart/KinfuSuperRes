@@ -10,7 +10,7 @@ SET( CMAKE_CXX_FLAGS "-std=c++0x" )
 
 # PARAMS
 if(TROLL)
-    SET( PCL_LOC ~/3rdparty/pcl-trunk/build/install )
+    SET( PCL_LOC ~/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
@@ -142,3 +142,4 @@ ADD_EXECUTABLE( ${TSDF_VIS_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
 # LINK
 TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME} ${MY_LIBRARIES} )
+
