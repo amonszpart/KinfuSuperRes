@@ -3,10 +3,26 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/io/pcd_io.h>
 
+#include "../kinfu/tools/tsdf_volume.h"
+
 namespace am
 {
     MyPCDViewer::MyPCDViewer()
     {}
+
+    /*
+      .PCD v0.7 - Point Cloud Data file format
+VERSION 0.7
+FIELDS x y z intensity
+SIZE 4 4 4 4
+TYPE F F F F
+COUNT 1 1 1 1
+WIDTH 275889
+HEIGHT 1
+VIEWPOINT 0 0 0 1 0 0 0
+POINTS 275889
+DATA binary
+*/
 
     int
     MyPCDViewer::run( const std::string &file_name )
@@ -24,6 +40,12 @@ namespace am
             std::cerr << "[error: no points found!]\n";
             return (-1);
         }
+
+        /*std::cout << "cloud->sensor_origin_: " << cloud->sensor_origin_;
+        std::cout << " cloud->sensor_orientation_: " << cloud->sensor_orientation_;
+        std::cout << std::endl;*/
+
+        return 0;
 
         //pcl::visualization::CloudViewer viewer("Simple Cloud Viewer");
         boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -48,4 +70,12 @@ namespace am
 
         return EXIT_SUCCESS;
     }
+
+    /*int
+    MyPCDViewer::loadTsdf( std::string const& file_name, pcl::TSDFVolume<float,short>::Ptr tsdf_volume )
+    {
+        //pcl::TSDFVolume<float,short> tsdf_volume;
+        tsdf_volume->load ( file_name, true );
+    }*/
+
 } // ns am

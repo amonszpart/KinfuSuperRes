@@ -124,11 +124,14 @@ SET( TSDF_VIS_NAME "TSDFVis" )
 SET( HEADER_LIST
     src/kinfu/tools/tsdf_volume.h
     src/kinfu/tools/tsdf_volume.hpp
+    src/kinfu/tools/kinfu_util.h
     src/tsdf_vis/tsdf_viewer.h
     src/tsdf_vis/my_pcd_viewer.h
+
 )
 
 SET( SRC_LIST
+    src/kinfu/tools/kinfu_util.cpp
     src/tsdf_vis/main.cpp
     src/tsdf_vis/tsdf_viewer.cpp
     src/tsdf_vis/my_pcd_viewer.cpp

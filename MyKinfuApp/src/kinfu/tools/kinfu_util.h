@@ -34,6 +34,9 @@ void
 writePolygonMeshFile (int format, const pcl::PolygonMesh& mesh, string fileName);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+boost::shared_ptr<pcl::PolygonMesh> convertToMesh( const DeviceArray<PointXYZ>& triangles );
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename MergedT, typename PointT>
 typename PointCloud<MergedT>::Ptr merge(const PointCloud<PointT>& points, const PointCloud<RGB>& colors)
