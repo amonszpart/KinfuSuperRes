@@ -21,10 +21,6 @@ namespace pcl
 namespace am
 {
 
-
-    // HELPERS
-    boost::shared_ptr<pcl::PolygonMesh> convertToMesh( const DeviceArray<PointXYZ>& triangles );
-
     // CLASS
     struct SceneCloudView
     {

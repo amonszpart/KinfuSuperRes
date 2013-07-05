@@ -23,6 +23,9 @@ namespace pc = pcl::console;
 
 namespace am
 {
+    // HELPERS
+    boost::shared_ptr<pcl::PolygonMesh> convertToMesh( const DeviceArray<PointXYZ>& triangles );
+
     struct CurrentFrameCloudView
     {
             CurrentFrameCloudView() : cloud_device_ (480, 640), cloud_viewer_ ("Frame Cloud Viewer")
