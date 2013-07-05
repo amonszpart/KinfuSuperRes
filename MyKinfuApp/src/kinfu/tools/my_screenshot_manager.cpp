@@ -74,14 +74,28 @@ namespace am
         // Create filenames
         filename_pose = filename_pose + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_pose;
         filename_image = filename_image + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_image;
-        filename_depth= filename_image + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_image;
+        filename_depth= filename_depth + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_image;
 
         // Write files
         writePose (filename_pose, teVecs, erreMats);
 
         // Save Image
-        pcl::io::saveRgbPNGFile ( filename_image, (unsigned char*)rgb24.data, rgb24.cols,rgb24.rows );
-        pcl::io::saveShortPNGFile( filename_depth, (unsigned short*)depth16.data, depth16.cols, depth16.rows, 1 );
+        if ( (rgb24.cols > 0) && (rgb24.rows > 0) )
+        {
+            pcl::io::saveRgbPNGFile ( filename_image, (unsigned char*)rgb24.data, rgb24.cols,rgb24.rows );
+        }
+        else
+        {
+            std::cerr << "rgb24 has no data...not dumping..." << std::endl;
+        }
+        if ( (depth16.cols > 0) && (depth16.rows > 0) )
+        {
+            pcl::io::saveShortPNGFile( filename_depth, (unsigned short*)depth16.data, depth16.cols, depth16.rows, 1 );
+        }
+        else
+        {
+            std::cerr << "depth16 has no data...not dumping..." << std::endl;
+        }
 
         ++screenshot_counter;
     }
