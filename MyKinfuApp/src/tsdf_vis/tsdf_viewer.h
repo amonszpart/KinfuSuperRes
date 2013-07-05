@@ -25,7 +25,7 @@ namespace am
             void
             loadTsdfFromFile( std::string path, bool binary );
             void
-            extractMeshFromVolume( const pcl::gpu::KinfuTracker &kinfu, boost::shared_ptr<pcl::PolygonMesh> mesh_ptr );
+            extractMeshFromVolume( const pcl::gpu::TsdfVolume::Ptr volume, boost::shared_ptr<pcl::PolygonMesh> mesh_ptr );
 
         protected:
             pcl::gpu::MarchingCubes::Ptr marching_cubes_;

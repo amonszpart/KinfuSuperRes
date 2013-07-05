@@ -3,6 +3,8 @@
 #include "../kinfu/tools/kinfu_util.h"
 #include <pcl/PolygonMesh.h>
 
+
+
 namespace am
 {
 
@@ -17,25 +19,53 @@ namespace am
         tsdf_volume_.load( path, binary );
         std::cout << "initing kinfuvolume with resolution: " << tsdf_volume_.gridResolution().transpose() << std::endl;
 
-        pcl::gpu::TsdfVolume kinfuVolume( tsdf_volume_.gridResolution() );
-        kinfuVolume.setSize( tsdf_volume_.header().volume_size );
-        kinfuVolume.setTsdfTruncDist( 0.03f );
-        std::cout << "copying kinfuvolume... " << std::endl;
-        kinfu_.volume() = kinfuVolume;
+        // init kinfuVolume
+        pcl::gpu::TsdfVolume::Ptr kinfuVolume( new pcl::gpu::TsdfVolume(tsdf_volume_.gridResolution()) );
+        kinfuVolume->setSize( tsdf_volume_.header().volume_size );
+        kinfuVolume->setTsdfTruncDist( 0.03f );
+        kinfuVolume->reset();
 
+        // tsdf_volume_ --> kinfuVolume
+        std::cout << "copying tsdf_volume_ --> kinfuVolume... ";
+        kinfuVolume.data().upload( tsdf_volume_.volume().data(), tsdf_volume_.volume().size() * sizeof(int) );
+        std::cout << "OK" << std::endl;
+
+        /*int volumeSize = volume_.cols() * volume_.rows();
+          tsdf.resize (volumeSize);
+          weights.resize (volumeSize);
+          volume_.download(&tsdf[0], volume_.cols() * sizeof(int));
+
+        #pragma omp parallel for
+          for(int i = 0; i < (int) tsdf.size(); ++i)
+          {
+            short2 elem = *reinterpret_cast<short2*>(&tsdf[i]);
+            tsdf[i] = (float)(elem.x)/device::DIVISOR;
+            weights[i] = (short)(elem.y);
+          }
+        }*/
+        //file.write ((char*) &(volume_->at(0)), volume_->size()*sizeof(VoxelT));
+        //file.write ((char*) &(weights_->at(0)), weights_->size()*sizeof(WeightT));
+
+        // kinfuVolume --> kinfu_.volume()
+        std::cout << "copying kinfuVolume --> kinfu_.volume()... ";
+        kinfu_.volume() = *kinfuVolume;
+        std::cout << "OK" << std::endl;
+
+        // extract mesh
         boost::shared_ptr<pcl::PolygonMesh> mesh_ptr;
-        extractMeshFromVolume( kinfu_, mesh_ptr );
+        extractMeshFromVolume( kinfuVolume, mesh_ptr );
 
         //cloud_viewer_->removeAllPointClouds();
         //if (mesh_ptr)
         //  cloud_viewer_->addPolygonMesh(*mesh_ptr);
 
+        // save mesh
         pcl::io::savePLYFile( path + "_mesh.ply", *mesh_ptr );
 
     }
 
     void
-    TSDFViewer::extractMeshFromVolume( const pcl::gpu::KinfuTracker &kinfu, boost::shared_ptr<pcl::PolygonMesh> mesh_ptr )
+    TSDFViewer::extractMeshFromVolume( const pcl::gpu::TsdfVolume::Ptr volume, boost::shared_ptr<pcl::PolygonMesh> mesh_ptr )
     {
         cout << "\nGetting mesh... " << flush;
 
@@ -43,7 +73,7 @@ namespace am
             marching_cubes_ = pcl::gpu::MarchingCubes::Ptr( new pcl::gpu::MarchingCubes() );
 
         DeviceArray<PointXYZ> triangles_buffer_device;
-        DeviceArray<PointXYZ> triangles_device = marching_cubes_->run( kinfu.volume(), triangles_buffer_device );
+        DeviceArray<PointXYZ> triangles_device = marching_cubes_->run( *volume, triangles_buffer_device );
         mesh_ptr = convertToMesh( triangles_device );
 
         cout << "Done.  Triangles number: " << triangles_device.size() / MarchingCubes::POINTS_PER_TRIANGLE / 1000 << "K" << endl;
