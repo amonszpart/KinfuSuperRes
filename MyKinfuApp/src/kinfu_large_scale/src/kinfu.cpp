@@ -65,7 +65,7 @@ using Eigen::Vector3f;
 
 namespace pcl
 {
-  namespace gpu
+  namespace gputrue
   {
     namespace kinfuLS
     {
