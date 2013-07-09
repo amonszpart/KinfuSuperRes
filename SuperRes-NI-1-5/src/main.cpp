@@ -56,6 +56,7 @@ using namespace xn;
 Context g_context;
 DepthGenerator g_depth;
 ImageGenerator g_image;
+IRGenerator g_ir;
 
 // reverse
 int toDepSpace( cv::Mat const& dep16, cv::Mat &out )
@@ -222,18 +223,6 @@ int toImageSpace( cv::Mat const& dep16, cv::Mat &out )
     return EXIT_SUCCESS;
 }
 
-cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha )
-{
-    cv::Vec3f ret =
-            (
-                alpha          * (cv::Vec3f)rgb                                    * (1.f/255.0f)
-                +
-                (1.0f - alpha) * ((cv::Vec3f){(float)dep, (float)dep, (float)dep}) * (1.f/255.0f)
-            ) * 255.0f;
-
-    return cv::Vec3b( round(ret[0]), round(ret[1]), round(ret[2]) );
-}
-
 int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
                /* OUT: */ TMatDict &out_mats,
                /* FLG: */ bool doShow = true )
@@ -244,7 +233,7 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
     // check input
     assert( dep16.type() == CV_16UC1 );
 
-    /// simple overlay
+    /// simple overlay (depth16 -> image)
     cv::Mat dep16Large, overlay = img8.clone();
     {
         // upscale depth
@@ -260,7 +249,7 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
             if ( dVal )
             {
                 //overlay.at<cv::Vec3b>( y, x ) = (cv::Vec3b){ dVal, dVal, dVal };
-                overlay.at<cv::Vec3b>( y, x ) = blend( overlay.at<cv::Vec3b>( y, x ), dVal, 0.5 );
+                overlay.at<cv::Vec3b>( y, x ) = util::blend( overlay.at<cv::Vec3b>( y, x ), dVal, 0.5 );
             }
 
             // iterate coords
@@ -275,7 +264,7 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
         out_mats["overlay"] = overlay.clone();
     }
 
-    /// registered small
+    /// registered small (dep16 -> map -> image)
     cv::Mat dep16Mapped, overlayMapped;
     {
         // map dep16
@@ -292,7 +281,7 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
             uchar dVal = dep16Mapped.at<ushort>( y, x ) * ratio;
             if ( dVal )
             {
-                overlayMapped.at<cv::Vec3b>( y, x ) = blend( overlayMapped.at<cv::Vec3b>( y, x ), dVal, 0.3 );
+                overlayMapped.at<cv::Vec3b>( y, x ) = util::blend( overlayMapped.at<cv::Vec3b>( y, x ), dVal, 0.6 );
             }
 
             // iterate coords
@@ -304,11 +293,11 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
         }
 
         // output
-        out_mats["dep16Mapped"] = dep16Mapped.clone();
+        //out_mats["dep16Mapped"] = dep16Mapped.clone();
         out_mats["overlayMapped"] = overlayMapped.clone();
     }
 
-    /// registered large
+    /// registered large (dep16 -> map -> resize -> image)
     cv::Mat dep16MappedLarge, overlayMappedLarge = img8.clone();
     {
         // downscale RGB
@@ -323,7 +312,7 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
             uchar dVal = dep16MappedLarge.at<ushort>( y, x ) * ratio;
             if ( dVal )
             {
-                overlayMappedLarge.at<cv::Vec3b>( y, x ) = blend( overlayMappedLarge.at<cv::Vec3b>( y, x ), dVal, 0.3f );
+                overlayMappedLarge.at<cv::Vec3b>( y, x ) = util::blend( overlayMappedLarge.at<cv::Vec3b>( y, x ), dVal, 0.8f );
             }
 
             // iterate coords
@@ -335,7 +324,7 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
         }
 
         // output
-        out_mats["overlayMappedLarge"] = overlayMappedLarge.clone();
+        //out_mats["overlayMappedLarge"] = overlayMappedLarge.clone();
         out_mats["dep16MappedLarge"] = dep16MappedLarge.clone();
     }
 
@@ -352,41 +341,201 @@ int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
     return EXIT_SUCCESS;
 }
 
+void getIR( Context &context, IRGenerator &irGenerator, cv::Mat &irImage )
+{
+    context.WaitOneUpdateAll( irGenerator );
+    XnIRPixel const* irMap = irGenerator.GetIRMap();
+    unsigned int max = 0;
+    for ( int i = 0; i < 640*480; ++i )
+    {
+        if (irMap[i] > max )
+        {
+            max = irMap[i];
+        }
+    }
+    std::cout << "irmax: " << max << std::endl;
+    /*for ( int i = 0; i < 640*480; ++i )
+    {
+        tempIR[i] = (int)( (double)irMap[i] / max*65535 );
+    }
+    cvSetData( irImage, (void*)tempIR, irImage->widthStep);
+    cvSaveImage(filename, irImage);*/
+    xn::IRMetaData irMD;
+    cv::Mat cvIr16;
+    irGenerator.GetMetaData( irMD );
+    cvIr16.create( irMD.FullYRes(), irMD.FullXRes(), CV_16UC1 );
 
-int playGenerators( Context &context, DepthGenerator& depthGenerator, ImageGenerator &imageGenerator )
+    // COPY
+    {
+        const XnIRPixel *pIrPixels = irMD.Data();
+        //cvSetData( cvIr16, pIrPixels, cvIr16.step );
+        //cvIr16 = cv::Mat( irMD.FullYRes(), irMD.FullXRes(), CV_16UC1, pIrPixels );
+        int offset = 0;
+        for ( XnUInt y = 0; y < irMD.YRes(); ++y, offset += irMD.XRes() )
+            memcpy( cvIr16.data + cvIr16.step * y, pIrPixels + offset, irMD.XRes() * sizeof(XnIRPixel) );
+    }
+
+    cv::convertScaleAbs( cvIr16, irImage, 255.0/(double)max );
+}
+
+/**
+ * @brief combineIRandRgb
+ * @param ir8 typed uchar
+ * @param rgb8 typed uchar3
+ * @param size desired output size
+ * @param out place for output
+ */
+void combineIRandRgb( cv::Mat &ir8, cv::Mat &rgb8, cv::Size size, cv::Mat &out, float alpha = .5f)
+{
+    CV_Assert( ir8.type() == CV_8UC1 );
+    CV_Assert( rgb8.type() == CV_8UC3 );
+
+    // downscale RGB
+    cv::Mat tmp1, tmp2, *pIr = nullptr, *pRgb = nullptr;
+    if ( ir8.size() != size )
+    {
+        tmp1.create( size.height, size.width, CV_8UC1 );
+        pIr = &tmp1;
+        cv::resize( ir8, *pIr, size, 0, 0, cv::INTER_NEAREST );
+    }
+    else
+    {
+        pIr = &ir8;
+    }
+    if ( rgb8.size() != size )
+    {
+        tmp2.create( size, CV_8UC3 );
+        pRgb = &tmp2;
+        cv::resize( rgb8, *pRgb, size, 0, 0, cv::INTER_NEAREST );
+    }
+    else
+    {
+        pRgb = &rgb8;
+    }
+    out.create( size, CV_8UC3 );
+
+    // overlay on RGB
+    cv::Mat_<uchar>::const_iterator itEnd = pIr->end<uchar>();
+    uint y = 0, x = 0;
+    for ( cv::Mat_<uchar>::const_iterator it = pIr->begin<uchar>(); it != itEnd; it++ )
+    {
+        // read
+        uchar dVal = pIr->at<uchar>( y, x );
+        if ( dVal )
+        {
+            out.at<cv::Vec3b>( y, x ) = util::blend( dVal, pRgb->at<cv::Vec3b>( y, x ), alpha );
+        }
+
+        // iterate coords
+        if ( ++x == static_cast<uint>(pIr->cols) )
+        {
+            x = 0;
+            ++y;
+        }
+    }
+}
+
+int playGenerators( Context &context, DepthGenerator& depthGenerator, ImageGenerator &imageGenerator, IRGenerator &irGenerator )
 {
     XnStatus nRetVal = XN_STATUS_OK;
     // declare CV
-    cv::Mat dep8, dep16, img8;
+    cv::Mat dep8, dep16, rgb8, ir8;
 
     char c = 0;
     while ( (!xnOSWasKeyboardHit()) && (c != 27) )
     {
         // read DEPTH
-        nRetVal = context.WaitAnyUpdateAll(  );
+        nRetVal = context.WaitOneUpdateAll( depthGenerator );
         if (nRetVal != XN_STATUS_OK)
         {
             printf("UpdateData failed: %s\n", xnGetStatusString(nRetVal));
             continue;
         }
 
-        util::nextDepthToMats( depthGenerator, &dep8, &dep16 );
-        util::nextImageAsMat ( imageGenerator, &img8 );
+        if ( depthGenerator.IsGenerating() )
+            util::nextDepthToMats( depthGenerator, &dep8, &dep16 );
+        if ( imageGenerator.IsGenerating() )
+            util::nextImageAsMat ( imageGenerator, &rgb8 );
+        if ( irGenerator.IsGenerating() )
+        {
+            std::cout << "fetching ir..." << std::endl;
+            getIR( context, irGenerator, ir8 );
+            std::cout << "switching to rgb..." << std::endl;
+            irGenerator.StopGenerating();
+            imageGenerator.StartGenerating();
+            std::cout << "fetching rgb..." << std::endl;
+            context.WaitOneUpdateAll( imageGenerator );
+            util::nextImageAsMat ( imageGenerator, &rgb8 );
+            std::cout << "switching back to ir..." << std::endl;
+            imageGenerator.StopGenerating();
+            irGenerator.StartGenerating();
+            std::cout << "finished..." << (irGenerator.IsGenerating() ? "ir is on" : "ir is off") << std::endl;
+        }
 
         // Distribute
         TMatDict filtered_mats;
-        doMapping( dep16, img8, filtered_mats );
+        /*if ( depthGenerator.IsGenerating() && imageGenerator.IsGenerating() )
+            doMapping( dep16, img8, filtered_mats );*/
 
-        c = cv::waitKey( 5 );
-        if ( c == 32 )
+        /*if ( !ir8.empty() )
         {
-            for ( auto it = filtered_mats.begin(); it != filtered_mats.end(); ++it )
-            {
-                am::CvImageDumper::Instance().dump( it->second, it->first, false );
-            }
-            am::CvImageDumper::Instance().dump( dep8, "dep8", false );
-            am::CvImageDumper::Instance().dump( dep16, "dep16", false );
-            am::CvImageDumper::Instance().dump( img8, "img8", true  );
+            imshow("ir8", ir8 );
+        }
+        if ( !rgb8.empty() )
+        {
+            imshow("img8", rgb8 );
+        }
+        if ( !dep8.empty() )
+        {
+            imshow("dep8", dep8 );
+        }*/
+
+        cv::Mat irAndRgb;
+        if ( !ir8.empty() && !rgb8.empty() )
+        {
+            combineIRandRgb( ir8, rgb8, rgb8.size(), irAndRgb );
+            imshow( "irAndRgb", irAndRgb );
+
+            am::CvImageDumper::Instance().dump( dep8    , "dep8"    , false  );
+            am::CvImageDumper::Instance().dump( rgb8    , "img8"    , false  );
+            am::CvImageDumper::Instance().dump( ir8     ,  "ir8"    , false  );
+            am::CvImageDumper::Instance().dump( irAndRgb, "irAndRgb", true   );
+        }
+
+        c = cv::waitKey( 500 );
+        switch ( c )
+        {
+            case 32:
+                {
+                    for ( auto it = filtered_mats.begin(); it != filtered_mats.end(); ++it )
+                    {
+                        am::CvImageDumper::Instance().dump( it->second, it->first, false );
+                    }
+                    am::CvImageDumper::Instance().dump( dep8, "dep8", false );
+                    //am::CvImageDumper::Instance().dump( dep16, "dep16", false );
+                    am::CvImageDumper::Instance().dump( rgb8, "img8", false  );
+                    am::CvImageDumper::Instance().dump( ir8, "ir8", false  );
+                    am::CvImageDumper::Instance().dump( irAndRgb, "irAndRgb", true );
+                }
+                break;
+            case 's':
+                {
+                    std::cout << "switching...";
+                    if ( irGenerator.IsGenerating() )
+                    {
+                        irGenerator.StopGenerating();
+                        imageGenerator.StartGenerating();
+                    }
+                    else
+                    {
+                        imageGenerator.StopGenerating();
+                        irGenerator.StartGenerating();
+                    }
+                    std::cout << "imageGenerator is " << (imageGenerator.IsGenerating() ? "ON" : "off")
+                              << " irGenerator is " << (irGenerator.IsGenerating() ? "ON" : "off")
+                              << std::endl;
+                }
+                break;
         }
     }
 }
@@ -422,14 +571,20 @@ int doFiltering()
     cv::waitKey(0);
 }
 
+// predecl
+int mainYet(int argc, char* argv[]);
+
 int main(int argc, char* argv[])
 {
+    //mainYet( argc, argv );
+    //return 0;
+
     //doFiltering();
     //return EXIT_SUCCESS;
 
     // CONFIG
     enum PlayMode { RECORD, PLAY, KINECT };
-    PlayMode playMode = RECORD;
+    PlayMode playMode = KINECT;
 
     // INPUT
     char* ONI_PATH = "recording_push.oni";
@@ -476,48 +631,98 @@ int main(int argc, char* argv[])
             {
                 char path[1024];
                 getcwd( path, 1024 );
-                std::cout << "initing " << path << "/" << SAMPLE_XML_PATH << std::endl;
-                util::catFile( std::string(path) + "/" + SAMPLE_XML_PATH );
-                rc = g_context.InitFromXmlFile( SAMPLE_XML_PATH, g_scriptNode, &errors );
+                //std::cout << "initing " << path << "/" << SAMPLE_XML_PATH << std::endl;
+                /*util::catFile( std::string(path) + "/" + SAMPLE_XML_PATH );*/
+                //rc = g_context.InitFromXmlFile( SAMPLE_XML_PATH, &errors );
                 break;
             }
     }
+
+#define RGB_WIDTH 1280
+#define RGB_HEIGHT 1024
+#if 1
+    /// init NODES
+    XnMapOutputMode modeIR;
+    modeIR.nFPS = 30;
+    modeIR.nXRes = 640;
+    modeIR.nYRes = 480;
+    XnMapOutputMode modeVGA;
+    modeVGA.nFPS = 15;
+    modeVGA.nXRes = RGB_WIDTH;
+    modeVGA.nYRes = RGB_HEIGHT;
+
+    //context inizialization
+    rc = g_context.Init();
+    CHECK_RC(rc, "Initialize context");
+
+    //depth node creation
+    rc = g_depth.Create(g_context);
+    CHECK_RC(rc, "Create depth generator");
+    rc = g_depth.StartGenerating();
+    CHECK_RC(rc, "Start generating Depth");
+
+    //RGB node creation
+    rc = g_image.Create(g_context);
+    CHECK_RC(rc, "Create rgb generator");
+    rc = g_image.SetMapOutputMode(modeVGA);
+    CHECK_RC(rc, "Depth SetMapOutputMode XRes for 1280, YRes for 1024 and FPS for 15");
+    //rc = g_image.StartGenerating();
+    //CHECK_RC(rc, "Start generating RGB");
+
+    //IR node creation
+    rc = g_ir.Create(g_context);
+    CHECK_RC(rc, "Create ir generator");
+    rc = g_ir.SetMapOutputMode(modeIR);
+    CHECK_RC(rc, "IR SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30");
+    rc = g_ir.StartGenerating();
+    CHECK_RC(rc, "Start generating IR");
+#else
 
     /// init NODES
     {
         rc = g_context.FindExistingNode(XN_NODE_TYPE_DEPTH, g_depth);
         if (rc != XN_STATUS_OK)
         {
-            printf("No depth node exists! Check your XML.");
-            return 1;
+            printf( "No depth node exists! %s\n", xnGetStatusString(rc) );
+            //return 1;
         }
 
         rc = g_context.FindExistingNode(XN_NODE_TYPE_IMAGE, g_image);
         if (rc != XN_STATUS_OK)
         {
-            printf("No image node exists! Check your XML.");
-            return 1;
+            printf( "No image node exists! %s\n", xnGetStatusString(rc) );
+            //return 1;
+        }
+
+        rc = g_context.FindExistingNode(XN_NODE_TYPE_IR, g_ir);
+        if (rc != XN_STATUS_OK)
+        {
+            printf( "No ir node exists! %s\n", xnGetStatusString(rc) );
+            //return 1;
         }
     }
 
     // REGISTRATION
     //if ( 0 || playMode != PLAY )
     {
-        XnBool isSupported = g_depth.IsCapabilitySupported("AlternativeViewPoint");
-        if ( isSupported == TRUE )
+        if ( g_depth )
         {
-            std::cout << "resetting viewpoint" << std::endl;
-            XnStatus res = g_depth.GetAlternativeViewPointCap().ResetViewPoint();
-            //XnStatus res = g_depth.GetAlternativeViewPointCap().SetViewPoint( g_image );
-            if(XN_STATUS_OK != res)
+            XnBool isSupported = g_depth.IsCapabilitySupported("AlternativeViewPoint");
+            if ( isSupported == TRUE )
             {
-                printf("Getting and setting AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
-            }
-        }
+                std::cout << "resetting viewpoint" << std::endl;
+                XnStatus res = g_depth.GetAlternativeViewPointCap().ResetViewPoint();
+                //XnStatus res = g_depth.GetAlternativeViewPointCap().SetViewPoint( g_image );
+                if ( XN_STATUS_OK != res )
+                {
+                    printf("Getting and setting AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
+                }
+            }}
     }
+#endif
 
     /// RUN
-    playGenerators( g_context, g_depth, g_image );
+    playGenerators( g_context, g_depth, g_image, g_ir );
 
     return EXIT_SUCCESS;
 }

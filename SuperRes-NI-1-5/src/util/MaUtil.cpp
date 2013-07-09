@@ -267,7 +267,67 @@ namespace util
 
         return out.str();
     }
-}
+
+    cv::Vec3b blend( ushort dep, cv::Vec3b rgb, float alpha )
+    {
+        return blend( rgb, dep, 1.f - alpha );
+    }
+
+    cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha )
+    {
+        cv::Vec3f ret =
+                (
+                    alpha          * (cv::Vec3f)rgb                                    * (1.f/255.0f)
+                    +
+                    (1.0f - alpha) * ((cv::Vec3f){(float)dep, (float)dep, (float)dep}) * (1.f/255.0f)
+                ) * 255.0f;
+
+        return cv::Vec3b( round(ret[0]), round(ret[1]), round(ret[2]) );
+    }
+
+    /*void overlayImage1OntoImage3( cv::Mat &img1, cv::Mat &img2, float alpha )
+    {
+        cv::Mat tmp1, *p1, *p2;
+        p1 = &img1;
+        p2 = &img2;
+        if ( img1.size != img2.size )
+        {
+            cv::resize( img1, tmp1, img2.size(), 0, 0, cv::INTER_CUBIC );
+            p1 = &tmp1;
+        }
+
+        cv::Mat_<uchar>::const_iterator itEnd = p1->end<T1>();
+        uint y = 0, x = 0;
+        for ( cv::Mat_<uchar>::const_iterator it = p1->begin<uchar>(); it != itEnd; it++ )
+        {
+            // read
+            T1 val1 = p1->at<uchar>( y, x );
+            T2 val2 = p2->at<uchar>( y, x );
+            if ( val1 )
+            {
+                if ( val2 )
+                {
+                    p2->at<T2>( y, x ) = blend( val1, val2, alpha );
+                }
+                else
+                {
+                    p2->at<T2>( y, x ) = val1;
+                }
+            }
+            else
+            {
+                p2->at<T2>( y, x ) = val2;
+            }
+
+            // iterate coords
+            if ( ++x == static_cast<uint>(p1->cols) )
+            {
+                x = 0;
+                ++y;
+            }
+        }
+    }*/
+} // ns util
 
 #if 0
 array<array<int,3>,3> a;

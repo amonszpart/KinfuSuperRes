@@ -61,17 +61,23 @@ namespace am
         CHECK_RC(nRetVal, "Set recorder destination file");
 
         DepthGenerator depthGenerator;
-        nRetVal = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator);
+        nRetVal = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator );
         CHECK_RC(nRetVal, "Find depth generator");
+        nRetVal = recorder.AddNodeToRecording( depthGenerator );
+        CHECK_RC(nRetVal, "Add depth node to recording");
 
         ImageGenerator imageGenerator;
-        nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator);
+        nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator );
         CHECK_RC(nRetVal, "Find image generator");
-
-        nRetVal = recorder.AddNodeToRecording( depthGenerator );
-        CHECK_RC(nRetVal, "Add node to recording");
         nRetVal = recorder.AddNodeToRecording( imageGenerator );
-        CHECK_RC(nRetVal, "Add node to recording");
+        CHECK_RC(nRetVal, "Add image node to recording");
+
+        /*IRGenerator irGenerator;
+        nRetVal = context.FindExistingNode(XN_NODE_TYPE_IR, irGenerator );
+        CHECK_RC(nRetVal, "Find IR generator");
+        nRetVal = recorder.AddNodeToRecording( irGenerator );
+        CHECK_RC(nRetVal, "Add IR node to recording");*/
+
 
         // Alternative viewpoint
         XnBool isSupported = depthGenerator.IsCapabilitySupported( "AlternativeViewPoint" );
@@ -80,17 +86,37 @@ namespace am
             XnStatus res = XN_STATUS_OK;
             if ( _altViewpoint )
             {
-                res = depthGenerator.GetAlternativeViewPointCap().ResetViewPoint();
+                res = imageGenerator.GetAlternativeViewPointCap().SetViewPoint( depthGenerator );
+                if ( XN_STATUS_OK == res )
+                {
+                     printf("ImageGenerator.alternativeViewPoint set to depthgenerator's: %s\n", xnGetStatusString(res));
+                }
+                else
+                {
+                     printf("ImageGenerator.alternativeViewPoint NOT set to depthgenerator's: %s\n", xnGetStatusString(res));
+                }
             }
             else
             {
-                res = depthGenerator.GetAlternativeViewPointCap().SetViewPoint( imageGenerator );
+                res = depthGenerator.GetAlternativeViewPointCap().ResetViewPoint();
+                if ( XN_STATUS_OK == res )
+                {
+                     printf("NO alternative viewpoint set successfully: %s\n", xnGetStatusString(res));
+                }
+                else
+                {
+                     printf("Tried to set alternative viewpoint, but failed...: %s\n", xnGetStatusString(res));
+                }
             }
 
             if ( XN_STATUS_OK != res )
             {
-                printf("Getting and setting AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
+                printf("Something with AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
             }
+        }
+        else
+        {
+            printf("Alternative viewpoint NOT supported...");
         }
 
         // declare CV

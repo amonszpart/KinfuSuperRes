@@ -6,6 +6,7 @@
  * ---------------------------------------- */
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <string>
 
 /* ----------------------------------------
@@ -112,6 +113,11 @@ namespace util
     float distance2D( cv::Vec2f const& a, cv::Vec3f const& b );
 
     std::string getCvImageType( int type );
+
+    cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha = .5f );
+    cv::Vec3b blend( ushort dep, cv::Vec3b rgb, float alpha = .5f );
+
+    void overlayImageOnto( cv::Mat &img1, cv::Mat &img2, float alpha = .5f);
 }
 
 #endif // UTIL_H

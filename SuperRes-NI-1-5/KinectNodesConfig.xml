@@ -13,6 +13,7 @@
 		<Dumps>
 		</Dumps>
 	</Log>
+
 	<ProductionNodes>
 		<!-- Uncomment following line, in order to run from a recording 
 		<Recording file="sampleRec.oni" />
@@ -22,27 +23,26 @@
 		<GlobalMirror on="false"/>
 		
                 <!-- Create a depth node and give it a name alias (useful if referenced ahead in this script) -->
+		
 		<Node type="Depth" name="MyDepth">
+			<!--	
 			<Query>
-				<!-- Uncomment to filter by vendor name, product name, etc.
+				 Uncomment to filter by vendor name, product name, etc.
 				<Vendor>MyVendor inc.</Vendor>
 				<Name>MyProduct</Name>
 				<MinVersion>1.2.3.4</MinVersion>
 				<Capabilities>
 					<Capability>Cropping</Capability>
 				</Capabilities>
-				-->
+				
 			</Query>
+			-->
+			
 			<Configuration>
-                                <!-- Uncomment to set requested mode -->
 				<MapOutputMode xRes="640" yRes="480" FPS="30"/> 
-
-
-				<!-- Uncomment to override global mirror
-				<Mirror on="false" /> 
-				-->
 			</Configuration>
 		</Node>
+		
 		
 		<!-- Create an image node. If it fails, continue anyway. -->
 
@@ -57,26 +57,21 @@
         -->
 
         <!--  HighRes Image  -->
-
                 <Node type="Image" name="Image1">
                     <Configuration>
                         <MapOutputMode xRes="1280" yRes="1024" FPS="15"/>
                     </Configuration>
                 </Node>
 
-
-
         <!--  Normal IR  -->
-        <!--
-
+		
                 <Node type="IR" name="IR1">
                     <Configuration>
                         <MapOutputMode xRes="640" yRes="480" FPS="30"/>
-                        <Mirror on="true"/>
                     </Configuration>
                 </Node>
+		
 
-        -->
         <!--  HighRes IR  -->
         <!--
 

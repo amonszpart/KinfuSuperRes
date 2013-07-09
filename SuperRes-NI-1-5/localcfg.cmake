@@ -1,1 +1,1 @@
-SET(TROLL 1)
+SET(TROLL 0)
