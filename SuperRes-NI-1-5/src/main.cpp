@@ -26,6 +26,7 @@
 #include "MaCvImageBroadcaster.h"
 #include "BilateralFiltering.h"
 #include "HomographyCalculator.h"
+#include "prism_camera_parameters.h"
 
 #include "io/Recorder.h"
 #include "io/CvImageDumper.h"
@@ -57,6 +58,48 @@ Context g_context;
 DepthGenerator g_depth;
 ImageGenerator g_image;
 IRGenerator g_ir;
+
+int toImageSpace( cv::Mat const& dep16, cv::Mat &out, TCalibData calibData )
+{
+    TCalibData prismKinect;
+
+    cv::Mat_<ushort>::const_iterator itEnd = dep16.end<ushort>();
+    uint x_d = 0, y_d = 0;
+    for ( cv::Mat_<ushort>::const_iterator it = dep16.begin<ushort>(); it != itEnd; it++ )
+    {
+        // to 3D
+        cv::Vec3d P3D;
+        P3D[0] = (x_d - calibData.dep_intr.cx()) * (*it) / calibData.dep_intr.fx();
+        P3D[1] = (y_d - calibData.dep_intr.cy()) * (*it) / calibData.dep_intr.fy();
+        P3D[2] = (*it);
+
+        // move to RGB space
+        cv::Vec3d P3Dp;
+        for ( uchar roww = 0; roww < 3; ++roww )
+        {
+            P3Dp[roww] =   calibData.R.at<double>(roww,0) * P3D[0]
+                         + calibData.R.at<double>(roww,1) * P3D[1]
+                         + calibData.R.at<double>(roww,2) * P3D[2]
+                         - calibData.T.at<double>(roww);
+        }
+
+        cv::Vec2d P2D_rgb;
+        P2D_rgb[0] = (P3Dp[0] * calibData.rgb_intr.fx() / P3Dp[2]) + calibData.dep_intr.cx();
+        P2D_rgb[1] = (P3Dp[1] * calibData.dep_intr.fy() / P3Dp[2]) + calibData.dep_intr.cy();
+
+        if ( out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) < *it )
+            out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) = *it;
+
+        // iterate coords
+        if ( ++x_d == static_cast<uint>(dep16.cols) )
+        {
+            x_d = 0;
+            ++y_d;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
 
 // reverse
 int toDepSpace( cv::Mat const& dep16, cv::Mat &out )
@@ -194,12 +237,11 @@ int toImageSpace( cv::Mat const& dep16, cv::Mat &out )
         P3D[1] = (y_d - cy_d) * (*it) / fy_d;
         P3D[2] = (*it);
 
-
         // move to RGB space
         cv::Vec3d P3Dp;
         for ( uchar roww = 0; roww < 3; ++roww )
         {
-            P3Dp[roww] = R.at<double>(roww,0) * P3D[0]
+            P3Dp[roww] =   R.at<double>(roww,0) * P3D[0]
                          + R.at<double>(roww,1) * P3D[1]
                          + R.at<double>(roww,2) * P3D[2]
                          + T.at<double>(roww);
@@ -438,6 +480,11 @@ void combineIRandRgb( cv::Mat &ir8, cv::Mat &rgb8, cv::Size size, cv::Mat &out, 
 int playGenerators( Context &context, DepthGenerator& depthGenerator, ImageGenerator &imageGenerator, IRGenerator &irGenerator )
 {
     XnStatus nRetVal = XN_STATUS_OK;
+
+    // Calibration data
+    TCalibData prismKinect;
+    initPrismCamera( prismKinect );
+
     // declare CV
     cv::Mat dep8, dep16, rgb8, ir8;
 
