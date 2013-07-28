@@ -1,7 +1,25 @@
-clear all;
+%clear all;
 close all;
 clc;
+addpath( '/media/Storage/workspace_ubuntu/3rdparty/toolbox_calib');
+
+MAX_DEPTH    = 10001;
+DEPTH_PREFIX = 'dep16_';
+IMG_PREFIX   = 'img8_';
+%IMG_PATH     = '/media/Storage/workspace_ubuntu/rec/calibTrollKinect';
+IMG_PATH     = '/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809';
+IMG_NAME     = '00000001.png';
+
+dep8 = imread( [IMG_PATH filesep DEPTH_PREFIX IMG_NAME] );
+subplot(121); imshow(dep8);
+img8 = imread( [IMG_PATH filesep IMG_PREFIX IMG_NAME] );
+subplot(122); imshow(img8);
+
+dsize = size( dep8 );
+isize = size( img8 );
+
 addpath( 'util' );
+addpath( '/media/Storage/workspace_ubuntu/rec/calibTrollKinect' )
 
 DepthCalibPath  = 'Calib_Results_depth.mat';
 RgbCalibPath    = 'Calib_Results_rgb.mat';
@@ -36,20 +54,12 @@ R               = R.R
 T               = load( StereoCalibPath, 'T' );
 T               = T.T
 
-dep8 = imread( 'dep8_00000015.pgm' );
-subplot(121); imshow(dep8);
-img8 = imread( 'img8_00000015.png' );
-subplot(122); imshow(img8);
-
-dsize = size( dep8 );
-isize = size( img8 );
-
 %%%%
-t_gamma = zeros(1,2048);
+t_gamma = zeros(1,MAX_DEPTH);
 k1 = 1.1863;
 k2 = 2842.5;
 k3 = 0.1236;
-for i = 0 : 2047
+for i = 0 : MAX_DEPTH-1
     depth = k3 * tan(i/k2 + k1);
     %depth = 1.0 / (double(i) * -0.0030711016 + 3.3309495161);
     %depth = ((i/2047)^3) * 36 * 255;
@@ -65,41 +75,38 @@ plot(t_gamma)
 
 mapped = zeros( size(img8,1), size(img8,2) );
 mapped_count = 0;
-for x = 0 : 1 : dsize(2) - 1
+for x = 0 : 1 : dsize(2) - 1 - 4
     %x = dsize(2) / 2;
-    x
+    disp(sprintf( '%f%%', x / (dsize(2)-1)*100 ));
     for y = 0 : 1 : dsize(1) -1
-        % y = dsize(1) / 2;
+         %y = dsize(1) / 2;
         
         if 1
-            z = dep8(y+1, x+1);
-            d = t_gamma( round(double(z) / 255.0 * 1093.0 + 1) );
+            z = dep8( y+1, x+1+4 );
+            %d = t_gamma( z + 1 );
+            d = double(z);
             
-            if ( d > 0 )
-                %disp('asdf');
-            end
-            
-            if 0
-                x_n = normalize( [ x, y ]', ...
+           
+            if 1
+                P_world = [ normalize( [ x, y ]', ...
                     [ dep_KK(1,1) dep_KK(2,2) ], ...
                     [ dep_KK(1,3) dep_KK(2,3) ], ...
-                    dep_kc, dep_alpha_c );
+                    dep_kc, dep_alpha_c ) * d; d ];
+%                 P_world = [                            ...
+%                    (x - dep_KK(1,3)) * d / dep_KK(1,1), ...
+%                    (y - dep_KK(2,3)) * d / dep_KK(2,2), ...
+%                    d ]'
                 
-                if ( x_n > 0 )
-                    disp('asdf2');
-                end
-                
-                p_rgb = project_points2( [ x_n; 1 ],om,T, ...
+                p_rgb = project_points2( P_world,om,T, ...
                     [ rgb_KK(1,1) rgb_KK(2,2) ], ...
                     [ rgb_KK(1,3) rgb_KK(2,3) ], ...
                     rgb_kc, rgb_alpha_c );
             else
-                %P_world = [ x_n * double(d); double(d) ];
                 P_world = [                            ...
                     (x - dep_KK(1,3)) * d / dep_KK(1,1), ...
                     (y - dep_KK(2,3)) * d / dep_KK(2,2), ...
                     d ]';
-                
+               
                 P2 = R * P_world + T/1000;
                 p_rgb = [ ...
                             P2(1) * rgb_KK(1,1) / P2(3) + rgb_KK(1,3), ...
@@ -118,9 +125,11 @@ for x = 0 : 1 : dsize(2) - 1
             p_rgb = WorldToColor( P );
         end
         
+        p_rgb = round(p_rgb);
         if ( (p_rgb(1) > 0) && (p_rgb(2) > 0) && (p_rgb(1) < isize(2)) && (p_rgb(2) < isize(1)) )
             %dispr = toDisparity( d );
-            dispr = toDisparity( P2(3) );
+            %dispr = toDisparity( P2(3) );
+            dispr = P_world(3);
             coords = [ round(p_rgb(2)) + 1, round(p_rgb(1)) + 1 ];
             if ( (mapped(coords(1), coords(2))) == 0 || (dispr < mapped(coords(1), coords(2))) )
                 mapped( coords(1), coords(2) ) = dispr;
@@ -134,8 +143,8 @@ for x = 0 : 1 : dsize(2) - 1
     end
 end
 
-img8(:,:,1) = mapped / 1093.0 * 255.0 * 2;
-imwrite( 'mapped.png', 'mapped' );
+img8(:,:,1) = blend( uint8(mapped * 1000.0 / MAX_DEPTH * 255.0 * 2), img8(:,:,1) );
+imwrite( uint16(mapped), [IMG_PATH filesep DEPTH_PREFIX IMG_NAME '_mapped.png'] );
 
 mapped_count / size(mapped,1) / size(mapped,2)
 
@@ -143,3 +152,4 @@ figure();
 imshow(mapped, [min(mapped(:)), max(mapped(:)) ] );
 figure();
 imshow( img8, [min(img8(:)), max(img8(:))] );
+imwrite( uint8(img8), [IMG_PATH filesep IMG_PREFIX IMG_NAME '_mapped.png'] );

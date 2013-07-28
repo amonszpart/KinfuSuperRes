@@ -59,10 +59,21 @@ DepthGenerator g_depth;
 ImageGenerator g_image;
 IRGenerator g_ir;
 
+//---------------------------------------------------------------------------
+// Predeclarations
+//---------------------------------------------------------------------------
+int mainYet(int argc, char* argv[]);
+
+//---------------------------------------------------------------------------
+// Functions
+//---------------------------------------------------------------------------
+
 int toImageSpace( cv::Mat const& dep16, cv::Mat &out, TCalibData calibData )
 {
-    TCalibData prismKinect;
-
+    if ( out.empty() )
+    {
+        out = cv::Mat( dep16.rows, dep16.cols, CV_16UC1 );
+    }
     cv::Mat_<ushort>::const_iterator itEnd = dep16.end<ushort>();
     uint x_d = 0, y_d = 0;
     for ( cv::Mat_<ushort>::const_iterator it = dep16.begin<ushort>(); it != itEnd; it++ )
@@ -78,9 +89,9 @@ int toImageSpace( cv::Mat const& dep16, cv::Mat &out, TCalibData calibData )
         for ( uchar roww = 0; roww < 3; ++roww )
         {
             P3Dp[roww] =   calibData.R.at<double>(roww,0) * P3D[0]
-                         + calibData.R.at<double>(roww,1) * P3D[1]
-                         + calibData.R.at<double>(roww,2) * P3D[2]
-                         - calibData.T.at<double>(roww);
+                           + calibData.R.at<double>(roww,1) * P3D[1]
+                           + calibData.R.at<double>(roww,2) * P3D[2]
+                           - calibData.T.at<double>(roww);
         }
 
         cv::Vec2d P2D_rgb;
@@ -130,7 +141,7 @@ int toDepSpace( cv::Mat const& dep16, cv::Mat &out )
     double k3_d   = -1.3053628089976321e+00;
 
     double r_data[9] =  {  9.9984628826577793e-01,  1.2635359098409581e-03, -1.7487233004436643e-02,
-                          -1.4779096108364480e-03,  9.9992385683542895e-01, -1.2251380107679535e-02,
+                           -1.4779096108364480e-03,  9.9992385683542895e-01, -1.2251380107679535e-02,
                            1.7470421412464927e-02,  1.2275341476520762e-02,  9.9977202419716948e-01 };
     cv::Mat R( 3, 3, CV_64FC1, r_data );
 
@@ -158,9 +169,9 @@ int toDepSpace( cv::Mat const& dep16, cv::Mat &out )
         for ( uchar roww = 0; roww < 3; ++roww )
         {
             P3Dp[roww] =   RInv.at<double>(roww,0) * P3D[0]
-                         + RInv.at<double>(roww,1) * P3D[1]
-                         + RInv.at<double>(roww,2) * P3D[2]
-                         - T.at<double>(roww);
+                           + RInv.at<double>(roww,1) * P3D[1]
+                           + RInv.at<double>(roww,2) * P3D[2]
+                           - T.at<double>(roww);
         }
 
         cv::Vec2d P2D_rgb;
@@ -242,9 +253,9 @@ int toImageSpace( cv::Mat const& dep16, cv::Mat &out )
         for ( uchar roww = 0; roww < 3; ++roww )
         {
             P3Dp[roww] =   R.at<double>(roww,0) * P3D[0]
-                         + R.at<double>(roww,1) * P3D[1]
-                         + R.at<double>(roww,2) * P3D[2]
-                         + T.at<double>(roww);
+                           + R.at<double>(roww,1) * P3D[1]
+                           + R.at<double>(roww,2) * P3D[2]
+                           + T.at<double>(roww);
         }
 
         cv::Vec2d P2D_rgb;
@@ -477,152 +488,406 @@ void combineIRandRgb( cv::Mat &ir8, cv::Mat &rgb8, cv::Size size, cv::Mat &out, 
     }
 }
 
-int playGenerators( Context &context, DepthGenerator& depthGenerator, ImageGenerator &imageGenerator, IRGenerator &irGenerator )
+template <typename depT,typename imgT>
+void overlay( cv::Mat const& dep, cv::Mat const& img, cv::Mat& out, depT maxDepth, imgT maxColor, float alpha = .5f )
 {
-    XnStatus nRetVal = XN_STATUS_OK;
+    // init output
+    out.create( img.rows, img.cols, img.type() );
 
-    // Calibration data
-    TCalibData prismKinect;
-    initPrismCamera( prismKinect );
+    cv::Mat depClone;
+    bool needsResize = ( (dep.size().width  != img.size().width ) ||
+                         (dep.size().height != img.size().height)    );
+    if ( needsResize ) cv::resize( dep, depClone, img.size(), 0, 0, cv::INTER_NEAREST );
 
-    // declare CV
-    cv::Mat dep8, dep16, rgb8, ir8;
+    const cv::Mat *pDep = (needsResize) ? &depClone
+                                        : &dep;
 
-    char c = 0;
-    while ( (!xnOSWasKeyboardHit()) && (c != 27) )
+    // overlay on RGB
+    uint y = 0, x = 0;
+    auto itEnd = pDep->end<depT>();
+    for ( auto it = pDep->begin<depT>(); it != itEnd; it++ )
     {
-        // read DEPTH
-        nRetVal = context.WaitOneUpdateAll( depthGenerator );
-        if (nRetVal != XN_STATUS_OK)
+        // read
+        depT dVal = pDep->at<depT>( y, x );
+        if ( dVal != 0 )
         {
-            printf("UpdateData failed: %s\n", xnGetStatusString(nRetVal));
-            continue;
+            //overlay.at<cv::Vec3b>( y, x ) = (cv::Vec3b){ dVal, dVal, dVal };
+            out.at<imgT>( y, x ) = util::blend( img.at<imgT>( y, x ), dVal, alpha );
         }
 
-        if ( depthGenerator.IsGenerating() )
-            util::nextDepthToMats( depthGenerator, &dep8, &dep16 );
-        if ( imageGenerator.IsGenerating() )
-            util::nextImageAsMat ( imageGenerator, &rgb8 );
-        if ( irGenerator.IsGenerating() )
+        // iterate coords
+        if ( ++x == static_cast<uint>(pDep->cols) )
         {
-            std::cout << "fetching ir..." << std::endl;
-            getIR( context, irGenerator, ir8 );
-            std::cout << "switching to rgb..." << std::endl;
-            irGenerator.StopGenerating();
-            imageGenerator.StartGenerating();
-            std::cout << "fetching rgb..." << std::endl;
-            context.WaitOneUpdateAll( imageGenerator );
-            util::nextImageAsMat ( imageGenerator, &rgb8 );
-            std::cout << "switching back to ir..." << std::endl;
-            imageGenerator.StopGenerating();
-            irGenerator.StartGenerating();
-            std::cout << "finished..." << (irGenerator.IsGenerating() ? "ir is on" : "ir is off") << std::endl;
-        }
-
-        // Distribute
-        TMatDict filtered_mats;
-        /*if ( depthGenerator.IsGenerating() && imageGenerator.IsGenerating() )
-            doMapping( dep16, img8, filtered_mats );*/
-
-        /*if ( !ir8.empty() )
-        {
-            imshow("ir8", ir8 );
-        }
-        if ( !rgb8.empty() )
-        {
-            imshow("img8", rgb8 );
-        }
-        if ( !dep8.empty() )
-        {
-            imshow("dep8", dep8 );
-        }*/
-
-        cv::Mat irAndRgb;
-        if ( !ir8.empty() && !rgb8.empty() )
-        {
-            combineIRandRgb( ir8, rgb8, rgb8.size(), irAndRgb );
-            imshow( "irAndRgb", irAndRgb );
-
-            am::CvImageDumper::Instance().dump( dep8    , "dep8"    , false  );
-            am::CvImageDumper::Instance().dump( rgb8    , "img8"    , false  );
-            am::CvImageDumper::Instance().dump( ir8     ,  "ir8"    , false  );
-            am::CvImageDumper::Instance().dump( irAndRgb, "irAndRgb", true   );
-        }
-
-        c = cv::waitKey( 500 );
-        switch ( c )
-        {
-            case 32:
-                {
-                    for ( auto it = filtered_mats.begin(); it != filtered_mats.end(); ++it )
-                    {
-                        am::CvImageDumper::Instance().dump( it->second, it->first, false );
-                    }
-                    am::CvImageDumper::Instance().dump( dep8, "dep8", false );
-                    //am::CvImageDumper::Instance().dump( dep16, "dep16", false );
-                    am::CvImageDumper::Instance().dump( rgb8, "img8", false  );
-                    am::CvImageDumper::Instance().dump( ir8, "ir8", false  );
-                    am::CvImageDumper::Instance().dump( irAndRgb, "irAndRgb", true );
-                }
-                break;
-            case 's':
-                {
-                    std::cout << "switching...";
-                    if ( irGenerator.IsGenerating() )
-                    {
-                        irGenerator.StopGenerating();
-                        imageGenerator.StartGenerating();
-                    }
-                    else
-                    {
-                        imageGenerator.StopGenerating();
-                        irGenerator.StartGenerating();
-                    }
-                    std::cout << "imageGenerator is " << (imageGenerator.IsGenerating() ? "ON" : "off")
-                              << " irGenerator is " << (irGenerator.IsGenerating() ? "ON" : "off")
-                              << std::endl;
-                }
-                break;
+            x = 0;
+            ++y;
         }
     }
 }
 
-int doFiltering()
+struct Filtering
 {
-    std::string path = "/home/bontius/workspace/CppProjects/SuperRes-NI-1-5/out/imgs_20130607_1525/";
-    TMatDict dict;
+
+};
+
+struct MyPlayer
+{
+        bool showIR  = false;
+        bool showRgb = false;
+        bool showDep8 = true;
+        bool showIrAndRgb = false;
+        bool showDep16AndRgb = false;
+        bool altViewPoint = false;
+
+        int toggleAltViewpoint()
+        {
+            if ( g_depth )
+            {
+                if ( g_depth.IsCapabilitySupported("AlternativeViewPoint") == TRUE )
+                {
+                    if ( !altViewPoint ) // attempt enforce the toggled state
+                    {
+                        XnStatus res = g_depth.GetAlternativeViewPointCap().SetViewPoint( g_image );
+                        if ( XN_STATUS_OK != res )
+                        {
+                            printf("Setting AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
+                            return res;
+                        }
+                    }
+                    else
+                    {
+                        XnStatus res = g_depth.GetAlternativeViewPointCap().ResetViewPoint();
+                        if ( XN_STATUS_OK != res )
+                        {
+                            printf("Reset AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
+                            return res;
+                        }
+                    }
+
+                    // apply change, if succeeded
+                    altViewPoint = !altViewPoint;
+                    std::cout << "AltViewPoint is now: " << util::printBool( altViewPoint ) << std::endl;
+
+                }
+                else
+                {
+                    std::cerr << "AltViewpoint is not supported..." << std::endl;
+                    return 1;
+                }
+            }
+            else
+            {
+                std::cerr << "DepthGenerator is null..." << std::endl;
+                return 1;
+            }
+
+            return 0;
+        }
+
+
+        int playGenerators( Context &context, DepthGenerator& depthGenerator, ImageGenerator &imageGenerator, IRGenerator &irGenerator )
+        {
+            XnStatus nRetVal = XN_STATUS_OK;
+
+            // Calibration data
+            TCalibData prismKinect;
+            initPrismCamera( prismKinect );
+
+            // declare CV
+            cv::Mat dep8, dep16, rgb8, ir8;
+
+            char c = 0;
+            while ( (!xnOSWasKeyboardHit()) && (c != 27) )
+            {
+                // read DEPTH
+                nRetVal = context.WaitOneUpdateAll( depthGenerator );
+                if (nRetVal != XN_STATUS_OK)
+                {
+                    printf("UpdateData failed: %s\n", xnGetStatusString(nRetVal));
+                    continue;
+                }
+
+                if ( depthGenerator.IsGenerating() )
+                    util::nextDepthToMats( depthGenerator, &dep8, &dep16 );
+
+                if ( imageGenerator.IsGenerating() )
+                {
+                    util::nextImageAsMat ( imageGenerator, &rgb8 );
+                }
+
+                if ( irGenerator.IsGenerating() )
+                {
+                    std::cout << "fetching ir..." << std::endl;
+                    getIR( context, irGenerator, ir8 );
+                    std::cout << "fetched ir..." << std::endl;
+                }
+
+#if 0
+                if ( showIrAndRgb && irGenerator.IsGenerating() )
+                {
+                    std::cout << "fetching ir..." << std::endl;
+                    getIR( context, irGenerator, ir8 );
+                    std::cout << "switching to rgb..." << std::endl;
+                    irGenerator.StopGenerating();
+                    imageGenerator.StartGenerating();
+                    std::cout << "fetching rgb..." << std::endl;
+                    context.WaitOneUpdateAll( imageGenerator );
+                    util::nextImageAsMat ( imageGenerator, &rgb8 );
+                    std::cout << "switching back to ir..." << std::endl;
+                    imageGenerator.StopGenerating();
+                    irGenerator.StartGenerating();
+                    std::cout << "finished..." << (irGenerator.IsGenerating() ? "ir is on" : "ir is off") << std::endl;
+                }
+#else
+                //cv::Mat mapped16;
+                //toImageSpace( dep16, mapped16, prismKinect );
+                //imshow( "mapped16", mapped16 );
+#endif
+
+                // Distribute
+                TMatDict filtered_mats;
+
+                if ( showIR && !ir8.empty() )
+                {
+                    imshow("ir8", ir8 );
+                    std::cout << "ir8 showed..." << std::endl;
+                }
+                if ( showRgb && !rgb8.empty() )
+                {
+                    imshow("img8", rgb8 );
+                }
+                if ( showDep8 && !dep8.empty() )
+                {
+                    imshow("dep8", dep8 );
+                    std::cout << "dep8 showed..." << std::endl;
+                }
+
+
+                cv::Mat irAndRgb;
+                if ( showIrAndRgb && !ir8.empty() && !rgb8.empty() )
+                {
+                    combineIRandRgb( ir8, rgb8, rgb8.size(), irAndRgb );
+                    imshow( "irAndRgb", irAndRgb );
+
+                    /*am::CvImageDumper::Instance().dump( dep8    , "dep8"    , false  );
+                      am::CvImageDumper::Instance().dump( rgb8    , "img8"    , false  );
+                      am::CvImageDumper::Instance().dump( ir8     ,  "ir8"    , false  );
+                      am::CvImageDumper::Instance().dump( irAndRgb, "irAndRgb", true   );*/
+                }
+
+                cv::Mat dep16AndRgb;
+                if ( showDep16AndRgb && !dep16.empty() && !rgb8.empty() )
+                {
+                    overlay<ushort,cv::Vec3b>( dep16, rgb8, dep16AndRgb, 10001, 255 );
+                    imshow( "dep16AndRgb", dep16AndRgb );
+                    std::cout << "dep16AndRgb showed..." << std::endl;
+                }
+                else
+                {
+                    std::cout << "showDep16AndRgb: " << util::printBool( showDep16AndRgb )
+                              << " dep16.empty: " << util::printBool( dep16.empty() )
+                              << " rgb8.empty: " << util::printBool( rgb8.empty() )
+                              << std::endl;
+                }
+
+                if ( g_ir.IsGenerating() && !ir8.empty() && !dep8.empty() )
+                {
+                    std::cout << "starting irAndDep8" << std::endl;
+                    //overlay<uchar,uchar>( dep8, ir8, irAndDep8, 255, 255, .1f );
+                    cv::merge( (std::vector<cv::Mat>{dep8/2,dep8/2,ir8*10}), filtered_mats["irAndDep8"] );
+                    std::cout << "finished irAndDep8" << std::endl;
+                    imshow( "irAndDep8", filtered_mats["irAndDep8"] );
+
+                    cv::Mat offsIr, offsDep8;
+                    ir8.colRange(4,ir8.cols-4).copyTo( offsIr );
+                    dep8.colRange(0,dep8.cols-8).copyTo( offsDep8 );
+                    cv::merge( (std::vector<cv::Mat>{offsDep8/2,offsDep8/2,offsIr*10}), filtered_mats["offsIrAndDep8"] );
+                    std::cout << "showed offsIrAndDep8" << std::endl;
+                    imshow( "offsIrAndDep8", filtered_mats["offsIrAndDep8"] );
+
+                    cv::Mat offs2Ir, offs2Dep8;
+                    ir8.colRange(8,ir8.cols).copyTo( offs2Ir );
+                    dep8.colRange(0,dep8.cols-8).copyTo( offs2Dep8 );
+                    cv::merge( (std::vector<cv::Mat>{offs2Dep8/2,offs2Dep8/2,offs2Ir*10}), filtered_mats["offs2IrAndDep8"] );
+                    std::cout << "showed offs2IrAndDep8" << std::endl;
+                    imshow( "offs2IrAndDep8", filtered_mats["offs2IrAndDep8"] );
+                }
+
+                c = cv::waitKey( 200 );
+                switch ( c )
+                {
+                    case 32:
+                        {
+                            for ( auto it = filtered_mats.begin(); it != filtered_mats.end(); ++it )
+                            {
+                                am::CvImageDumper::Instance().dump( it->second, it->first, false );
+                            }
+
+                            am::CvImageDumper::Instance().dump( dep8,        "dep8",        false );
+                            am::CvImageDumper::Instance().dump( dep16,       "dep16",       false );
+                            am::CvImageDumper::Instance().dump( rgb8,        "img8",        false );
+                            am::CvImageDumper::Instance().dump( ir8,         "ir8",         false );
+                            am::CvImageDumper::Instance().dump( dep16AndRgb, "dep16AndRgb", false );
+                            am::CvImageDumper::Instance().dump( irAndRgb,    "irAndRgb",    false  );
+                            am::CvImageDumper::Instance().step();
+                        }
+                        break;
+
+                    case 'd':
+                        showDep8 = !showDep8;
+                        std::cout << "showDep8: " << util::printBool(showDep8) << std::endl;
+                        break;
+                    case 'D':
+                        showDep16AndRgb = !showDep16AndRgb;
+                        std::cout << "showDep16AndRgb: " << util::printBool(showDep16AndRgb) << std::endl;
+                        break;
+                    case 'i':
+                        if ( showIR = !showIR )
+                        {
+                            g_image.StopGenerating();
+                            g_ir.StartGenerating();
+                        }
+                        else
+                        {
+                            g_ir.StopGenerating();
+                        }
+
+                        std::cout << "showIR: " << util::printBool(showIR) << std::endl;
+                        break;
+                    case 'I':
+                        showIrAndRgb = !showIrAndRgb;
+                        std::cout << "showIrAndRgb: " << util::printBool(showIrAndRgb) << std::endl;
+                        break;
+                    case 'r':
+                        showRgb = !showRgb;
+                        std::cout << "showRgb: " << util::printBool(showRgb) << std::endl;
+                        break;
+                    case 'a':
+                        toggleAltViewpoint();
+                        break;
+
+                    case 's':
+                        {
+                            std::cout << "switching...";
+                            if ( irGenerator.IsGenerating() )
+                            {
+                                irGenerator.StopGenerating();
+                                imageGenerator.StartGenerating();
+                            }
+                            else
+                            {
+                                imageGenerator.StopGenerating();
+                                irGenerator.StartGenerating();
+                            }
+                            std::cout << "imageGenerator is " << (imageGenerator.IsGenerating() ? "ON" : "off")
+                                      << " irGenerator is " << (irGenerator.IsGenerating() ? "ON" : "off")
+                                      << std::endl;
+                        }
+                        break;
+                }
+            }
+        }
+};
+
+int testFiltering()
+{
+    std::string path = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/dep16_00000001.png_mapped.png";
+
+    /*TMatDict dict;
     dict["overlayMappedLarge"] = cv::imread( path + "overlayMappedLarge_00000003.png", -1 );
     dict["img8"] = cv::imread( path + "img8_00000003.png", -1 );
     dict["dep8"] = cv::imread( path + "dep8_00000003.png", -1 );
     dict["dep16"] = cv::imread( path + "dep16_00000003.png", -1 );
     dict["dep16MappedLarge"] = cv::imread( path + "dep16MappedLarge_00000003.png", -1 );
     imshow( "dep8", dict["dep8"] );
-    imshow( "dep16", dict["dep16"] );
+    imshow( "dep16", dict["dep16"] );*/
+    cv::Mat dep16 = cv::imread( path, cv::IMREAD_UNCHANGED );
+    imshow( "dep16", dep16 );
+    cv::Mat dep8;
+    cv::convertScaleAbs( dep16, dep8, 255.0 / 10001.0 );
+    imshow( "dep8", dep8 );
 
-    double sigma1 = 5.0;
-    double sigma2 = 0.4;
+    cv::Mat res_dep16, res_dep8;
+    cv::resize( dep16, res_dep16, dep16.size(), 0, 0, cv::INTER_NEAREST );
+    cv::convertScaleAbs( res_dep16, res_dep8, 255.0 / 10001.0 );
+    cv::imshow( "res_dep8", res_dep8 );
+    cv::waitKey(20);
+    //return 0;
 
-    static am::BilateralFiltering bf(sigma1, sigma2);
+    double sigmaD = 20.0;
+    double sigmaR = 50.0;
+
+    static am::BilateralFiltering bf( sigmaD, sigmaR );
     cv::Mat cross16;
-    bf.runFilter<ushort,uchar>( dict["dep16MappedLarge"], dict["img8"], cross16 );
-    imshow("cross16",cross16);
+    //bf.runFilter<ushort,uchar>( dict["dep16MappedLarge"], dict["img8"], cross16 );
+    bf.runFilter<ushort>( dep16, cross16 );
+    imshow( "cross16", cross16 );
 
     char fname[256];
-    sprintf( fname, "cross16_%f_%f.png", sigma1, sigma2 );
+    sprintf( fname, "cross16_%f_%f.png", sigmaD, sigmaR );
     cv::imwrite( fname, cross16 );
     cv::Mat cross8;
-    cv::convertScaleAbs( cross16, cross8, 255.0 / 2047.0 );
-    sprintf( fname, "cross8_%f_%f.png", sigma1, sigma2 );
+    cv::convertScaleAbs( cross16, cross8, 255.0 / 10001.0 );
+    sprintf( fname, "cross8_%f_%f.png", sigmaD, sigmaR );
     cv::imwrite( fname, cross8 );
+    imshow( "cross8", cross8 );
 
     cv::waitKey(0);
 }
 
-// predecl
-int mainYet(int argc, char* argv[]);
+int testMapping( std::string const& path )
+{
+    TCalibData prismCalibData;
+    initPrismCamera( prismCalibData );
+
+    const XnUInt32 nMaxFiles = 1024;
+    XnUInt32 nFoundFiles = -1;
+    XnChar cpFileList[nMaxFiles][XN_FILE_MAX_PATH];
+
+    xnOSGetFileList( (path + "*dep8*").c_str(), "", cpFileList, nMaxFiles, &nFoundFiles );
+
+    for ( int i = 0; i < nFoundFiles; ++i )
+    {
+        std::cout << cpFileList[i] << std::endl;
+
+        cv::Mat dep8 = cv::imread( cpFileList[i], cv::IMREAD_UNCHANGED );
+        imshow( "dep8", dep8 );
+
+        cv::Mat dep16( dep8.rows, dep8.cols, CV_16UC1 );
+        {
+            // overlay on RGB
+            uint y = 0, x = 0;
+            cv::Mat_<ushort>::const_iterator itEnd = dep8.end<ushort>();
+            for ( cv::Mat_<ushort>::const_iterator it = dep8.begin<ushort>(); it != itEnd; it++ )
+            {
+                dep16.at<ushort>( y, x ) = (ushort)dep8.at<uchar>( y, x );
+                // iterate coords
+                if ( ++x == static_cast<uint>(dep8.cols) )
+                {
+                    x = 0;
+                    ++y;
+                }
+            }
+        }
+        imshow( "dep16", dep16 );
+
+        cv::Mat mapped16;
+        toImageSpace( dep16, mapped16, prismCalibData );
+        imshow( "mapped16", mapped16 );
+
+        char c = cv::waitKey();
+        if ( c == 27 ) break;
+    }
+
+    return EXIT_SUCCESS;
+}
 
 int main(int argc, char* argv[])
 {
+    //testFiltering();
+    //return 0;
+    //testMapping( "/home/bontius/workspace/rec/calibTrollKinect/" );
+    //return 0;
+
     //mainYet( argc, argv );
     //return 0;
 
@@ -679,7 +944,7 @@ int main(int argc, char* argv[])
                 char path[1024];
                 getcwd( path, 1024 );
                 //std::cout << "initing " << path << "/" << SAMPLE_XML_PATH << std::endl;
-                /*util::catFile( std::string(path) + "/" + SAMPLE_XML_PATH );*/
+                //util::catFile( std::string(path) + "/" + SAMPLE_XML_PATH );
                 //rc = g_context.InitFromXmlFile( SAMPLE_XML_PATH, &errors );
                 break;
             }
@@ -713,16 +978,16 @@ int main(int argc, char* argv[])
     CHECK_RC(rc, "Create rgb generator");
     rc = g_image.SetMapOutputMode(modeVGA);
     CHECK_RC(rc, "Depth SetMapOutputMode XRes for 1280, YRes for 1024 and FPS for 15");
-    //rc = g_image.StartGenerating();
-    //CHECK_RC(rc, "Start generating RGB");
+    rc = g_image.StartGenerating();
+    CHECK_RC(rc, "Start generating RGB");
 
     //IR node creation
     rc = g_ir.Create(g_context);
     CHECK_RC(rc, "Create ir generator");
     rc = g_ir.SetMapOutputMode(modeIR);
     CHECK_RC(rc, "IR SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30");
-    rc = g_ir.StartGenerating();
-    CHECK_RC(rc, "Start generating IR");
+    //rc = g_ir.StartGenerating();
+    //CHECK_RC(rc, "Start generating IR");
 #else
 
     /// init NODES
@@ -768,8 +1033,19 @@ int main(int argc, char* argv[])
     }
 #endif
 
+    /// INFO
+    {
+        xn::DepthMetaData depthMD;
+        g_depth.GetMetaData( depthMD );
+        std::cout << "depthMD.ZRes(): " << depthMD.ZRes() << std::endl;
+    }
+    //return 0;
+
     /// RUN
-    playGenerators( g_context, g_depth, g_image, g_ir );
+    MyPlayer myPlayer;
+    //myPlayer.toggleAltViewpoint();
+
+    myPlayer.playGenerators( g_context, g_depth, g_image, g_ir );
 
     return EXIT_SUCCESS;
 }

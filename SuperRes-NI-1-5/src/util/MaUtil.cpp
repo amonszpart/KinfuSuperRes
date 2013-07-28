@@ -268,21 +268,39 @@ namespace util
         return out.str();
     }
 
-    cv::Vec3b blend( ushort dep, cv::Vec3b rgb, float alpha )
-    {
-        return blend( rgb, dep, 1.f - alpha );
-    }
-
-    cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha )
+    cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha, ushort maxDepth, uchar maxColor)
     {
         cv::Vec3f ret =
                 (
-                    alpha          * (cv::Vec3f)rgb                                    * (1.f/255.0f)
+                    alpha          * (cv::Vec3f)rgb                                    / (float)maxColor
                     +
-                    (1.0f - alpha) * ((cv::Vec3f){(float)dep, (float)dep, (float)dep}) * (1.f/255.0f)
-                ) * 255.0f;
+                    (1.f - alpha) * ((cv::Vec3f){(float)dep, (float)dep, (float)dep}) / (float)maxDepth
+                    ) * maxColor;
 
         return cv::Vec3b( round(ret[0]), round(ret[1]), round(ret[2]) );
+    }
+
+    cv::Vec3b blend( ushort dep, cv::Vec3b rgb, float alpha, ushort maxDepth, uchar maxColor)
+    {
+        return blend( rgb, dep, 1.f - alpha, maxDepth, maxColor );
+    }
+
+    uchar blend( uchar dep, uchar rgb, float alpha, ushort maxDepth, uchar maxColor)
+    {
+        float ret =
+                (
+                    alpha          * (float)rgb  / (float)maxColor
+                    +
+                    (1.f - alpha) * ((float)dep) / (float)maxDepth
+                    ) * maxColor;
+
+        return uchar(round(ret));
+    }
+
+
+    std::string printBool( bool b )
+    {
+        return b ? "ON" : "OFF";
     }
 
     /*void overlayImage1OntoImage3( cv::Mat &img1, cv::Mat &img2, float alpha )

@@ -93,6 +93,8 @@ namespace util
     int cvMatFromXnImageMetaData( const xn::ImageMetaData &md, cv::Mat *pImgRGB );
     int nextImageAsMat( xn::ImageGenerator& g_ImageGenerator, cv::Mat *pImgRGB );
 
+
+
     void catFile( const std::string& path );
 
     inline double NEXTDOUBLE() { return (static_cast<double>(rand()) / static_cast<double>(RAND_MAX)); };

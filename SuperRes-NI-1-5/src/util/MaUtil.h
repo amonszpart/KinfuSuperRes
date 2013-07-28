@@ -19,22 +19,6 @@ typedef unsigned char uchar;
 #endif
 
 #include "XnVUtil.h"
-/*#define CHECK_RC(rc, what)											\
-    if (rc != XN_STATUS_OK)											\
-{																\
-    printf("%s failed: %s\n", what, xnGetStatusString(rc));		\
-    return rc;													\
-    }
-
-#define CHECK_ERRORS(rc, errors, what)		\
-    if (rc == XN_STATUS_NO_NODE_PRESENT)	\
-{										\
-    XnChar strError[1024];				\
-    errors.ToString(strError, 1024);	\
-    printf("%s\n", strError);			\
-    return (rc);						\
-    }
-*/
 
 #define scUC(a) static_cast<unsigned char>(a)
 
@@ -75,7 +59,6 @@ namespace xn
     class ImageGenerator;
 }
 
-
 /* ----------------------------------------
  * METHODS
  * ---------------------------------------- */
@@ -114,10 +97,14 @@ namespace util
 
     std::string getCvImageType( int type );
 
-    cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha = .5f );
-    cv::Vec3b blend( ushort dep, cv::Vec3b rgb, float alpha = .5f );
+    cv::Vec3b blend( cv::Vec3b rgb, ushort dep, float alpha = .5f, ushort maxDepth = 2048, uchar maxColor = 255 );
+    cv::Vec3b blend( ushort dep, cv::Vec3b rgb, float alpha = .5f, ushort maxDepth = 2048, uchar maxColor = 255 );
+    uchar blend( uchar dep, uchar rgb, float alpha, ushort maxDepth = 255, uchar maxColor = 255);
+
 
     void overlayImageOnto( cv::Mat &img1, cv::Mat &img2, float alpha = .5f);
+
+    std::string printBool( bool b );
 }
 
 #endif // UTIL_H

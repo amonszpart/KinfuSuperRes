@@ -2,17 +2,17 @@
 #define PRISM_CAMERA_PARAMETERS_H
 
 #include <opencv2/core/core.hpp>
+#include <memory>
+#include "util/MaUtil.h"
 
 struct TIntrinsics
 {
-    double f[2];
-    double c[2];
-    double k[5];
+    cv::Mat f, c, k;
 
-    double fx() { return f[0]; };
-    double fy() { return f[1]; };
-    double cx() { return c[0]; };
-    double cy() { return c[1]; };
+    double fx() { return f.at<double>(0); };
+    double fy() { return f.at<double>(1); };
+    double cx() { return c.at<double>(0); };
+    double cy() { return c.at<double>(1); };
 };
 
 struct TCalibData

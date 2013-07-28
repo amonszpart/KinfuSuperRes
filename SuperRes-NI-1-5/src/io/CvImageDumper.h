@@ -18,6 +18,7 @@ namespace am
 
             int dump( cv::Mat const& img, std::string title, bool step = true );
             int setOutputPath( std::string path );
+            int step() { ++frameID; };
 
         protected:
             unsigned long frameID;

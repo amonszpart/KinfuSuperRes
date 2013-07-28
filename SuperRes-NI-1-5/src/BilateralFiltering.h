@@ -38,9 +38,12 @@ namespace am
 
                 out = cv::Mat::zeros( img.rows, img.cols, img.type() );
 
-                for ( int y = 0; y < img.rows; ++y )
+#pragma omp parallel for
+                for ( int y = img.rows*.4; y < img.rows*.6; ++y )
                 {
-                    for ( int x = 0; x < img.cols; ++x )
+                    std::cout << "y: " << y << std::endl;
+
+                    for ( int x = img.cols*.4; x < img.cols*.6; ++x )
                     {
                         for ( uchar c = 0; c < img.channels(); ++c )
                         {

@@ -16,6 +16,12 @@ namespace am
 
     int CvImageDumper::dump( const cv::Mat &img, std::string title, bool step )
     {
+        if ( img.empty() )
+        {
+            std::cerr << title << " empty, not dumping..." << std::endl;
+            return 1;
+        }
+
         XnBool doesExist = true;
         XnStatus rc = xnOSDoesDirecotyExist( outputPath.c_str(), &doesExist );
         CHECK_RC( rc, "xnOsDirectoryExist failed" );

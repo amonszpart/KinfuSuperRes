@@ -19,10 +19,12 @@ else(TROLL) # Ubul
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     SET(OPENNI_INCLUDE /usr/include/ni)
+    SET( CMAKE_CXX_COMPILER /usr/lib/nvidia-cuda-toolkit/bin/gcc )
 endif(TROLL)
 
 # PACKAGES
 FIND_PACKAGE( OpenCV REQUIRED )
+find_package(CUDA REQUIRED)
 
 #FIND_PACKAGE( PCL 1.3 REQUIRED COMPONENTS common io )
 #link_directories(${PCL_LIBRARY_DIRS})
@@ -86,6 +88,7 @@ SET( HEADERS_LIST
     src/util/XnVUtil.h
     src/util/MaUtil.h
     src/prism_camera_parameters.h
+    src/BilateralFilteringCuda.h
 )
 
 # SRC
@@ -98,7 +101,19 @@ SET( SRC_LIST
     src/io/CvImageDumper.cpp
     src/util/MaUtil.cpp
     src/yetAnotherRecorder.cpp
+    src/prism_camera_parameters.cpp
+    src/BilateralFilteringCuda.cpp
 )
+
+set( CUFILES
+    src/bilateralFilteringCuda/bilateral_kernel.cu
+)
+
+source_group("CUDA Source Files" FILES ${CUFILES})
+
+cuda_add_executable( asdf ${CCFILES} ${CUFILES})
+
+#target_link_libraries(simpleCUDPP cudpp)
 
 # INCLUDES
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
@@ -108,3 +123,4 @@ ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
 # LINK
 TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} )
+
