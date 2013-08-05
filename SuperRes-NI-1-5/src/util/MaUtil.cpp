@@ -345,6 +345,58 @@ namespace util
             }
         }
     }*/
+
+
+    /*
+     * @brief Copies content of cvImg to img.
+     * @param cvImg Holds grayscale, 0..1 float data
+     * @param img Initialized 2D double array
+     */
+    void CopyCvImgToDouble( cv::Mat const& cvImg, double**& img )
+    {
+        if ( img == NULL )
+        {
+            std::cerr << "cvImgToDouble: double** img is uninitalized, please call qx_allocd()..." << std::endl;
+            return;
+        }
+
+        if ( cvImg.type() != CV_32FC1 )
+        {
+            std::cerr << "cvImgToDouble: cvImg needs to be " << std::endl;
+            return;
+        }
+
+        for ( int y = 0; y < cvImg.rows; ++y )
+            for ( int x = 0; x < cvImg.cols; ++x )
+        {
+                img[y][x] = cvImg.at<float>(y,x);
+        }
+    }
+
+    /*
+     * @brief       Copies content of img to cvImg.
+     * @param img   Initialized 2D double array
+     * @param h     Height of img
+     * @param w     Width of img
+     * @param cvImg Holds grayscale, 0..1 float data
+     */
+    void CopyDoubleToCvImage( double** const& img, unsigned h, unsigned w, cv::Mat & cvImg )
+    {
+        if ( img == NULL )
+        {
+            std::cerr << "CopyDoubleToCvImage: double** img is uninitalized, please call qx_allocd()..." << std::endl;
+            return;
+        }
+
+        cvImg.create( h, w, CV_32FC1 );
+
+        for ( int y = 0; y < cvImg.rows; ++y )
+            for ( int x = 0; x < cvImg.cols; ++x )
+        {
+                cvImg.at<float>( y, x ) = img[y][x];
+        }
+    }
+
 } // ns util
 
 #if 0

@@ -27,6 +27,8 @@
 #include "BilateralFiltering.h"
 #include "HomographyCalculator.h"
 #include "prism_camera_parameters.h"
+#include "../../BilateralFilteringCuda/src/ViewPointMapperCuda.h"
+#include "../../BilateralFilteringCuda/src/BilateralFilterCuda.h"
 
 #include "io/Recorder.h"
 #include "io/CvImageDumper.h"
@@ -39,6 +41,8 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+
+#include "qx_constant_time_bilateral_filter_published.h"
 
 #include <iostream>
 #include <math.h>
@@ -62,362 +66,27 @@ IRGenerator g_ir;
 //---------------------------------------------------------------------------
 // Predeclarations
 //---------------------------------------------------------------------------
-int mainYet(int argc, char* argv[]);
+int mainYet( int argc, char* argv[] );
+class StopWatchInterface;
+extern double bilateralFilterRGBA(uint *dDest,
+                           int width, int height,
+                           float e_d, int radius, int iterations,
+                           StopWatchInterface *timer,
+                           uint* dImage, uint* dTemp, uint pitch );
 
 //---------------------------------------------------------------------------
 // Functions
 //---------------------------------------------------------------------------
 
-int toImageSpace( cv::Mat const& dep16, cv::Mat &out, TCalibData calibData )
-{
-    if ( out.empty() )
-    {
-        out = cv::Mat( dep16.rows, dep16.cols, CV_16UC1 );
-    }
-    cv::Mat_<ushort>::const_iterator itEnd = dep16.end<ushort>();
-    uint x_d = 0, y_d = 0;
-    for ( cv::Mat_<ushort>::const_iterator it = dep16.begin<ushort>(); it != itEnd; it++ )
-    {
-        // to 3D
-        cv::Vec3d P3D;
-        P3D[0] = (x_d - calibData.dep_intr.cx()) * (*it) / calibData.dep_intr.fx();
-        P3D[1] = (y_d - calibData.dep_intr.cy()) * (*it) / calibData.dep_intr.fy();
-        P3D[2] = (*it);
-
-        // move to RGB space
-        cv::Vec3d P3Dp;
-        for ( uchar roww = 0; roww < 3; ++roww )
-        {
-            P3Dp[roww] =   calibData.R.at<double>(roww,0) * P3D[0]
-                           + calibData.R.at<double>(roww,1) * P3D[1]
-                           + calibData.R.at<double>(roww,2) * P3D[2]
-                           - calibData.T.at<double>(roww);
-        }
-
-        cv::Vec2d P2D_rgb;
-        P2D_rgb[0] = (P3Dp[0] * calibData.rgb_intr.fx() / P3Dp[2]) + calibData.dep_intr.cx();
-        P2D_rgb[1] = (P3Dp[1] * calibData.dep_intr.fy() / P3Dp[2]) + calibData.dep_intr.cy();
-
-        if ( out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) < *it )
-            out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) = *it;
-
-        // iterate coords
-        if ( ++x_d == static_cast<uint>(dep16.cols) )
-        {
-            x_d = 0;
-            ++y_d;
-        }
-    }
-
-    return EXIT_SUCCESS;
-}
-
-// reverse
-int toDepSpace( cv::Mat const& dep16, cv::Mat &out )
-{
-    out = cv::Mat::zeros( dep16.rows, dep16.cols, dep16.type() );
-
-    assert( dep16.type() == CV_16UC1 );
-
-    // http://labs.manctl.com/rgbdemo/index.php/Documentation/KinectCalibrationTheory
-    double fx_rgb =  5.2921508098293293e+02;
-    double fy_rgb =  5.2556393630057437e+02;
-    double cx_rgb =  3.2894272028759258e+02;
-    double cy_rgb =  2.6748068171871557e+02;
-    double k1_rgb =  2.6451622333009589e-01;
-    double k2_rgb = -8.3990749424620825e-01;
-    double p1_rgb = -1.9922302173693159e-03;
-    double p2_rgb =  1.4371995932897616e-03;
-    double k3_rgb =  9.1192465078713847e-01;
-
-    double fx_d   =  5.9421434211923247e+02;
-    double fy_d   =  5.9104053696870778e+02;
-    double cx_d   =  3.3930780975300314e+02;
-    double cy_d   =  2.4273913761751615e+02;
-    double k1_d   = -2.6386489753128833e-01;
-    double k2_d   =  9.9966832163729757e-01;
-    double p1_d   = -7.6275862143610667e-04;
-    double p2_d   =  5.0350940090814270e-03;
-    double k3_d   = -1.3053628089976321e+00;
-
-    double r_data[9] =  {  9.9984628826577793e-01,  1.2635359098409581e-03, -1.7487233004436643e-02,
-                           -1.4779096108364480e-03,  9.9992385683542895e-01, -1.2251380107679535e-02,
-                           1.7470421412464927e-02,  1.2275341476520762e-02,  9.9977202419716948e-01 };
-    cv::Mat R( 3, 3, CV_64FC1, r_data );
-
-    double t_data[3] =
-    {
-        1.9985242312092553e-02,
-        -7.4423738761617583e-04,
-        -1.0916736334336222e-02
-    };
-    cv::Mat T( 3, 1, CV_64FC1, t_data );
-    cv::Mat RInv = R.inv();
-
-    cv::Mat_<ushort>::const_iterator itEnd = dep16.end<ushort>();
-    uint x_d = 0, y_d = 0;
-    for ( cv::Mat_<ushort>::const_iterator it = dep16.begin<ushort>(); it != itEnd; it++ )
-    {
-        // to 3D
-        cv::Vec3d P3D;
-        P3D[0] = (x_d - cx_d) * (*it) / fx_d;
-        P3D[1] = (y_d - cy_d) * (*it) / fy_d;
-        P3D[2] = (*it);
-
-        // move to RGB space
-        cv::Vec3d P3Dp;
-        for ( uchar roww = 0; roww < 3; ++roww )
-        {
-            P3Dp[roww] =   RInv.at<double>(roww,0) * P3D[0]
-                           + RInv.at<double>(roww,1) * P3D[1]
-                           + RInv.at<double>(roww,2) * P3D[2]
-                           - T.at<double>(roww);
-        }
-
-        cv::Vec2d P2D_rgb;
-        P2D_rgb[0] = (P3Dp[0] * fx_rgb / P3Dp[2]) + cx_rgb;
-        P2D_rgb[1] = (P3Dp[1] * fy_rgb / P3Dp[2]) + cy_rgb;
-
-        if ( out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) < *it )
-            out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) = *it;
-
-        // iterate coords
-        if ( ++x_d == static_cast<uint>(dep16.cols) )
-        {
-            x_d = 0;
-            ++y_d;
-        }
-    }
-
-    return EXIT_SUCCESS;
-}
-
-int toImageSpace( cv::Mat const& dep16, cv::Mat &out )
-{
-    /*
-     *Focal Length:          fc = [ 1049.13200   1052.32643 ] � [ 4.27512   4.22598 ]
-    Principal point:       cc = [ 614.13049   567.61659 ] � [ 4.45672   4.75006 ]
-    Skew:             alpha_c = [ 0.00075 ] � [ 0.00108  ]   => angle of pixel axes = 89.95697 � 0.06205 degrees
-    Distortion:            kc = [ 0.22526   -0.66357   0.00406   -0.00090  0.59980 ] � [ 0.01546   0.07547   0.00190   0.00168  0.11433 ]
-    Pixel error:          err = [ 0.68181   0.61335 ]
-*/
-    out = cv::Mat::zeros( dep16.rows, dep16.cols, dep16.type() );
-
-    assert( dep16.type() == CV_16UC1 );
-
-    // http://labs.manctl.com/rgbdemo/index.php/Documentation/KinectCalibrationTheory
-    double fx_rgb = 5.2921508098293293e+02;
-    double fy_rgb = 5.2556393630057437e+02;
-    double cx_rgb = 3.2894272028759258e+02;
-    double cy_rgb = 2.6748068171871557e+02;
-    double k1_rgb = 2.6451622333009589e-01;
-    double k2_rgb = -8.3990749424620825e-01;
-    double p1_rgb = -1.9922302173693159e-03;
-    double p2_rgb = 1.4371995932897616e-03;
-    double k3_rgb = 9.1192465078713847e-01;
-
-    double fx_d = 5.9421434211923247e+02;
-    double fy_d = 5.9104053696870778e+02;
-    double cx_d = 3.3930780975300314e+02;
-    double cy_d = 2.4273913761751615e+02;
-    double k1_d = -2.6386489753128833e-01;
-    double k2_d = 9.9966832163729757e-01;
-    double p1_d = -7.6275862143610667e-04;
-    double p2_d = 5.0350940090814270e-03;
-    double k3_d = -1.3053628089976321e+00;
-
-    double r_data[9] =  { 9.9984628826577793e-01, 1.2635359098409581e-03,
-                          -1.7487233004436643e-02, -1.4779096108364480e-03,
-                          9.9992385683542895e-01, -1.2251380107679535e-02,
-                          1.7470421412464927e-02, 1.2275341476520762e-02,
-                          9.9977202419716948e-01 };
-    cv::Mat R( 3, 3, CV_64FC1, r_data );
-
-    double t_data[3] = {
-        1.9985242312092553e-02, -7.4423738761617583e-04,
-        -1.0916736334336222e-02 };
-    cv::Mat T( 3, 1, CV_64FC1, t_data );
-
-    cv::Mat_<ushort>::const_iterator itEnd = dep16.end<ushort>();
-    uint x_d = 0, y_d = 0;
-    for ( cv::Mat_<ushort>::const_iterator it = dep16.begin<ushort>(); it != itEnd; it++ )
-    {
-        // to 3D
-        cv::Vec3d P3D;
-        P3D[0] = (x_d - cx_d) * (*it) / fx_d;
-        P3D[1] = (y_d - cy_d) * (*it) / fy_d;
-        P3D[2] = (*it);
-
-        // move to RGB space
-        cv::Vec3d P3Dp;
-        for ( uchar roww = 0; roww < 3; ++roww )
-        {
-            P3Dp[roww] =   R.at<double>(roww,0) * P3D[0]
-                           + R.at<double>(roww,1) * P3D[1]
-                           + R.at<double>(roww,2) * P3D[2]
-                           + T.at<double>(roww);
-        }
-
-        cv::Vec2d P2D_rgb;
-        P2D_rgb[0] = (P3Dp[0] * fx_rgb / P3Dp[2]) + cx_rgb;
-        P2D_rgb[1] = (P3Dp[1] * fy_rgb / P3Dp[2]) + cy_rgb;
-
-        if ( out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) < *it )
-            out.at<ushort>( P2D_rgb[1], P2D_rgb[0] ) = *it;
-
-        // iterate coords
-        if ( ++x_d == static_cast<uint>(dep16.cols) )
-        {
-            x_d = 0;
-            ++y_d;
-        }
-    }
-
-    return EXIT_SUCCESS;
-}
-
-int doMapping( /*  IN: */ cv::Mat const& dep16, cv::Mat const& img8,
-               /* OUT: */ TMatDict &out_mats,
-               /* FLG: */ bool doShow = true )
-{
-    static const double ratio = 255.0 / 2047.0;
-    //static am::BilateralFiltering bf( 3.0, 3.0 );
-
-    // check input
-    assert( dep16.type() == CV_16UC1 );
-
-    /// simple overlay (depth16 -> image)
-    cv::Mat dep16Large, overlay = img8.clone();
-    {
-        // upscale depth
-        cv::resize( dep16, dep16Large, overlay.size(), 0, 0, cv::INTER_NEAREST );
-
-        // overlay on RGB
-        uint y = 0, x = 0;
-        cv::Mat_<ushort>::const_iterator itEnd = dep16Large.end<ushort>();
-        for ( cv::Mat_<ushort>::const_iterator it = dep16Large.begin<ushort>(); it != itEnd; it++ )
-        {
-            // read
-            uchar dVal = dep16Large.at<ushort>( y, x ) * ratio;
-            if ( dVal )
-            {
-                //overlay.at<cv::Vec3b>( y, x ) = (cv::Vec3b){ dVal, dVal, dVal };
-                overlay.at<cv::Vec3b>( y, x ) = util::blend( overlay.at<cv::Vec3b>( y, x ), dVal, 0.5 );
-            }
-
-            // iterate coords
-            if ( ++x == static_cast<uint>(dep16Large.cols) )
-            {
-                x = 0;
-                ++y;
-            }
-        }
-
-        // output
-        out_mats["overlay"] = overlay.clone();
-    }
-
-    /// registered small (dep16 -> map -> image)
-    cv::Mat dep16Mapped, overlayMapped;
-    {
-        // map dep16
-        toImageSpace( dep16, dep16Mapped );
-        // downscale RGB
-        cv::resize( img8, overlayMapped, dep16Mapped.size(), 0, 0, cv::INTER_LANCZOS4 );
-
-        // overlay on RGB
-        uint y = 0, x = 0;
-        cv::Mat_<ushort>::const_iterator itEnd = dep16Mapped.end<ushort>();
-        for ( cv::Mat_<ushort>::const_iterator it = dep16Mapped.begin<ushort>(); it != itEnd; it++ )
-        {
-            // read
-            uchar dVal = dep16Mapped.at<ushort>( y, x ) * ratio;
-            if ( dVal )
-            {
-                overlayMapped.at<cv::Vec3b>( y, x ) = util::blend( overlayMapped.at<cv::Vec3b>( y, x ), dVal, 0.6 );
-            }
-
-            // iterate coords
-            if ( ++x == static_cast<uint>(dep16Mapped.cols) )
-            {
-                x = 0;
-                ++y;
-            }
-        }
-
-        // output
-        //out_mats["dep16Mapped"] = dep16Mapped.clone();
-        out_mats["overlayMapped"] = overlayMapped.clone();
-    }
-
-    /// registered large (dep16 -> map -> resize -> image)
-    cv::Mat dep16MappedLarge, overlayMappedLarge = img8.clone();
-    {
-        // downscale RGB
-        cv::resize( dep16Mapped, dep16MappedLarge, img8.size(), 0, 0, cv::INTER_NEAREST );
-
-        // overlay on RGB
-        cv::Mat_<ushort>::const_iterator itEnd = dep16MappedLarge.end<ushort>();
-        uint y = 0, x = 0;
-        for ( cv::Mat_<ushort>::const_iterator it = dep16MappedLarge.begin<ushort>(); it != itEnd; it++ )
-        {
-            // read
-            uchar dVal = dep16MappedLarge.at<ushort>( y, x ) * ratio;
-            if ( dVal )
-            {
-                overlayMappedLarge.at<cv::Vec3b>( y, x ) = util::blend( overlayMappedLarge.at<cv::Vec3b>( y, x ), dVal, 0.8f );
-            }
-
-            // iterate coords
-            if ( ++x == static_cast<uint>(dep16MappedLarge.cols) )
-            {
-                x = 0;
-                ++y;
-            }
-        }
-
-        // output
-        //out_mats["overlayMappedLarge"] = overlayMappedLarge.clone();
-        out_mats["dep16MappedLarge"] = dep16MappedLarge.clone();
-    }
-
-    // IMSHOW
-    if ( doShow )
-    {
-        for ( auto it = out_mats.begin(); it != out_mats.end(); ++it )
-        {
-            cv::imshow( it->first, it->second );
-        }
-    }
-
-    // return
-    return EXIT_SUCCESS;
-}
-
 void getIR( Context &context, IRGenerator &irGenerator, cv::Mat &irImage )
 {
-    context.WaitOneUpdateAll( irGenerator );
-    XnIRPixel const* irMap = irGenerator.GetIRMap();
-    unsigned int max = 0;
-    for ( int i = 0; i < 640*480; ++i )
-    {
-        if (irMap[i] > max )
-        {
-            max = irMap[i];
-        }
-    }
-    std::cout << "irmax: " << max << std::endl;
-    /*for ( int i = 0; i < 640*480; ++i )
-    {
-        tempIR[i] = (int)( (double)irMap[i] / max*65535 );
-    }
-    cvSetData( irImage, (void*)tempIR, irImage->widthStep);
-    cvSaveImage(filename, irImage);*/
+    //context.WaitOneUpdateAll( irGenerator );
     xn::IRMetaData irMD;
     cv::Mat cvIr16;
     irGenerator.GetMetaData( irMD );
     cvIr16.create( irMD.FullYRes(), irMD.FullXRes(), CV_16UC1 );
 
+    unsigned int max = 0;
     // COPY
     {
         const XnIRPixel *pIrPixels = irMD.Data();
@@ -425,7 +94,17 @@ void getIR( Context &context, IRGenerator &irGenerator, cv::Mat &irImage )
         //cvIr16 = cv::Mat( irMD.FullYRes(), irMD.FullXRes(), CV_16UC1, pIrPixels );
         int offset = 0;
         for ( XnUInt y = 0; y < irMD.YRes(); ++y, offset += irMD.XRes() )
+        {
             memcpy( cvIr16.data + cvIr16.step * y, pIrPixels + offset, irMD.XRes() * sizeof(XnIRPixel) );
+
+            for ( XnUInt x = 0; x < irMD.XRes(); ++x )
+            {
+                if ( pIrPixels[ offset + x ] > max )
+                {
+                    max = pIrPixels[ offset + x ];
+                }
+            }
+        }
     }
 
     cv::convertScaleAbs( cvIr16, irImage, 255.0/(double)max );
@@ -526,17 +205,84 @@ void overlay( cv::Mat const& dep, cv::Mat const& img, cv::Mat& out, depT maxDept
 
 struct Filtering
 {
+        static const int BORDER_TYPE = cv::BORDER_REPLICATE;
+
+        static void guidedFilterSrc1Guidance1( const cv::Mat& src, const cv::Mat& joint, cv::Mat& dest, const int radius, const float eps )
+        {
+            if ( src.channels() != 1 && joint.channels() != 1 )
+            {
+                std::cout << "Please input gray scale image." << std::endl;
+                return;
+            }
+            //some opt
+            cv::Size ksize( 2 * radius + 1, 2 * radius + 1 );
+            cv::Size imsize = src.size();
+            const float e = eps * eps;
+
+            cv::Mat fSrc;    src  .convertTo( fSrc  , CV_32F, 1.0/255 );
+            cv::Mat fJoint;  joint.convertTo( fJoint, CV_32F, 1.0/255 );
+            cv::Mat meanSrc  ( imsize, CV_32F ); // mean_p
+            cv::Mat meanJoint( imsize, CV_32F ); // mean_I
+
+            cv::boxFilter( fJoint, meanJoint, CV_32F, ksize, cv::Point(-1,-1), true, BORDER_TYPE ); // mJoint * K
+            cv::boxFilter( fSrc  , meanSrc  , CV_32F, ksize, cv::Point(-1,-1), true, BORDER_TYPE ); // mSrc   * K
+
+            cv::Mat x1( imsize, CV_32F ),
+                    x2( imsize, CV_32F ),
+                    x3( imsize, CV_32F );
+
+            cv::multiply ( fJoint, fSrc, x1 );                                       // x1 * 1
+            cv::boxFilter( x1, x3, CV_32F, ksize, cv::Point(-1,-1), true, BORDER_TYPE ); // x3 * K
+            cv::multiply ( meanJoint, meanSrc, x1 );                                 // x1 = K * K
+            x3   -= x1;                                                          // x1 div k -> x3 * k
+            cv::multiply ( fJoint, fJoint, x1 );
+            cv::boxFilter( x1, x2, CV_32F, ksize, cv::Point(-1,-1), true, BORDER_TYPE ); // x2 * K
+            cv::multiply ( meanJoint, meanJoint, x1 ); // x1 = K * K
+            fSrc = cv::Mat( x2 - x1 ) + e;
+            cv::divide   ( x3, fSrc     , x3 );
+            cv::multiply ( x3, meanJoint, x1 );
+            x1   -= meanSrc;
+            cv::boxFilter( x3, x2, CV_32F, ksize, cv::Point(-1,-1), true, BORDER_TYPE ); // x2 * k
+            cv::boxFilter( x1, x3, CV_32F, ksize, cv::Point(-1,-1), true, BORDER_TYPE ); // x3 * k
+            cv::multiply ( x2, fJoint, x1 );                                         // x1 * K
+            cv::Mat x1_m_x3 = x1 - x3;
+            x1_m_x3.convertTo( dest, src.type(), 255 );
+        }
 
 };
+
+struct MyCVPlayer
+{
+        static void run()
+        {
+            cv::VideoCapture capture( CV_CAP_OPENNI );
+
+            if( !capture.isOpened() )
+            {
+                std::cout << "Can not open a capture object." << std::endl;
+            }
+        }
+};
+
+void on_contrast_alpha_trackbar( int, void* );
+void on_contrast_beta_trackbar( int, void* );
 
 struct MyPlayer
 {
         bool showIR  = false;
         bool showRgb = false;
         bool showDep8 = true;
-        bool showIrAndRgb = false;
-        bool showDep16AndRgb = false;
+        bool showIrAndRgb = true;
+        bool showDep16AndRgb = true;
+        bool showOffset = false;
         bool altViewPoint = false;
+
+        int alpha_slider = 367;
+        int alpha_slider_max = 500;
+        int beta_slider = 5;
+        int beta_slider_max = 255;
+        float alpha = 1.f;
+        float beta  = 0.f;
 
         int toggleAltViewpoint()
         {
@@ -583,6 +329,22 @@ struct MyPlayer
             return 0;
         }
 
+        int toggleIR()
+        {
+            if ( showIR = !showIR )
+            {
+                g_image.StopGenerating();
+                g_ir.StartGenerating();
+                cv::namedWindow( "ir8" );
+                cv::createTrackbar( "alpha", "ir8", &alpha_slider, alpha_slider_max, on_contrast_alpha_trackbar );
+                cv::createTrackbar( "beta", "ir8", &beta_slider, beta_slider_max, on_contrast_beta_trackbar );
+            }
+            else
+            {
+                g_ir.StopGenerating();
+            }
+
+        }
 
         int playGenerators( Context &context, DepthGenerator& depthGenerator, ImageGenerator &imageGenerator, IRGenerator &irGenerator )
         {
@@ -621,21 +383,27 @@ struct MyPlayer
                     std::cout << "fetched ir..." << std::endl;
                 }
 
-#if 0
+#if 1
                 if ( showIrAndRgb && irGenerator.IsGenerating() )
                 {
-                    std::cout << "fetching ir..." << std::endl;
+                    std::cout << "fetching ir...";
                     getIR( context, irGenerator, ir8 );
-                    std::cout << "switching to rgb..." << std::endl;
+
+                    std::cout << "switching to rgb...";
                     irGenerator.StopGenerating();
                     imageGenerator.StartGenerating();
-                    std::cout << "fetching rgb..." << std::endl;
+                    c = cv::waitKey(100);
                     context.WaitOneUpdateAll( imageGenerator );
-                    util::nextImageAsMat ( imageGenerator, &rgb8 );
+
+                    std::cout << "fetching rgb...";
+                    context.WaitOneUpdateAll( imageGenerator );
+
                     std::cout << "switching back to ir..." << std::endl;
                     imageGenerator.StopGenerating();
                     irGenerator.StartGenerating();
                     std::cout << "finished..." << (irGenerator.IsGenerating() ? "ir is on" : "ir is off") << std::endl;
+
+                    util::nextImageAsMat ( imageGenerator, &rgb8 );
                 }
 #else
                 //cv::Mat mapped16;
@@ -648,6 +416,9 @@ struct MyPlayer
 
                 if ( showIR && !ir8.empty() )
                 {
+                    //cv::Mat ir8adjusted;
+                    ir8.convertTo( ir8, ir8.type(), alpha, beta );
+                    //cv::medianBlur( ir8, ir8, 3);
                     imshow("ir8", ir8 );
                     std::cout << "ir8 showed..." << std::endl;
                 }
@@ -661,35 +432,49 @@ struct MyPlayer
                     std::cout << "dep8 showed..." << std::endl;
                 }
 
+                // mapping
+                cv::Mat mapped16, mapped8;
+                {
+                    ViewPointMapperCuda::runViewpointMapping( dep16, mapped16 );
+                    cv::imshow( "mapped16", mapped16 );
+                    mapped16.convertTo( mapped8, CV_8UC1, 255.f / 10001.f );
+                    cv::imshow( "mapped8", mapped8 );
+                }
 
+                // filtering
+                cv::Mat crossFiltered16;
+                {
+                    static BilateralFilterCuda bfc;
+                    bfc.runBilateralFiltering( mapped16, rgb8, crossFiltered16 );
+                    cv::Mat crossFiltered8;
+                    crossFiltered16.convertTo( crossFiltered8, CV_8UC1, 255.f / 10001.f );
+                    cv::imshow( "crossFiltered8", crossFiltered8 );
+                }
+
+                // IR8 + RGB8
                 cv::Mat irAndRgb;
                 if ( showIrAndRgb && !ir8.empty() && !rgb8.empty() )
                 {
-                    combineIRandRgb( ir8, rgb8, rgb8.size(), irAndRgb );
-                    imshow( "irAndRgb", irAndRgb );
-
-                    /*am::CvImageDumper::Instance().dump( dep8    , "dep8"    , false  );
-                      am::CvImageDumper::Instance().dump( rgb8    , "img8"    , false  );
-                      am::CvImageDumper::Instance().dump( ir8     ,  "ir8"    , false  );
-                      am::CvImageDumper::Instance().dump( irAndRgb, "irAndRgb", true   );*/
+                    combineIRandRgb( ir8, rgb8, rgb8.size(), irAndRgb, .9 );
+                    imshow( "irAndRgb", irAndRgb * 2.0 );
                 }
 
-                cv::Mat dep16AndRgb;
-                if ( showDep16AndRgb && !dep16.empty() && !rgb8.empty() )
+                // DEP8 + RGB8
+                cv::Mat dep8AndRgb;
+                if ( showDep16AndRgb && !mapped8.empty() && !rgb8.empty() )
                 {
-                    overlay<ushort,cv::Vec3b>( dep16, rgb8, dep16AndRgb, 10001, 255 );
-                    imshow( "dep16AndRgb", dep16AndRgb );
-                    std::cout << "dep16AndRgb showed..." << std::endl;
-                }
-                else
-                {
-                    std::cout << "showDep16AndRgb: " << util::printBool( showDep16AndRgb )
-                              << " dep16.empty: " << util::printBool( dep16.empty() )
-                              << " rgb8.empty: " << util::printBool( rgb8.empty() )
-                              << std::endl;
+                    std::vector<cv::Mat> rgb8s;
+                    cv::split( rgb8, rgb8s );
+                    //cv::Mat mapped8C3;
+                    //cv::merge( (std::vector<cv::Mat>){mapped8, mapped8, mapped8}, mapped8C3 );
+                    //cv::addWeighted( mapped8C3, .5, rgb8, .5, 0., dep8AndRgb );
+                    cv::merge( (std::vector<cv::Mat>){rgb8s[0],rgb8s[1], mapped8 * 2.f}, dep8AndRgb );
+                    imshow( "dep8AndRgb", dep8AndRgb );
+                    std::cout << "dep8AndRgb showed..." << std::endl;
                 }
 
-                if ( g_ir.IsGenerating() && !ir8.empty() && !dep8.empty() )
+                // IR8 + DEP8
+                if ( showOffset && g_ir.IsGenerating() && !ir8.empty() && !dep8.empty() )
                 {
                     std::cout << "starting irAndDep8" << std::endl;
                     //overlay<uchar,uchar>( dep8, ir8, irAndDep8, 255, 255, .1f );
@@ -712,7 +497,8 @@ struct MyPlayer
                     imshow( "offs2IrAndDep8", filtered_mats["offs2IrAndDep8"] );
                 }
 
-                c = cv::waitKey( 200 );
+                // Key Input
+                c = cv::waitKey( 300 );
                 switch ( c )
                 {
                     case 32:
@@ -722,11 +508,11 @@ struct MyPlayer
                                 am::CvImageDumper::Instance().dump( it->second, it->first, false );
                             }
 
-                            am::CvImageDumper::Instance().dump( dep8,        "dep8",        false );
-                            am::CvImageDumper::Instance().dump( dep16,       "dep16",       false );
+                            am::CvImageDumper::Instance().dump( dep8,        "dep8",        false, "pgm" );
+                            am::CvImageDumper::Instance().dump( dep16,       "dep16",       false, "pgm" );
                             am::CvImageDumper::Instance().dump( rgb8,        "img8",        false );
                             am::CvImageDumper::Instance().dump( ir8,         "ir8",         false );
-                            am::CvImageDumper::Instance().dump( dep16AndRgb, "dep16AndRgb", false );
+                            am::CvImageDumper::Instance().dump( dep8AndRgb, "dep8AndRgb", false );
                             am::CvImageDumper::Instance().dump( irAndRgb,    "irAndRgb",    false  );
                             am::CvImageDumper::Instance().step();
                         }
@@ -741,21 +527,15 @@ struct MyPlayer
                         std::cout << "showDep16AndRgb: " << util::printBool(showDep16AndRgb) << std::endl;
                         break;
                     case 'i':
-                        if ( showIR = !showIR )
-                        {
-                            g_image.StopGenerating();
-                            g_ir.StartGenerating();
-                        }
-                        else
-                        {
-                            g_ir.StopGenerating();
-                        }
-
+                        toggleIR();
                         std::cout << "showIR: " << util::printBool(showIR) << std::endl;
                         break;
                     case 'I':
                         showIrAndRgb = !showIrAndRgb;
                         std::cout << "showIrAndRgb: " << util::printBool(showIrAndRgb) << std::endl;
+                        break;
+                    case 'o':
+                        showOffset = !showOffset;
                         break;
                     case 'r':
                         showRgb = !showRgb;
@@ -783,14 +563,35 @@ struct MyPlayer
                                       << std::endl;
                         }
                         break;
+                    default:
+                        std::cout << (int)c << std::endl;
+                        break;
                 }
             }
         }
-};
+} myPlayer;
 
+//---------------------------------------------------------------------------
+// CB
+//---------------------------------------------------------------------------
+
+void on_contrast_alpha_trackbar( int, void* )
+{
+    myPlayer.alpha = (double) myPlayer.alpha_slider / myPlayer.alpha_slider_max ;
+}
+
+void on_contrast_beta_trackbar( int, void* )
+{
+    myPlayer.beta = (double) myPlayer.beta_slider;// / myPlayer.beta_slider_max ;
+}
+
+
+#define Yang 1
 int testFiltering()
 {
-    std::string path = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/dep16_00000001.png_mapped.png";
+    //std::string path = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/dep16_00000001.png_mapped.png";
+    std::string path        = "/media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/bilFiltered_02.ppm";
+    std::string guide_path  = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/img8_00000001.png";
 
     /*TMatDict dict;
     dict["overlayMappedLarge"] = cv::imread( path + "overlayMappedLarge_00000003.png", -1 );
@@ -800,8 +601,81 @@ int testFiltering()
     dict["dep16MappedLarge"] = cv::imread( path + "dep16MappedLarge_00000003.png", -1 );
     imshow( "dep8", dict["dep8"] );
     imshow( "dep16", dict["dep16"] );*/
-    cv::Mat dep16 = cv::imread( path, cv::IMREAD_UNCHANGED );
-    imshow( "dep16", dep16 );
+    cv::Mat dep16 = cv::imread( path, cv::IMREAD_UNCHANGED ), fDep16;
+    if ( dep16.type() == CV_16UC1 )
+    {
+        std::cout << "dep16.type(): CV_16UC1" << std::endl;
+        dep16.convertTo( fDep16, CV_32FC1, 255.0 / 10001.0 );
+    }
+    else if ( dep16.type() == CV_8UC1 )
+    {
+        std::cout << "dep16.type(): CV_8UC1" << std::endl;
+        dep16.convertTo( fDep16, CV_32FC1 );
+    }
+    else if ( dep16.type() == CV_8UC3 )
+    {
+        fDep16.create( dep16.rows, dep16.cols, CV_32FC1 );
+        std::cout << "dep16.type(): CV_8UC3" << std::endl;
+        for ( int y = 0; y < dep16.rows; ++y )
+            for ( int x = 0; x < dep16.cols; ++x )
+        {
+                fDep16.at<float>( y,x ) = ( (float)(dep16.at<cv::Vec3b>(y,x)[0]) );
+        }
+    }
+    else
+    {
+        std::cout << "dep16 unknown type" << std::endl;
+        return 1;
+    }
+    imshow( "fDep16", fDep16 );
+
+    cv::Mat guide8 = cv::imread( guide_path, cv::IMREAD_UNCHANGED ), grayGuide8, fGuide8;
+    cv::cvtColor( guide8, grayGuide8, cv::COLOR_RGB2GRAY );
+    grayGuide8.convertTo( fGuide8, CV_32FC1 );
+
+#if Yang
+    qx_constant_time_bilateral_filter_published qx_bf;
+    double sigma_spatial = 0.03;
+    double sigma_range   = 0.05;
+
+    qx_bf.init( dep16.rows, dep16.cols );
+
+    double **in  = qx_allocd( dep16.rows, dep16.cols );
+    util::CopyCvImgToDouble( fDep16, in );
+    double **guide = qx_allocd( fGuide8.rows, fGuide8.cols );
+    util::CopyCvImgToDouble( fGuide8, guide );
+
+    double **out = qx_allocd( dep16.rows, dep16.cols );
+
+    qx_bf.filter( out, in, sigma_spatial, sigma_range, guide );
+
+    cv::Mat cvFiltered, cvFiltered255;
+    util::CopyDoubleToCvImage( out, dep16.rows, dep16.cols, cvFiltered );
+    cvFiltered.convertTo( cvFiltered255, CV_8UC1 );
+    cv::imshow( "cvFiltered255", cvFiltered255 );
+    cv::imwrite( path + "_qx_cross_filtered.png", cvFiltered255 );
+
+    qx_freed( in  );
+    qx_freed( out );
+    qx_freed( guide );
+
+#endif
+
+    // sigc = 50;
+    // double sc = sigc/10.0;
+    // guidedFilterTBB(filledDepthf,srcImagef,filteredDepthf,d,(float)(sc*0.001),8);
+    cv::Mat fGuided, fGuided255;
+    Filtering::guidedFilterSrc1Guidance1( fDep16, fGuide8, fGuided, 0.005, 8 );
+    fGuided.convertTo( fGuided255, CV_8UC1 );
+    cv::imshow( "fGuided255", fGuided255 );
+
+    cv::Mat x1;
+    cv::addWeighted( fGuide8, .5, fGuided255, .5, .0, x1, CV_8UC1 );
+    cv::imshow( "x1", x1 );
+
+    cv::waitKey();
+    return 0;
+
     cv::Mat dep8;
     cv::convertScaleAbs( dep16, dep8, 255.0 / 10001.0 );
     imshow( "dep8", dep8 );
@@ -834,65 +708,16 @@ int testFiltering()
     cv::waitKey(0);
 }
 
-int testMapping( std::string const& path )
+int main( int argc, char* argv[] )
 {
-    TCalibData prismCalibData;
-    initPrismCamera( prismCalibData );
-
-    const XnUInt32 nMaxFiles = 1024;
-    XnUInt32 nFoundFiles = -1;
-    XnChar cpFileList[nMaxFiles][XN_FILE_MAX_PATH];
-
-    xnOSGetFileList( (path + "*dep8*").c_str(), "", cpFileList, nMaxFiles, &nFoundFiles );
-
-    for ( int i = 0; i < nFoundFiles; ++i )
-    {
-        std::cout << cpFileList[i] << std::endl;
-
-        cv::Mat dep8 = cv::imread( cpFileList[i], cv::IMREAD_UNCHANGED );
-        imshow( "dep8", dep8 );
-
-        cv::Mat dep16( dep8.rows, dep8.cols, CV_16UC1 );
-        {
-            // overlay on RGB
-            uint y = 0, x = 0;
-            cv::Mat_<ushort>::const_iterator itEnd = dep8.end<ushort>();
-            for ( cv::Mat_<ushort>::const_iterator it = dep8.begin<ushort>(); it != itEnd; it++ )
-            {
-                dep16.at<ushort>( y, x ) = (ushort)dep8.at<uchar>( y, x );
-                // iterate coords
-                if ( ++x == static_cast<uint>(dep8.cols) )
-                {
-                    x = 0;
-                    ++y;
-                }
-            }
-        }
-        imshow( "dep16", dep16 );
-
-        cv::Mat mapped16;
-        toImageSpace( dep16, mapped16, prismCalibData );
-        imshow( "mapped16", mapped16 );
-
-        char c = cv::waitKey();
-        if ( c == 27 ) break;
-    }
-
-    return EXIT_SUCCESS;
-}
-
-int main(int argc, char* argv[])
-{
-    //testFiltering();
+    //MyCVPlayer::run();
     //return 0;
-    //testMapping( "/home/bontius/workspace/rec/calibTrollKinect/" );
+
+    //testFiltering();
     //return 0;
 
     //mainYet( argc, argv );
     //return 0;
-
-    //doFiltering();
-    //return EXIT_SUCCESS;
 
     // CONFIG
     enum PlayMode { RECORD, PLAY, KINECT };
@@ -950,8 +775,8 @@ int main(int argc, char* argv[])
             }
     }
 
-#define RGB_WIDTH 1280
-#define RGB_HEIGHT 1024
+#define RGB_WIDTH 640
+#define RGB_HEIGHT 480
 #if 1
     /// init NODES
     XnMapOutputMode modeIR;
@@ -959,7 +784,7 @@ int main(int argc, char* argv[])
     modeIR.nXRes = 640;
     modeIR.nYRes = 480;
     XnMapOutputMode modeVGA;
-    modeVGA.nFPS = 15;
+    modeVGA.nFPS = 30;
     modeVGA.nXRes = RGB_WIDTH;
     modeVGA.nYRes = RGB_HEIGHT;
 
@@ -1014,23 +839,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    // REGISTRATION
-    //if ( 0 || playMode != PLAY )
-    {
-        if ( g_depth )
-        {
-            XnBool isSupported = g_depth.IsCapabilitySupported("AlternativeViewPoint");
-            if ( isSupported == TRUE )
-            {
-                std::cout << "resetting viewpoint" << std::endl;
-                XnStatus res = g_depth.GetAlternativeViewPointCap().ResetViewPoint();
-                //XnStatus res = g_depth.GetAlternativeViewPointCap().SetViewPoint( g_image );
-                if ( XN_STATUS_OK != res )
-                {
-                    printf("Getting and setting AlternativeViewPoint failed: %s\n", xnGetStatusString(res));
-                }
-            }}
-    }
 #endif
 
     /// INFO
@@ -1042,7 +850,7 @@ int main(int argc, char* argv[])
     //return 0;
 
     /// RUN
-    MyPlayer myPlayer;
+    //MyPlayer myPlayer;
     //myPlayer.toggleAltViewpoint();
 
     myPlayer.playGenerators( g_context, g_depth, g_image, g_ir );

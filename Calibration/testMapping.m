@@ -7,25 +7,37 @@ MAX_DEPTH    = 10001;
 DEPTH_PREFIX = 'dep16_';
 IMG_PREFIX   = 'img8_';
 %IMG_PATH     = '/media/Storage/workspace_ubuntu/rec/calibTrollKinect';
-IMG_PATH     = '/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809';
+%IMG_PATH     = '/media/Storage/workspace_ubuntu/rec/imgs_20130730_1638_calibPrism2/orig';
+%IMG_PATH     = '/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809';
+IMG_PATH     = '/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130726_1929/';
 IMG_NAME     = '00000001.png';
 
 dep8 = imread( [IMG_PATH filesep DEPTH_PREFIX IMG_NAME] );
 subplot(121); imshow(dep8);
 img8 = imread( [IMG_PATH filesep IMG_PREFIX IMG_NAME] );
+img8 = imresize(img8,size(dep8));
 subplot(122); imshow(img8);
 
 dsize = size( dep8 );
 isize = size( img8 );
 
 addpath( 'util' );
-addpath( '/media/Storage/workspace_ubuntu/rec/calibTrollKinect' )
+%addpath( '/media/Storage/workspace_ubuntu/rec/calibTrollKinect' )
+%CALIB_PATH = '/media/Storage/workspace_ubuntu/rec/imgs_20130730_1638_calibPrism2/';
+%CALIB_PATH = '/media/Storage/workspace_ubuntu/rec/calibTrollKinect/';
+CALIB_PATH = '/media/Storage/workspace_ubuntu/rec/imgs_20130805_1047_calibPrism4/';
 
-DepthCalibPath  = 'Calib_Results_depth.mat';
-RgbCalibPath    = 'Calib_Results_rgb.mat';
-StereoCalibPath = 'Calib_Results_stereo_noreproj.mat';
+DepthCalibPath  = [ CALIB_PATH 'Calib_Results_ir_left.mat'];
+RgbCalibPath    = [ CALIB_PATH 'Calib_Results_rgb_right.mat'];
+StereoCalibPath = [ CALIB_PATH 'Calib_Results_stereo_noreproj.mat'];
+
+XOFFSET = 0;
+YOFFSET = 0;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dep_KK          = load( DepthCalibPath, 'KK' );
+
 dep_KK          = dep_KK.KK;
 dep_inv_KK      = load( DepthCalibPath, 'inv_KK' );
 dep_inv_KK      = dep_inv_KK.inv_KK;
@@ -75,27 +87,28 @@ plot(t_gamma)
 
 mapped = zeros( size(img8,1), size(img8,2) );
 mapped_count = 0;
-for x = 0 : 1 : dsize(2) - 1 - 4
+for x = 0 : 1 : dsize(2) - 1 - XOFFSET
     %x = dsize(2) / 2;
     disp(sprintf( '%f%%', x / (dsize(2)-1)*100 ));
-    for y = 0 : 1 : dsize(1) -1
+    for y = 0 : 1 : dsize(1) - 1 - YOFFSET
          %y = dsize(1) / 2;
         
         if 1
-            z = dep8( y+1, x+1+4 );
+            z = dep8( y + 1 + YOFFSET, x + 1 + XOFFSET );
             %d = t_gamma( z + 1 );
             d = double(z);
-            
            
             if 1
+%                 P_world = [ normalize( [ x, y ]', ...
+%                     [ dep_KK(1,1) dep_KK(2,2) ], ...
+%                     [ dep_KK(1,3) dep_KK(2,3) ], ...
+%                     dep_kc, dep_alpha_c ) * d; d ];
+
                 P_world = [ normalize( [ x, y ]', ...
                     [ dep_KK(1,1) dep_KK(2,2) ], ...
                     [ dep_KK(1,3) dep_KK(2,3) ], ...
-                    dep_kc, dep_alpha_c ) * d; d ];
-%                 P_world = [                            ...
-%                    (x - dep_KK(1,3)) * d / dep_KK(1,1), ...
-%                    (y - dep_KK(2,3)) * d / dep_KK(2,2), ...
-%                    d ]'
+                    dep_kc, dep_alpha_c ); 1 ] * d;
+                
                 
                 p_rgb = project_points2( P_world,om,T, ...
                     [ rgb_KK(1,1) rgb_KK(2,2) ], ...
@@ -143,7 +156,8 @@ for x = 0 : 1 : dsize(2) - 1 - 4
     end
 end
 
-img8(:,:,1) = blend( uint8(mapped * 1000.0 / MAX_DEPTH * 255.0 * 2), img8(:,:,1) );
+%img8(:,:,1) = blend( uint8(mapped * 1000.0 / MAX_DEPTH * 255.0 ), img8(:,:,1) );
+overlay = blend( double(img8) / 255.0, mapped / 10001.0, .3 );
 imwrite( uint16(mapped), [IMG_PATH filesep DEPTH_PREFIX IMG_NAME '_mapped.png'] );
 
 mapped_count / size(mapped,1) / size(mapped,2)
@@ -151,5 +165,5 @@ mapped_count / size(mapped,1) / size(mapped,2)
 figure();
 imshow(mapped, [min(mapped(:)), max(mapped(:)) ] );
 figure();
-imshow( img8, [min(img8(:)), max(img8(:))] );
-imwrite( uint8(img8), [IMG_PATH filesep IMG_PREFIX IMG_NAME '_mapped.png'] );
+myimshow( overlay );
+imwrite( uint8(overlay*255.0), [IMG_PATH filesep IMG_PREFIX IMG_NAME '_mapped.png'] );

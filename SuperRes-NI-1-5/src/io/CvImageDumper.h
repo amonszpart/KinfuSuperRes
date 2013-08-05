@@ -16,7 +16,7 @@ namespace am
                 return instance;
             }
 
-            int dump( cv::Mat const& img, std::string title, bool step = true );
+            int dump(cv::Mat const& img, std::string title, bool step = true, std::string extension = "png" );
             int setOutputPath( std::string path );
             int step() { ++frameID; };
 

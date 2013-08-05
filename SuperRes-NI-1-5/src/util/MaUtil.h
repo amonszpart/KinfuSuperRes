@@ -105,6 +105,9 @@ namespace util
     void overlayImageOnto( cv::Mat &img1, cv::Mat &img2, float alpha = .5f);
 
     std::string printBool( bool b );
+
+    void CopyCvImgToDouble( cv::Mat const& cvImg, double**& img );
+    void CopyDoubleToCvImage( double** const& img, unsigned h, unsigned w, cv::Mat & cvImg );
 }
 
 #endif // UTIL_H

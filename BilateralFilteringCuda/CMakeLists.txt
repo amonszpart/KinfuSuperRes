@@ -7,6 +7,12 @@ cmake_minimum_required(VERSION 2.8)
 # FLAGS
 SET( CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
 SET( CUDA_HOST_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
+SET( CUDA_NVCC_FLAGS "-arch=sm_11" )
+
+#set(CUDA_SEPARABLE_COMPILATION ON)
+#set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE ON)
+#set(BUILD_SHARED_LIBS OFF)
+#set(CUDA_SEPARABLE_COMPILATION ON)
 #SET( CMAKE_CXX_FLAGS "-std=c++0x" )
 
 # PARAMS
@@ -92,20 +98,32 @@ endif(USE_PCL)
 ######################## PROJECT files ##############################
 
 SET( HEADERS_LIST
+    src/ViewPointMapperCuda.h
+    src/BilateralFilterCuda.h
+    src/GpuImage.h
+    src/GpuDepthMap.h
+    src/GpuExecutionStream.h
+    src/cutil_math.cuh
+    src/AmCudaHelper.cuh
+    src/AmCudaUtil.h
 )
 
 set( CUFILES
-    src/bilateral_kernel.cu
+    src/ViewPointMapperCuda.cu
+    src/BilateralFilterCuda.cu
+    src/GpuImage.cu
+    src/GpuDepthMap.cu
+    src/AMCudaUtil.cu
 )
 
 # SRC
 SET( CCFILES
-	src/bilateralFilter_cpu.cpp
-    src/bilateralFilter.cpp
-    src/bmploader.cpp
+    src/ViewPointMapperCuda.cpp
+    src/BilateralFilterCuda.cpp
+    src/AmCudaUtil.cpp
+    #src/bilateralFilter_cpu.cpp
+    #src/bmploader.cpp
 )
-
-#target_link_libraries(simpleCUDPP cudpp)
 
 # INCLUDES
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
@@ -114,7 +132,8 @@ INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 #ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 source_group("CUDA Source Files" FILES ${CUFILES})
 
-cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+#cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
 
 # LINK
 TARGET_LINK_LIBRARIES( cu${PROJECT_NAME} ${MY_LIBRARIES} )

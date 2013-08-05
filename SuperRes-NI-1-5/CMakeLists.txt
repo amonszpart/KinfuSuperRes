@@ -19,7 +19,7 @@ else(TROLL) # Ubul
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     SET(OPENNI_INCLUDE /usr/include/ni)
-    SET( CMAKE_CXX_COMPILER /usr/lib/nvidia-cuda-toolkit/bin/gcc )
+    #SET( CMAKE_CXX_COMPILER /usr/lib/nvidia-cuda-toolkit/bin/gcc )
 endif(TROLL)
 
 # PACKAGES
@@ -44,9 +44,19 @@ SET( MY_INCLUDES
     /usr/include/vtk-5.8/
     ${CUDA_PATH}/include
     ${OPENNI_INCLUDE}
+    ../../ctbf
 )
 
 # LIBRARIES
+add_library(imp_ctbf STATIC IMPORTED)
+set_property(TARGET imp_ctbf PROPERTY
+             IMPORTED_LOCATION ../../ctbf/build/libctbf.a )
+# LIBRARIES
+add_library(imp_bilFilCuda STATIC IMPORTED)
+set_property(TARGET imp_bilFilCuda PROPERTY
+             IMPORTED_LOCATION ../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
+
+
 SET( MY_LIBRARIES
     ${OpenCV_LIBS}
     OpenNI
@@ -56,6 +66,13 @@ SET( MY_LIBRARIES
     vtkCommon
     vtkFiltering
     vtkRendering
+    imp_ctbf
+    imp_bilFilCuda
+    /usr/lib/nvidia-310-updates/libcuda.so
+    -lcudart
+    glut
+    GL
+    GLEW
 )
 
 IF(USE_PCL)
@@ -89,6 +106,7 @@ SET( HEADERS_LIST
     src/util/MaUtil.h
     src/prism_camera_parameters.h
     src/BilateralFilteringCuda.h
+    ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
 )
 
 # SRC
@@ -105,16 +123,6 @@ SET( SRC_LIST
     src/BilateralFilteringCuda.cpp
 )
 
-set( CUFILES
-    src/bilateralFilteringCuda/bilateral_kernel.cu
-)
-
-source_group("CUDA Source Files" FILES ${CUFILES})
-
-cuda_add_executable( asdf ${CCFILES} ${CUFILES})
-
-#target_link_libraries(simpleCUDPP cudpp)
-
 # INCLUDES
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 
@@ -123,4 +131,26 @@ ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
 # LINK
 TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} )
+
+######################## FREENECT PLAYER ##############################
+
+SET( HEADERS_LIST
+    src/FreenectPlayer.h
+)
+
+# SRC
+SET( SRC_LIST
+    src/FreenectPlayer.cpp
+)
+
+SET( CMAKE_CXX_FLAGS "-std=c++0x" )
+
+# INCLUDES
+INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
+
+# EXECUTABLE
+ADD_EXECUTABLE( FreenectPlayer ${SRC_LIST} ${HEADERS_LIST} )
+
+# LINK
+TARGET_LINK_LIBRARIES( FreenectPlayer ${MY_LIBRARIES} freenect )
 

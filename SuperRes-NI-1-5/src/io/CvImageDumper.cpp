@@ -14,7 +14,7 @@ namespace am
     {
     }
 
-    int CvImageDumper::dump( const cv::Mat &img, std::string title, bool step )
+    int CvImageDumper::dump( const cv::Mat &img, std::string title, bool step, std::string extension )
     {
         if ( img.empty() )
         {
@@ -30,7 +30,7 @@ namespace am
 
         std::cout << "img: " << img.cols << "x" << img.rows << std::endl;
         char name[256];
-        sprintf( name, "%s/%s_%08d.png", outputPath.c_str(), title.c_str(), frameID );
+        sprintf( name, ("%s/%s_%08d." + extension).c_str(), outputPath.c_str(), title.c_str(), frameID );
         cv::imwrite( name, img );
 
         std::cout << "dumped " << name << "..." << std::endl;

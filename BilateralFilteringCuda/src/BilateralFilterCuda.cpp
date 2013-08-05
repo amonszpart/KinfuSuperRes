@@ -1,3 +1,5 @@
+#include "BilateralFilterCuda.h"
+
 /*
  * Copyright 1993-2012 NVIDIA Corporation.  All rights reserved.
  *
@@ -52,6 +54,12 @@
 // Shared Library Test Functions
 #include <helper_functions.h>  // CUDA SDK Helper functions
 
+#include "ViewPointMapperCuda.h"
+#include "AmCudaUtil.h"
+#include <opencv2/highgui/highgui.hpp>
+#include <vector>
+#include <iostream>
+
 #define MAX_EPSILON_ERROR   5.0f
 #define REFRESH_DELAY       10 //ms
 #define MIN_EUCLIDEAN_D     0.01f
@@ -64,9 +72,9 @@ const static char *sSDKsample = "CUDA Bilateral Filter";
 
 const char *image_filename = "nature_monte.bmp";
 int iterations = 1;
-float gaussian_delta = 4;
+float gaussian_delta = 2;
 float euclidean_delta = 0.1f;
-int filter_radius = 5;
+int filter_radius = 2;
 
 unsigned int width, height;
 unsigned int  *hImage  = NULL;
@@ -88,20 +96,101 @@ int fpsCount = 0;        // FPS count for averaging
 int fpsLimit = 1;        // FPS limit for sampling
 unsigned int g_TotalErrors = 0;
 bool         g_bInteractive = false;
+bool        dumpOnce = true;
 
 //#define GL_TEXTURE_TYPE GL_TEXTURE_RECTANGLE_ARB
 #define GL_TEXTURE_TYPE GL_TEXTURE_2D
 
+// ARON
+//void cv2Continuous8UC4(cv::Mat const& img, unsigned*& hImg , unsigned &width, unsigned &height );
+
+template <typename T>
+struct MyImage {
+
+    private:
+        T* image;
+    public:
+        T*& Image()
+        {
+            std::cout << "accessing " << this->name << std::endl;
+            return image;
+        };
+
+        T* const& Image() const
+        {
+            return image;
+        };
+
+        unsigned width, height;
+        size_t pitch;
+        std::string name;
+
+        MyImage( std::string name )
+            : image(NULL), width(0), height(0), pitch(0), name(name)
+        {
+            std::cout << "created" << this->name << std::endl;
+        }
+
+        ~MyImage()
+        {
+            if ( this->image != NULL )
+            {
+                std::cout << "freeing " << this->name;
+                printf( " this->image: %X\n", this->image );
+                try
+                {
+                    free( this->image );
+                }
+                catch ( ... )
+                {
+                    std::cerr << "..." << std::endl;
+                }
+
+                this->image = NULL;
+            }
+        };
+};
+
+// end predecl
+
 extern "C" void loadImageData(int argc, char **argv);
 
 // These are CUDA functions to handle allocation and launching the kernels
-extern "C" void initTexture(int width, int height, void *pImage);
-extern "C" void freeTextures();
 
-extern "C" double bilateralFilterRGBA(unsigned int *d_dest, int width, int height,
+uint *dImage  = NULL;   //original image "deviceImage"
+uint *dTemp   = NULL;   //temp array for iterations
+size_t pitch;
+
+template <typename T>
+void initTextures( T*& dImage, T*& dTemp, size_t &pitch, int width, int height, T *hImage )
+{
+    // copy image data to array
+    checkCudaErrors( cudaMallocPitch(&dImage, &pitch, sizeof(uint)*width, height) );
+    checkCudaErrors( cudaMallocPitch(&dTemp,  &pitch, sizeof(uint)*width, height) );
+    checkCudaErrors( cudaMemcpy2D(dImage, pitch, hImage, sizeof(uint)*width,
+                                 sizeof(uint)*width, height, cudaMemcpyHostToDevice));
+}
+
+void freeTextures()
+{
+    checkCudaErrors( cudaFree(dImage) );
+    checkCudaErrors( cudaFree(dTemp)  );
+}
+
+/*extern "C" double bilateralFilterRGBA(unsigned int *d_dest, int width, int height,
                                       float e_d, int radius, int iterations,
-                                      StopWatchInterface *timer);
-extern "C" void updateGaussian(float delta, int radius);
+                                      StopWatchInterface *timer,
+                                      uint* dImage, uint* dTemp, uint pitch );
+extern "C"
+double crossBilateralFilterRGBA( uint *dDest,
+                                 uint* dImage, uint* dTemp, uint pitch,
+                                 uint* dGuide, uint guidePitch,
+                                 int width, int height,
+                                 float e_d, int radius, int iterations,
+                                 StopWatchInterface *timer
+                                );
+
+extern "C" void updateGaussian(float delta, int radius);*/
 extern "C" void updateGaussianGold(float delta, int radius);
 extern "C" void bilateralFilterGold(unsigned int *pSrc, unsigned int *pDest,
                                     float e_d, int w, int h, int r);
@@ -161,7 +250,7 @@ void display()
     checkCudaErrors(cudaGraphicsMapResources(1, &cuda_pbo_resource, 0));
     size_t num_bytes;
     checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&dResult, &num_bytes, cuda_pbo_resource));
-    bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer);
+    bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
 
     // DEPRECATED: checkCudaErrors(cudaGLUnmapBufferObject(pbo));
     checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
@@ -203,6 +292,14 @@ void display()
     sdkStopTimer(&timer);
 
     computeFPS();
+
+    if ( dumpOnce )
+    {
+        dumpOnce = false;
+        // readback the results to system memory
+        //cudaMemcpy2D(hResult, sizeof(unsigned int)*width, dResult, pitch,
+        //             sizeof(unsigned int)*width, height, cudaMemcpyDeviceToHost);
+    }
 }
 
 /*
@@ -286,6 +383,7 @@ void keyboard(unsigned char key, int /*x*/, int /*y*/)
             updateGaussian(gaussian_delta, filter_radius);
             break;
 
+
         default:
             break;
     }
@@ -313,24 +411,33 @@ void reshape(int x, int y)
     glOrtho(0.0, 1.0, 0.0, 1.0, 0.0, 1.0);
 }
 
-void initCuda()
+template <typename T>
+void initCuda( T* const& hImage, const unsigned width, const unsigned height )
 {
     //initialize gaussian mask
-    updateGaussian(gaussian_delta, filter_radius);
+    updateGaussian( gaussian_delta, filter_radius );
 
-    initTexture(width, height, hImage);
+    initTextures( dImage, dTemp, pitch, width, height, hImage );
     sdkCreateTimer(&timer);
     sdkCreateTimer(&kernel_timer);
 }
 
+template<typename T>
+void initCuda( MyImage<T> const& image )
+{
+    initCuda<T>( image.Image(), image.width, image.height );
+}
+
 void cleanup()
 {
+    std::cout << "running cleanup..." << std::endl;
     sdkDeleteTimer(&timer);
     sdkDeleteTimer(&kernel_timer);
 
     if (hImage)
     {
         free(hImage);
+        hImage = 0;
     }
 
     freeTextures();
@@ -341,6 +448,8 @@ void cleanup()
     glDeleteBuffersARB(1, &pbo);
     glDeleteTextures(1, &texid);
     glDeleteProgramsARB(1, &shader);
+
+    std::cout << "cleanup finished..." << std::endl;
 }
 
 // shader for displaying floating-point texture
@@ -401,8 +510,8 @@ int runBenchmark(int argc, char **argv)
 {
     printf("[runBenchmark]: [%s]\n", sSDKsample);
 
-    loadImageData(argc, argv);
-    initCuda();
+    loadImageData( argc, argv );
+    initCuda<unsigned>( hImage, width, height );
 
     unsigned int *dResult;
     size_t pitch;
@@ -410,7 +519,7 @@ int runBenchmark(int argc, char **argv)
     sdkStartTimer(&kernel_timer);
 
     // warm-up
-    bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer);
+    bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Start round-trip timer and process iCycles loops on the GPU
@@ -421,7 +530,7 @@ int runBenchmark(int argc, char **argv)
 
     for (int i = 0; i < iCycles; i++)
     {
-        dProcessingTime += bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer);
+        dProcessingTime += bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
     }
 
     // check if kernel execution generated an error and sync host
@@ -476,7 +585,7 @@ int runSingleTest(char *ref_file, char *exec_path)
 
     printf("[runSingleTest]: [%s]\n", sSDKsample);
 
-    initCuda();
+    initCuda<unsigned>( hImage, width, height );
 
     unsigned int *dResult;
     unsigned int *hResult = (unsigned int *)malloc(width * height * sizeof(unsigned int));
@@ -486,7 +595,7 @@ int runSingleTest(char *ref_file, char *exec_path)
     // run the sample radius
     {
         printf("%s (radius=%d) (passes=%d) ", sSDKsample, filter_radius, iterations);
-        bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer);
+        bilateralFilterRGBA(dResult, width, height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
 
         // check if kernel execution generated an error
         getLastCudaError("Error: bilateralFilterRGBA Kernel execution FAILED");
@@ -500,7 +609,7 @@ int runSingleTest(char *ref_file, char *exec_path)
 
         sdkSavePPM4ub((const char *)dump_file, (unsigned char *)hResult, width, height);
 
-        if (!sdkComparePPM(dump_file, sdkFindFilePath(ref_file, exec_path), MAX_EPSILON_ERROR, 0.15f, false))
+        /*if (!sdkComparePPM(dump_file, sdkFindFilePath(ref_file, exec_path), MAX_EPSILON_ERROR, 0.15f, false))
         {
             printf("Image is Different ");
             nTotalErrors++;
@@ -510,7 +619,7 @@ int runSingleTest(char *ref_file, char *exec_path)
             printf("Image is Matching ");
         }
 
-        printf(" <%s>\n", ref_file);
+        printf(" <%s>\n", ref_file);*/
     }
     printf("\n");
 
@@ -519,8 +628,6 @@ int runSingleTest(char *ref_file, char *exec_path)
 
     return nTotalErrors;
 }
-
-#include <opencv2/highgui/highgui.hpp>
 
 void loadImageData(int argc, char **argv)
 {
@@ -546,48 +653,8 @@ void loadImageData(int argc, char **argv)
     }
 
     cv::Mat img = cv::imread( image_path, cv::IMREAD_UNCHANGED );
-    width = img.cols;
-    height = img.rows;
 
-    if ( hImage ) free( hImage );
-    hImage = (unsigned int *) malloc( img.cols * img.rows * sizeof(uchar4) );
-    uchar4** pHImage = reinterpret_cast<uchar4**>( &hImage );
-
-    for ( int y = 0; y < img.rows; ++y )
-        for ( int x = 0; x < img.cols; ++x )
-        {
-            if ( img.type() == CV_16UC1 )
-            {
-                ushort p = img.at<ushort>( y, x );
-                (*pHImage)[y * img.cols + x].x = uchar((float)p/10001.0*255.0);
-                (*pHImage)[y * img.cols + x].y = uchar((float)p/10001.0*255.0);
-                (*pHImage)[y * img.cols + x].z = uchar((float)p/10001.0*255.0);
-                (*pHImage)[y * img.cols + x].w = 0;
-            }
-            else if ( img.type() == CV_8UC1 )
-            {
-                uchar p = img.at<uchar>( y, x );
-                (*pHImage)[y * img.cols + x].x = p;
-                (*pHImage)[y * img.cols + x].y = p;
-                (*pHImage)[y * img.cols + x].z = p;
-                (*pHImage)[y * img.cols + x].w = 0;
-            }
-            else if ( img.type() == CV_8UC3 )
-            {
-                cv::Vec3b p = img.at<cv::Vec3b>( y, x );
-                (*pHImage)[y * img.cols + x].x = p[2];
-                (*pHImage)[y * img.cols + x].y = p[1];
-                (*pHImage)[y * img.cols + x].z = p[0];
-                (*pHImage)[y * img.cols + x].w = 0;
-            }
-            else
-            {
-                std::cerr << "unknown image format..." << std::endl;
-                exit(1);
-            }
-        }
-    //LoadBMPFile((uchar4 **)&hImage, &width, &height, image_path);
-
+    cv2Continuous8UC4( img, hImage, width, height );
 
     if (!hImage)
     {
@@ -682,96 +749,139 @@ printHelp()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Program main
+// Aron
 ////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char **argv)
+
+template <typename T, typename guideT>
+int mySingleRun( MyImage<T> const& hImage, MyImage<guideT> const& hGuide, int argc, char** argv )
 {
-    // start logs
-    int devID;
-    char *ref_file = NULL;
-    printf("%s Starting...\n\n", argv[0]);
+    int devID = findCudaDevice( argc, (const char **)argv );
 
-    // use command-line specified CUDA device, otherwise use device with highest Gflops/s
-    if (argc > 1)
+    int nTotalErrors = 0;
+    char dump_file[256];
+
+    printf("[runSingleTest]: [%s]\n", sSDKsample);
+
+    /// INPUT
+    // target
+    initCuda( hImage );
+    // guide
+    MyImage<guideT> dGuide("dGuide");
+    dGuide.width    = hGuide.width;
+    dGuide.height   = hGuide.height;
+    checkCudaErrors( cudaMallocPitch(&dGuide.Image(), &dGuide.pitch, sizeof(guideT) * hGuide.width, hGuide.height) );
+    checkCudaErrors( cudaMemcpy2D(dGuide.Image(), dGuide.pitch, hGuide.Image(), sizeof(guideT)*hGuide.width,
+                                 sizeof(guideT)*hGuide.width, hGuide.height, cudaMemcpyHostToDevice));
+    // output
+    T* hBilFiltered = (T *)malloc(hImage.width * hImage.height * sizeof(T));
+    size_t pitch;
+    T* dBilFiltered;
+    checkCudaErrors( cudaMallocPitch((void **)&dBilFiltered, &pitch, hImage.width*sizeof(T), hImage.height) );
+    // output2
+    T* hCrossFiltered = (T *)malloc(hImage.width * hImage.height * sizeof(T));
+    T* dCrossFiltered;
+    checkCudaErrors( cudaMallocPitch((void **)&dCrossFiltered, &pitch, hImage.width*sizeof(T), hImage.height) );
+
+    // run the sample radius
     {
-        if (checkCmdLineFlag(argc, (const char **)argv, "radius"))
-        {
-            filter_radius = getCmdLineArgumentInt(argc, (const char **) argv, "radius");
-        }
+        printf("%s (radius=%d) (passes=%d) ", sSDKsample, filter_radius, iterations);
+        bilateralFilterRGBA(dBilFiltered, hImage.width, hImage.height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
 
-        if (checkCmdLineFlag(argc, (const char **)argv, "passes"))
-        {
-            iterations = getCmdLineArgumentInt(argc, (const char **)argv, "passes");
-        }
+        // check if kernel execution generated an error
+        getLastCudaError("Error: bilateralFilterRGBA Kernel execution FAILED");
+        checkCudaErrors(cudaDeviceSynchronize());
 
-        if (checkCmdLineFlag(argc, (const char **)argv, "file"))
-        {
-            getCmdLineArgumentString(argc, (const char **)argv, "file", (char **)&ref_file);
-        }
+        crossBilateralFilterRGBA(dCrossFiltered, dBilFiltered, dTemp, pitch, dGuide.Image(), dGuide.pitch, hImage.width, hImage.height, euclidean_delta, filter_radius, iterations, kernel_timer );
+        getLastCudaError("Error: crossBilateralFilterRGBA Kernel execution FAILED");
+        checkCudaErrors(cudaDeviceSynchronize());
+
+        // readback the results to system memory
+        cudaMemcpy2D(hBilFiltered, sizeof(T)*hImage.width, dBilFiltered, pitch,
+                     sizeof(T)*hImage.width, hImage.height, cudaMemcpyDeviceToHost);
+        sprintf(dump_file, "bilFiltered_%02d.ppm", filter_radius);
+        sdkSavePPM4ub((const char *)dump_file, (unsigned char *)hBilFiltered, hImage.width, hImage.height);
+
+        cudaMemcpy2D(hCrossFiltered, sizeof(T)*hImage.width, dCrossFiltered, pitch,
+                     sizeof(T)*hImage.width, hImage.height, cudaMemcpyDeviceToHost);
+        sprintf(dump_file, "crossFiltered_%02d.ppm", filter_radius);
+        sdkSavePPM4ub((const char *)dump_file, (unsigned char *)hCrossFiltered, hImage.width, hImage.height);
+
+
+    }
+    printf("\n");
+
+    free( hBilFiltered );
+    checkCudaErrors( cudaFree(dBilFiltered) );
+    free( hCrossFiltered );
+    checkCudaErrors( cudaFree(dCrossFiltered) );
+
+    checkCudaErrors( cudaFree(dGuide.Image()) );
+    dGuide.Image() = 0;
+
+    return nTotalErrors;
+}
+
+#include "GpuImage.h"
+#include "GpuDepthMap.h"
+
+BilateralFilterCuda::BilateralFilterCuda()
+    : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1)
+{
+    updateGaussian( m_gaussian_delta, m_filter_radius );
+    sdkCreateTimer( &m_kernel_timer );
+}
+
+void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out )
+{
+    GpuDepthMap dDep16;
+    {
+        dDep16.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
+
+        float *tmp = NULL;
+        cv2Continuous32FC1<ushort,float>( in, tmp, 1.f / 10001.f );
+
+        dDep16.CopyDataIn( tmp );
+
+        delete [] tmp; tmp = NULL;
     }
 
-    // load image to process
-    loadImageData(argc, argv);
-
-    if (checkCmdLineFlag(argc, (const char **)argv, "benchmark"))
+    GpuDepthMap dTemp;
     {
-        // This is a separate mode of the sample, where we are benchmark the kernels for performance
-        devID = findCudaDevice(argc, (const char **)argv);
-
-        // Running CUDA kernels (bilateralfilter) in Benchmarking mode
-        g_TotalErrors += runBenchmark(argc, argv);
-        exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+        dTemp.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
     }
-    else if (checkCmdLineFlag(argc, (const char **)argv, "radius") ||
-             checkCmdLineFlag(argc, (const char **)argv, "passes"))
+
+    GpuImage dGuide;
     {
-        // This overrides the default mode.  Users can specify the radius used by the filter kernel
-        devID = findCudaDevice(argc, (const char **)argv);
-        g_TotalErrors += runSingleTest(ref_file, argv[0]);
-        exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+        dGuide.Create( IMAGE_TYPE_XRGB32, guide.cols, guide.rows );
+
+        unsigned *tmp = NULL;
+        cv2Continuous8UC4( guide, tmp, guide.cols, guide.rows, 1.f );
+
+        dGuide.CopyDataIn( tmp );
+
+        free( tmp ); tmp = NULL;
     }
-    else
+
+    GpuDepthMap dCrossFiltered;
+    dCrossFiltered.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
+
+    //bilateralFilterRGBA(dBilFiltered, hImage.width, hImage.height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
+    crossBilateralFilterF( dCrossFiltered.Get(),
+                           dDep16.Get(), dTemp.Get(), dDep16.GetPitch(),
+                           dGuide.Get(), dGuide.GetPitch(),
+                           dDep16.GetWidth(), dDep16.GetHeight(),
+                           m_euclidean_delta, m_filter_radius, m_iterations, m_kernel_timer );
+
+    // copy out
     {
-        // Default mode running with OpenGL visualization and in automatic mode
-        // the output automatically changes animation
-        printf("\n");
+        float *tmp = new float[ in.cols * in.rows ];
+        dCrossFiltered.CopyDataOut( tmp );
 
-        // First initialize OpenGL context, so we can properly set the GL for CUDA.
-        // This is necessary in order to achieve optimal performance with OpenGL/CUDA interop.
-        initGL(argc, (char **)argv);
-        int dev = findCapableDevice(argc, argv);
+        cv::Mat cvTmp;
+        continuous2Cv32FC1<float>( tmp, cvTmp, in.rows, in.cols, 10001.f );
 
-        if (dev != -1)
-        {
-            dev = gpuGLDeviceInit(argc, (const char**)argv);
-			if( dev == -1 ) {
-				exit(EXIT_FAILURE);	
-			}
-        }
-        else
-        {
-            cudaDeviceReset();
-            exit(EXIT_SUCCESS);
-        }
+        delete [] tmp; tmp = NULL;
 
-        // Now we can create a CUDA context and bind it to the OpenGL context
-        initCuda();
-        initGLResources();
-
-        // sets the callback function so it will call cleanup upon exit
-        atexit(cleanup);
-
-        printf("Running Standard Demonstration with GLUT loop...\n\n");
-        printf("Press '+' and '-' to change filter width\n"
-               "Press ']' and '[' to change number of iterations\n"
-               "Press 'e' and 'E' to change Euclidean delta\n"
-               "Press 'g' and 'G' to changle Gaussian delta\n"
-               "Press 'a' or  'A' to change Animation mode ON/OFF\n\n");
-
-        // Main OpenGL loop that will run visualization for every vsync
-        glutMainLoop();
-
-        cudaDeviceReset();
-        exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+        cvTmp.convertTo( out, CV_16UC1 );
     }
 }
