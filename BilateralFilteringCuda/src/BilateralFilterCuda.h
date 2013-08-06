@@ -47,6 +47,13 @@ double bilateralFilterRGBA( unsigned *dDest,
                             unsigned* dImage, unsigned* dTemp, unsigned pitch );
 
 extern "C"
+double bilateralFilterF( float *dDest,
+                        int width, int height,
+                        float e_d, int radius, int iterations,
+                        StopWatchInterface *timer,
+                        float* dImage, float* dTemp, uint pitch );
+
+extern "C"
 double crossBilateralFilterRGBA( unsigned *dDest,
                                  unsigned *dImage, unsigned *dTemp, unsigned pitch,
                                  unsigned *dGuide, unsigned guidePitch,
@@ -72,7 +79,9 @@ class BilateralFilterCuda
         int                 m_iterations;
     public:
         BilateralFilterCuda();
-        void runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out );
+        void setGaussianParameters( float gaussian_delta, int filter_radius );
+        void runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
+                                    float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 );
 };
 
 #endif //__BILATERAL_FILTER_CUDA_H

@@ -1,39 +1,19 @@
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
-////////////////////////////////////////////////////////////////////////////////
-// Program main
-////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char **argv)
+#include <helper_functions.h>  // CUDA SDK Helper functions
+
+#include "ViewPointMapperCuda.h"
+#include "BilateralFilterCuda.h"
+
+/*
+ * @brief       Testruns ViewPointMapperCuda::runViewPointMapping
+ * @param img16 16bit depth image to map
+ * @param guide 8UC3 rgb image to map over
+ **/
+int testViewpointMapping( cv::Mat const& img16, cv::Mat const& guide )
 {
-    char *image_path = NULL;
-    char *guide_path = NULL;
-    cv::Mat img16, guide;
 
-    // image name
-    if (checkCmdLineFlag(argc, (const char **)argv, "in"))
-    {
-        getCmdLineArgumentString(argc, (const char **)argv, "in", &image_path );
-        img16 = cv::imread( image_path, cv::IMREAD_UNCHANGED );
-    }
-    else
-    {
-        std::cerr << "need to provide input file by '--in filename' argument" << std::endl;
-        exit( EXIT_FAILURE );
-    }
-
-    // guide name
-    if (checkCmdLineFlag(argc, (const char **)argv, "guide"))
-    {
-        getCmdLineArgumentString(argc, (const char **)argv, "guide", &guide_path );
-        guide = cv::imread( guide_path, cv::IMREAD_UNCHANGED );
-    }
-    else
-    {
-        std::cerr << "need to provide guide file by '--guide filename' argument" << std::endl;
-        exit( EXIT_FAILURE );
-    }
-
-#if 1
     cv::imshow( "img", img16 );
     cv::Mat mapped16( cv::Mat::eye(img16.size(), CV_32FC1 ) );
     ViewPointMapperCuda::runViewpointMapping( img16, mapped16 );
@@ -67,8 +47,105 @@ int main(int argc, char **argv)
     cv::imwrite( "blended.bmp", fBlended * 255.0 );
 
     cv::waitKey();
-    return 0;
-#elif 1
+    return EXIT_SUCCESS;
+}
+
+/*
+ * @brief       Testruns ViewPointMapperCuda::runViewPointMapping
+ * @param img16 16bit depth image to map
+ * @param guide 8UC3 rgb image to map over
+ **/
+int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
+{
+    cv::imshow( "img16", img16 );
+
+    cv::Mat bFiltered16;
+    BilateralFilterCuda bilateralFilterCuda;
+    bilateralFilterCuda.runBilateralFiltering( img16, cv::Mat(), bFiltered16 );
+    cv::imshow( "bfiltered16", bFiltered16 );
+
+    cv::Mat cFiltered16;
+    BilateralFilterCuda crossBilateralFilterCuda;
+    crossBilateralFilterCuda.runBilateralFiltering( bFiltered16, guide, cFiltered16 );
+    cv::imshow( "cbfiltered16", cFiltered16 );
+
+    cv::Mat filtered8;
+    cFiltered16.convertTo( filtered8, CV_8UC1, 255.f / 10001.f );
+    cv::imshow( "filtered8", filtered8 );
+
+    cv::Mat fFiltered;
+    cFiltered16.convertTo( fFiltered, CV_32FC1, 1.f / 10001.f );
+
+    cv::Mat fImg;
+    img16.convertTo( fImg, CV_32FC1, 1.f / 10001.f );
+
+    cv::Mat diff;
+    cv::absdiff( fImg, fFiltered, diff );
+    cv::imshow( "diff", diff );
+
+    cv::Mat fGuide;
+    guide.convertTo( fGuide, CV_32FC1, 1.f / 255.f );
+
+    std::vector<cv::Mat> fMappedVector;
+    fMappedVector.push_back( fFiltered );
+    fMappedVector.push_back( fFiltered );
+    fMappedVector.push_back( fFiltered );
+
+    cv::Mat fMapped3;
+    cv::merge( fMappedVector, fMapped3 );
+
+    cv::Mat fBlended( fFiltered.rows, fFiltered.cols, CV_32FC1 );
+    cv::addWeighted( fGuide, 0.5,
+                     fMapped3, 0.7, 0.0, fBlended, CV_32FC1 );
+    cv::imshow( "fBlended", fBlended );
+    cv::imwrite( "blended.bmp", fBlended * 255.0 );
+
+    cv::waitKey();
+    return EXIT_SUCCESS;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Program main
+////////////////////////////////////////////////////////////////////////////////
+int main(int argc, char **argv)
+{
+    // --in /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/dep16_00000000.pgm --guide /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/img8_00000000.png
+
+    char *image_path = NULL;
+    char *guide_path = NULL;
+    cv::Mat img16, guide;
+
+    // image name
+    if (checkCmdLineFlag(argc, (const char **)argv, "in"))
+    {
+        getCmdLineArgumentString(argc, (const char **)argv, "in", &image_path );
+        img16 = cv::imread( image_path, cv::IMREAD_UNCHANGED );
+
+    }
+    else
+    {
+        std::cerr << "need to provide input file by '--in filename' argument" << std::endl;
+        exit( EXIT_FAILURE );
+    }
+
+    // guide name
+    if (checkCmdLineFlag(argc, (const char **)argv, "guide"))
+    {
+        getCmdLineArgumentString(argc, (const char **)argv, "guide", &guide_path );
+        guide = cv::imread( guide_path, cv::IMREAD_UNCHANGED );
+
+    }
+    else
+    {
+        std::cerr << "need to provide guide file by '--guide filename' argument" << std::endl;
+        exit( EXIT_FAILURE );
+    }
+
+#if 0 // VIEWPOINTMAPPING
+    return testViewpointMapping( img16, guide );
+#elif 1 // BilateralFiltering
+    return testBilateralFiltering( img16, guide );
+#elif 1 // BilateralFiltering old
 
     MyImage<unsigned> myImage("myImage");
     cvImage2Array( img, myImage.Image(), myImage.width, myImage.height );
@@ -81,6 +158,7 @@ int main(int argc, char **argv)
     return 0;
 #endif
 
+#if 0
     // start logs
     int devID;
     char *ref_file = NULL;
@@ -169,4 +247,5 @@ int main(int argc, char **argv)
         cudaDeviceReset();
         exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
     }
+#endif
 }

@@ -1,6 +1,7 @@
 // Source: https://github.com/jtbates/lua---kinect/blob/master/depth_to_point_cloud_par.cu
 //#include "/media/Storage/workspace_ubuntu/rec/imgs_20130801_1607_calibPrism3/calibration.h"
-#include "/media/Storage/workspace_ubuntu/rec/imgs_20130805_1047_calibPrism4/calibration.h"
+//#include "/media/Storage/workspace_ubuntu/rec/imgs_20130805_1047_calibPrism4/calibration.h"
+#include "calibration_cuda_constants_prism4.h"
 
 #include "cuda.h"
 #include "AmCudaHelper.cuh"

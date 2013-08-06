@@ -56,6 +56,7 @@
 
 #include "ViewPointMapperCuda.h"
 #include "AmCudaUtil.h"
+
 #include <opencv2/highgui/highgui.hpp>
 #include <vector>
 #include <iostream>
@@ -168,7 +169,7 @@ void initTextures( T*& dImage, T*& dTemp, size_t &pitch, int width, int height, 
     checkCudaErrors( cudaMallocPitch(&dImage, &pitch, sizeof(uint)*width, height) );
     checkCudaErrors( cudaMallocPitch(&dTemp,  &pitch, sizeof(uint)*width, height) );
     checkCudaErrors( cudaMemcpy2D(dImage, pitch, hImage, sizeof(uint)*width,
-                                 sizeof(uint)*width, height, cudaMemcpyHostToDevice));
+                                  sizeof(uint)*width, height, cudaMemcpyHostToDevice));
 }
 
 void freeTextures()
@@ -454,9 +455,9 @@ void cleanup()
 
 // shader for displaying floating-point texture
 static const char *shader_code =
-    "!!ARBfp1.0\n"
-    "TEX result.color, fragment.texcoord, texture[0], 2D; \n"
-    "END";
+        "!!ARBfp1.0\n"
+        "TEX result.color, fragment.texcoord, texture[0], 2D; \n"
+        "END";
 
 GLuint compileASMShader(GLenum program_type, const char *code)
 {
@@ -771,7 +772,7 @@ int mySingleRun( MyImage<T> const& hImage, MyImage<guideT> const& hGuide, int ar
     dGuide.height   = hGuide.height;
     checkCudaErrors( cudaMallocPitch(&dGuide.Image(), &dGuide.pitch, sizeof(guideT) * hGuide.width, hGuide.height) );
     checkCudaErrors( cudaMemcpy2D(dGuide.Image(), dGuide.pitch, hGuide.Image(), sizeof(guideT)*hGuide.width,
-                                 sizeof(guideT)*hGuide.width, hGuide.height, cudaMemcpyHostToDevice));
+                                  sizeof(guideT)*hGuide.width, hGuide.height, cudaMemcpyHostToDevice));
     // output
     T* hBilFiltered = (T *)malloc(hImage.width * hImage.height * sizeof(T));
     size_t pitch;
@@ -827,12 +828,50 @@ int mySingleRun( MyImage<T> const& hImage, MyImage<guideT> const& hGuide, int ar
 BilateralFilterCuda::BilateralFilterCuda()
     : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1)
 {
-    updateGaussian( m_gaussian_delta, m_filter_radius );
+    this->setGaussianParameters( m_gaussian_delta, m_filter_radius );
     sdkCreateTimer( &m_kernel_timer );
 }
 
-void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out )
+void BilateralFilterCuda::setGaussianParameters( float gaussian_delta, int filter_radius )
 {
+    m_gaussian_delta = gaussian_delta;
+    m_filter_radius  = filter_radius;
+    updateGaussian( m_gaussian_delta, m_filter_radius );
+}
+
+void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
+                                                 float gaussian_delta, float euclidian_delta, int filter_radius )
+{
+    // check input content
+    if ( in.empty() )
+        return;
+
+    // check input type
+    if ( in.type() != CV_16UC1 )
+    {
+        std::cerr << "BilateralFilterCuda::runBilateralFiltering input is expected to be CV_16UC1 with max 10001.f...exiting..." << std::endl;
+        return;
+    }
+
+    // drop not-meaningful input parameters
+    if ( gaussian_delta < 0.f )
+    {
+        gaussian_delta = m_gaussian_delta;
+    }
+    if ( filter_radius < 0.f )
+    {
+        filter_radius = m_filter_radius;
+    }
+    if ( (gaussian_delta != m_gaussian_delta) || (filter_radius != m_filter_radius) )
+    {
+        this->setGaussianParameters( gaussian_delta, filter_radius );
+    }
+    if ( euclidean_delta >= 0.f )
+    {
+        m_euclidean_delta = euclidean_delta;
+    }
+
+    // Copy input to device
     GpuDepthMap dDep16;
     {
         dDep16.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
@@ -844,13 +883,12 @@ void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat cons
 
         delete [] tmp; tmp = NULL;
     }
-
     GpuDepthMap dTemp;
     {
         dTemp.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
     }
-
     GpuImage dGuide;
+    if ( !guide.empty() )
     {
         dGuide.Create( IMAGE_TYPE_XRGB32, guide.cols, guide.rows );
 
@@ -862,20 +900,32 @@ void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat cons
         free( tmp ); tmp = NULL;
     }
 
-    GpuDepthMap dCrossFiltered;
-    dCrossFiltered.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
+    // prepare output on device
+    GpuDepthMap dFiltered;
+    dFiltered.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
 
-    //bilateralFilterRGBA(dBilFiltered, hImage.width, hImage.height, euclidean_delta, filter_radius, iterations, kernel_timer, dImage, dTemp, pitch );
-    crossBilateralFilterF( dCrossFiltered.Get(),
-                           dDep16.Get(), dTemp.Get(), dDep16.GetPitch(),
-                           dGuide.Get(), dGuide.GetPitch(),
-                           dDep16.GetWidth(), dDep16.GetHeight(),
-                           m_euclidean_delta, m_filter_radius, m_iterations, m_kernel_timer );
+    // work
+    if ( guide.empty() )
+    {
+        bilateralFilterF( dFiltered.Get(),
+                          dDep16.GetWidth(), dDep16.GetHeight(),
+                          m_euclidean_delta, m_filter_radius, m_iterations,
+                          m_kernel_timer,
+                          dDep16.Get(), dTemp.Get(), dDep16.GetPitch() );
+    }
+    else
+    {
+        crossBilateralFilterF( dFiltered.Get(),
+                               dDep16.Get(), dTemp.Get(), dDep16.GetPitch(),
+                               dGuide.Get(), dGuide.GetPitch(),
+                               dDep16.GetWidth(), dDep16.GetHeight(),
+                               m_euclidean_delta, m_filter_radius, m_iterations, m_kernel_timer );
+    }
 
-    // copy out
+    // copy output from device
     {
         float *tmp = new float[ in.cols * in.rows ];
-        dCrossFiltered.CopyDataOut( tmp );
+        dFiltered.CopyDataOut( tmp );
 
         cv::Mat cvTmp;
         continuous2Cv32FC1<float>( tmp, cvTmp, in.rows, in.cols, 10001.f );
@@ -884,4 +934,5 @@ void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat cons
 
         cvTmp.convertTo( out, CV_16UC1 );
     }
+
 }

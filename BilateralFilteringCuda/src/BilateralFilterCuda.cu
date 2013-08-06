@@ -13,19 +13,6 @@
 #include <helper_functions.h>
 #include <helper_cuda.h>       // CUDA device initialization helper functions
 
-__constant__ float cGaussian[64];   //gaussian array in device side
-
-typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> TextureU4f;
-TextureU4f rgbaTex;
-
-typedef texture<float, 2, cudaReadModeNormalizedFloat> TextureU1f;
-TextureU1f depthTex;
-
-typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> TextureU4f;
-TextureU4f guideTex;
-
-//texture<uchar, 2, cudaReadModeNormalizedFloat> dTex;
-
 /*
     Perform a simple bilateral filter.
 
@@ -56,7 +43,22 @@ TextureU4f guideTex;
     r  - filter radius
 */
 
-//Euclidean Distance (x, y, d) = exp((|x - y| / d)^2 / 2)
+//// GLOBALS
+
+__constant__ float cGaussian[64];   //gaussian array in device side
+
+typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> TextureU4f;
+TextureU4f rgbaTex;
+
+typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> TextureU4f;
+TextureU4f guideTex;
+
+typedef texture<float, 2, cudaReadModeElementType> TextureU1f;
+TextureU1f depthTex;
+
+//// HELPERS
+
+// Euclidean Distance (x, y, d) = exp((|x - y| / d)^2 / 2)
 __device__ float euclideanLen(float4 a, float4 b, float d)
 {
 
@@ -65,6 +67,14 @@ __device__ float euclideanLen(float4 a, float4 b, float d)
                 (b.z - a.z) * (b.z - a.z);
 
     return __expf(-mod / (2.f * d * d));
+}
+
+__device__ float euclideanLen( float a, float b, float d )
+{
+
+    float diff = (b - a);
+
+    return __expf( -(diff*diff) / (2.f * d * d) );
 }
 
 __device__ uint rgbaFloatToInt(float4 rgba)
@@ -86,10 +96,40 @@ __device__ float4 rgbaIntToFloat(uint c)
     return rgba;
 }
 
-// column pass using coalesced global memory reads
+//// PRECOMPUTATION
+
+/*
+    Because a 2D gaussian mask is symmetry in row and column,
+    here only generate a 1D mask, and use the product by row
+    and column index later.
+
+    1D gaussian distribution :
+        g(x, d) -- C * exp(-x^2/d^2), C is a constant amplifier
+
+    parameters:
+    og - output gaussian array in global memory
+    delta - the 2nd parameter 'd' in the above function
+    radius - half of the filter size
+             (total filter size = 2 * radius + 1)
+*/
+extern "C"
+void updateGaussian(float delta, int radius)
+{
+    float  fGaussian[64];
+
+    for (int i = 0; i < 2*radius + 1; ++i)
+    {
+        float x = i-radius;
+        fGaussian[i] = expf(-(x*x) / (2*delta*delta));
+    }
+
+    checkCudaErrors(cudaMemcpyToSymbol(cGaussian, fGaussian, sizeof(float)*(2*radius+1)));
+}
+
+//// Bilateral RGBA (8UC4)
+
 __global__ void
-d_bilateral_filterRGBA(uint *od, int w, int h,
-                   float e_d,  int r )
+d_bilateral_filterRGBA( uint *od, int w, int h, float e_d, int r )
 {
     int x = blockIdx.x*blockDim.x + threadIdx.x;
     int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -123,34 +163,6 @@ d_bilateral_filterRGBA(uint *od, int w, int h,
 }
 
 /*
-    Because a 2D gaussian mask is symmetry in row and column,
-    here only generate a 1D mask, and use the product by row
-    and column index later.
-
-    1D gaussian distribution :
-        g(x, d) -- C * exp(-x^2/d^2), C is a constant amplifier
-
-    parameters:
-    og - output gaussian array in global memory
-    delta - the 2nd parameter 'd' in the above function
-    radius - half of the filter size
-             (total filter size = 2 * radius + 1)
-*/
-extern "C"
-void updateGaussian(float delta, int radius)
-{
-    float  fGaussian[64];
-
-    for (int i = 0; i < 2*radius + 1; ++i)
-    {
-        float x = i-radius;
-        fGaussian[i] = expf(-(x*x) / (2*delta*delta));
-    }
-
-    checkCudaErrors(cudaMemcpyToSymbol(cGaussian, fGaussian, sizeof(float)*(2*radius+1)));
-}
-
-/*
     Perform 2D bilateral filter on image using CUDA
 
     Parameters:
@@ -161,8 +173,6 @@ void updateGaussian(float delta, int radius)
     radius - filter radius
     iterations - number of iterations
 */
-
-// RGBA version
 extern "C"
 double bilateralFilterRGBA(uint *dDest,
                            int width, int height,
@@ -192,7 +202,92 @@ double bilateralFilterRGBA(uint *dDest,
         dim3 gridSize((width + 16 - 1) / 16, (height + 16 - 1) / 16);
         dim3 blockSize(16, 16);
         d_bilateral_filterRGBA<<< gridSize, blockSize>>>(
-            dDest, width, height, e_d, radius );
+                                                           dDest, width, height, e_d, radius );
+
+        // sync host and stop computation timer
+        checkCudaErrors(cudaDeviceSynchronize());
+        dKernelTime += sdkGetTimerValue(&timer);
+
+        if (iterations > 1)
+        {
+            // copy result back from global memory to array
+            checkCudaErrors(cudaMemcpy2D(dTemp, pitch, dDest, sizeof(int)*width,
+                                         sizeof(int)*width, height, cudaMemcpyDeviceToDevice));
+            checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, desc, width, height, pitch));
+        }
+    }
+
+    return ((dKernelTime/1000.)/(double)iterations);
+}
+
+//// Bilateral 32FC1
+
+__global__ void
+d_bilateral_filterF( float *od, int w, int h, float e_d, int r )
+{
+    int x = blockIdx.x*blockDim.x + threadIdx.x;
+    int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+    if (x >= w || y >= h)
+    {
+        return;
+    }
+
+    float sum = 0.0f;
+    float factor;
+    float t = 0.f;
+    float center = tex2D( depthTex, x, y );
+
+    for ( int i = -r; i <= r; ++i )
+    {
+        for ( int j = -r; j <= r; ++j )
+        {
+            float curPix = tex2D(depthTex, x + j, y + i);
+
+            if ( curPix == 0.f ) // skip, if empty
+                continue;
+
+            factor = cGaussian[i + r] * cGaussian[j + r] *     // domain factor
+                     euclideanLen(curPix, center, e_d);        // range factor
+
+            t   += factor * curPix;
+            sum += factor;
+        }
+    }
+
+    // output
+    od[y * w + x] = t / sum;
+}
+
+extern "C"
+double bilateralFilterF( float *dDest,
+                         int width, int height,
+                         float e_d, int radius, int iterations,
+                         StopWatchInterface *timer,
+                         float* dImage, float* dTemp, uint pitch )
+{
+    // var for kernel computation timing
+    double dKernelTime;
+
+    // Bind the array to the texture
+    cudaChannelFormatDesc desc = cudaCreateChannelDesc<float>();
+    size_t offset = -1;
+    checkCudaErrors( cudaBindTexture2D(&offset, depthTex, dImage, desc, width, height, pitch) );
+    if ( offset > 0 )
+    {
+        std::cerr << "cudaBindTexture2D returne non-zero offset!!!" << std::endl;
+    }
+
+    for (int i=0; i<iterations; i++)
+    {
+        // sync host and start kernel computation timer
+        dKernelTime = 0.0;
+        checkCudaErrors(cudaDeviceSynchronize());
+        sdkResetTimer(&timer);
+
+        dim3 gridSize((width + 16 - 1) / 16, (height + 16 - 1) / 16);
+        dim3 blockSize(16, 16);
+        d_bilateral_filterF<<< gridSize, blockSize>>>( dDest, width, height, e_d, radius );
 
         // sync host and stop computation timer
         checkCudaErrors(cudaDeviceSynchronize());
@@ -211,11 +306,10 @@ double bilateralFilterRGBA(uint *dDest,
 }
 
 
+//// CrossBilateral RGBA (8UC4)
 
-//column pass using coalesced global memory reads
 __global__ void
-d_cross_bilateral_filterRGBA(uint *od, int w, int h,
-                   float e_d,  int r )
+d_cross_bilateral_filterRGBA( uint *od, int w, int h, float e_d, int r )
 {
     int x = blockIdx.x*blockDim.x + threadIdx.x;
     int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -249,7 +343,6 @@ d_cross_bilateral_filterRGBA(uint *od, int w, int h,
     od[y * w + x] = rgbaFloatToInt(t/sum);
 }
 
-// RGBA version
 extern "C"
 double crossBilateralFilterRGBA( uint *dDest,
                                  uint *dImage, uint *dTemp, uint pitch,
@@ -257,7 +350,7 @@ double crossBilateralFilterRGBA( uint *dDest,
                                  int width, int height,
                                  float e_d, int radius, int iterations,
                                  StopWatchInterface *timer
-                                )
+                                 )
 {
     // var for kernel computation timing
     double dKernelTime;
@@ -288,7 +381,7 @@ double crossBilateralFilterRGBA( uint *dDest,
         dim3 gridSize((width + 16 - 1) / 16, (height + 16 - 1) / 16);
         dim3 blockSize(16, 16);
         d_cross_bilateral_filterRGBA<<< gridSize, blockSize>>>(
-            dDest, width, height, e_d, radius );
+                                                                 dDest, width, height, e_d, radius );
 
         // sync host and stop computation timer
         checkCudaErrors(cudaDeviceSynchronize());
@@ -306,10 +399,11 @@ double crossBilateralFilterRGBA( uint *dDest,
     return ((dKernelTime/1000.)/(double)iterations);
 }
 
-//column pass using coalesced global memory reads
+
+//// CrossBilateral 32FC1
+
 __global__ void
-d_cross_bilateral_filterF( float *od, int w, int h,
-                            float e_d,  int r )
+d_cross_bilateral_filterF( float *od, int w, int h, float e_d, int r )
 {
     int x = blockIdx.x*blockDim.x + threadIdx.x;
     int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -321,51 +415,52 @@ d_cross_bilateral_filterF( float *od, int w, int h,
 
     float sum = 0.0f;
     float factor;
-    float4 t = {0.f, 0.f, 0.f, 0.f};
+    float t = 0.f;
     float4 center = tex2D(guideTex, x, y);
 
-    for (int i = -r; i <= r; ++i)
+    for ( int i = -r; i <= r; ++i )
     {
-        for (int j = -r; j <= r; ++j)
+        for ( int j = -r; j <= r; ++j )
         {
-            float4 curPix = tex2D( rgbaTex, x + j, y + i );
+            float curPix   = tex2D( depthTex, x + j, y + i );
             float4 guidePix = tex2D( guideTex, x + j, y + i );
-            if ( curPix.x == 0 )
+            if ( curPix == 0.f )
                 continue;
             factor = cGaussian[i + r] * cGaussian[j + r] *     //domain factor
-                     euclideanLen(guidePix, center, e_d);             //range factor
+                     euclideanLen( guidePix, center, e_d );             //range factor
 
-            t += factor * curPix;
+            t   += factor * curPix;
             sum += factor;
         }
     }
 
-    od[y * w + x] = rgbaFloatToInt(t/sum);
+    od[y * w + x] = t / sum;
+    //od[y * w + x] = tex2D( depthTex, x , y );
 }
 
-// RGBA version
 extern "C"
 double crossBilateralFilterF( float *dDest,
-                                 float *dImage, float *dTemp, uint pitch,
-                                 uint *dGuide, uint guidePitch,
-                                 int width, int height,
-                                 float e_d, int radius, int iterations,
-                                 StopWatchInterface *timer
-                                )
+                              float *dImage, float *dTemp, uint pitch,
+                              uint *dGuide, uint guidePitch,
+                              int width, int height,
+                              float e_d, int radius, int iterations,
+                              StopWatchInterface *timer
+                              )
 {
     // var for kernel computation timing
     double dKernelTime;
 
     // Bind the array to the texture
-    cudaChannelFormatDesc desc = cudaCreateChannelDesc<float>();
+    cudaChannelFormatDesc descF = cudaCreateChannelDesc<float>();
     size_t offset = -1;
-    checkCudaErrors( cudaBindTexture2D(&offset, depthTex, dImage, desc, width, height, pitch) );
+    checkCudaErrors( cudaBindTexture2D(&offset, depthTex, dImage, descF, width, height, pitch) );
     if ( offset > 0 )
     {
         std::cerr << "cudaBindTexture2D returne non-zero offset!!!" << std::endl;
     }
 
-    checkCudaErrors( cudaBindTexture2D(&offset, guideTex, dGuide, desc, width, height, guidePitch) );
+    cudaChannelFormatDesc descU4 = cudaCreateChannelDesc<uchar4>();
+    checkCudaErrors( cudaBindTexture2D(&offset, guideTex, dGuide, descU4, width, height, guidePitch) );
     if ( offset > 0 )
     {
         std::cerr << "cudaBindTexture2D returne non-zero offset!!!" << std::endl;
@@ -392,7 +487,7 @@ double crossBilateralFilterF( float *dDest,
             // copy result back from global memory to array
             checkCudaErrors(cudaMemcpy2D(dTemp, pitch, dDest, sizeof(int)*width,
                                          sizeof(int)*width, height, cudaMemcpyDeviceToDevice));
-            checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, desc, width, height, pitch));
+            checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, descF, width, height, pitch));
         }
     }
 

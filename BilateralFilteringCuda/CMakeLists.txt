@@ -123,6 +123,7 @@ SET( CCFILES
     src/AmCudaUtil.cpp
     #src/bilateralFilter_cpu.cpp
     #src/bmploader.cpp
+    src/main.cpp
 )
 
 # INCLUDES

@@ -7,7 +7,7 @@
 
 void GpuDepthMap::Create(GpuDepthMapType type, int width, int height)
 {
-    if(type != mapType || width != w || height != h)
+    if ( type != mapType || width != w || height != h )
     {
         Destroy();
 
