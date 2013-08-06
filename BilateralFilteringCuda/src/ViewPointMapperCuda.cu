@@ -3,7 +3,7 @@
 //#include "/media/Storage/workspace_ubuntu/rec/imgs_20130805_1047_calibPrism4/calibration.h"
 #include "calibration_cuda_constants_prism4.h"
 
-#include "GpuDepthMap.h"
+#include "GpuDepthMap.hpp"
 #include "cutil_math.cuh"
 #include "AMCudaUtil.cu"
 #include "AmCudaHelper.cuh"

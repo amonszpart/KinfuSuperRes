@@ -1,6 +1,6 @@
 #include "ViewPointMapperCuda.h"
 
-#include "GpuDepthMap.h"
+#include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
 
 #include <iostream>

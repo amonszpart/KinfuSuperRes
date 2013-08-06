@@ -4,7 +4,7 @@
 #include <helper_functions.h>  // CUDA SDK Helper functions
 
 #include "ViewPointMapperCuda.h"
-#include "BilateralFilterCuda.h"
+#include "BilateralFilterCuda.hpp"
 
 /*
  * @brief       Testruns ViewPointMapperCuda::runViewPointMapping

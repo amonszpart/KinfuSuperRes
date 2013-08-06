@@ -12,7 +12,7 @@
  */
 
 #include "GpuImage.h"
-#include "GpuDepthMap.h"
+#include "GpuDepthMap.hpp"
 
 // CUDA utilities and system includes
 #include <cuda_runtime.h>

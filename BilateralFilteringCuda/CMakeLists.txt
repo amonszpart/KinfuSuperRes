@@ -99,9 +99,9 @@ endif(USE_PCL)
 
 SET( HEADERS_LIST
     src/ViewPointMapperCuda.h
-    src/BilateralFilterCuda.h
+    src/BilateralFilterCuda.hpp
     src/GpuImage.h
-    src/GpuDepthMap.h
+    src/GpuDepthMap.hpp
     src/GpuExecutionStream.h
     src/cutil_math.cuh
     src/AmCudaHelper.cuh
@@ -112,14 +112,14 @@ set( CUFILES
     src/ViewPointMapperCuda.cu
     src/BilateralFilterCuda.cu
     src/GpuImage.cu
-    src/GpuDepthMap.cu
+    #src/GpuDepthMap.cu
     src/AMCudaUtil.cu
 )
 
 # SRC
 SET( CCFILES
     src/ViewPointMapperCuda.cpp
-    src/BilateralFilterCuda.cpp
+    #src/BilateralFilterCuda.cpp
     src/AmCudaUtil.cpp
     #src/bilateralFilter_cpu.cpp
     #src/bmploader.cpp
