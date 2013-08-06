@@ -4,7 +4,7 @@
 #include <helper_functions.h>  // CUDA SDK Helper functions
 
 #include "ViewPointMapperCuda.h"
-#include "BilateralFilterCuda.h"
+#include "BilateralFilterCuda.hpp"
 
 /*
  * @brief       Testruns ViewPointMapperCuda::runViewPointMapping
@@ -38,7 +38,8 @@ int testViewpointMapping( cv::Mat const& img16, cv::Mat const& guide )
     fMappedVector.push_back( fMapped );
 
     cv::Mat fMapped3;
-    cv::merge( fMappedVector, fMapped3 );
+    //cv::merge( fMappedVector, fMapped3 );
+    cv::merge( fMappedVector.data(), 3, fMapped3 );
 
     cv::Mat fBlended( fMapped.rows, fMapped.cols, CV_32FC1 );
     cv::addWeighted( fGuide, 0.5,
@@ -60,12 +61,12 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
     cv::imshow( "img16", img16 );
 
     cv::Mat bFiltered16;
-    BilateralFilterCuda bilateralFilterCuda;
+    BilateralFilterCuda<float> bilateralFilterCuda;
     bilateralFilterCuda.runBilateralFiltering( img16, cv::Mat(), bFiltered16 );
     cv::imshow( "bfiltered16", bFiltered16 );
 
     cv::Mat cFiltered16;
-    BilateralFilterCuda crossBilateralFilterCuda;
+    BilateralFilterCuda<float> crossBilateralFilterCuda;
     crossBilateralFilterCuda.runBilateralFiltering( bFiltered16, guide, cFiltered16 );
     cv::imshow( "cbfiltered16", cFiltered16 );
 
@@ -92,7 +93,8 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
     fMappedVector.push_back( fFiltered );
 
     cv::Mat fMapped3;
-    cv::merge( fMappedVector, fMapped3 );
+    cv::merge( fMappedVector.data(), 3, fMapped3 );
+    //cv::merge( fMappedVector, fMapped3 );
 
     cv::Mat fBlended( fFiltered.rows, fFiltered.cols, CV_32FC1 );
     cv::addWeighted( fGuide, 0.5,

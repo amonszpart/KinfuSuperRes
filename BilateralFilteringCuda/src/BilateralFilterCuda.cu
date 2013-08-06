@@ -53,8 +53,12 @@ TextureU4f rgbaTex;
 typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> TextureU4f;
 TextureU4f guideTex;
 
-typedef texture<float, 2, cudaReadModeElementType> TextureU1f;
-TextureU1f depthTex;
+typedef texture<float, 2, cudaReadModeElementType> Texture32FC1;
+Texture32FC1 depthTex_32FC1;
+
+typedef texture<ushort, 2, cudaReadModeNormalizedFloat> Texture16UC1;
+Texture16UC1 depthTex_16UC1;
+
 
 //// HELPERS
 
@@ -236,13 +240,13 @@ d_bilateral_filterF( float *od, int w, int h, float e_d, int r )
     float sum = 0.0f;
     float factor;
     float t = 0.f;
-    float center = tex2D( depthTex, x, y );
+    float center = tex2D( depthTex_32FC1, x, y );
 
     for ( int i = -r; i <= r; ++i )
     {
         for ( int j = -r; j <= r; ++j )
         {
-            float curPix = tex2D(depthTex, x + j, y + i);
+            float curPix = tex2D(depthTex_32FC1, x + j, y + i);
 
             if ( curPix == 0.f ) // skip, if empty
                 continue;
@@ -272,7 +276,7 @@ double bilateralFilterF( float *dDest,
     // Bind the array to the texture
     cudaChannelFormatDesc desc = cudaCreateChannelDesc<float>();
     size_t offset = -1;
-    checkCudaErrors( cudaBindTexture2D(&offset, depthTex, dImage, desc, width, height, pitch) );
+    checkCudaErrors( cudaBindTexture2D(&offset, depthTex_32FC1, dImage, desc, width, height, pitch) );
     if ( offset > 0 )
     {
         std::cerr << "cudaBindTexture2D returne non-zero offset!!!" << std::endl;
@@ -402,8 +406,23 @@ double crossBilateralFilterRGBA( uint *dDest,
 
 //// CrossBilateral 32FC1
 
+template <typename T>
+__device__
+float fetchTexture( int x, int y );
+
+template<> float fetchTexture<float>( int x, int y )
+{
+    return tex2D( depthTex_32FC1, x, y );
+}
+
+template<> float fetchTexture<ushort>( int x, int y )
+{
+    return tex2D( depthTex_16UC1, x, y );
+}
+
+template <typename T>
 __global__ void
-d_cross_bilateral_filterF( float *od, int w, int h, float e_d, int r )
+d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r )
 {
     int x = blockIdx.x*blockDim.x + threadIdx.x;
     int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -416,13 +435,13 @@ d_cross_bilateral_filterF( float *od, int w, int h, float e_d, int r )
     float sum = 0.0f;
     float factor;
     float t = 0.f;
-    float4 center = tex2D(guideTex, x, y);
+    float4 center = tex2D( guideTex, x, y );
 
     for ( int i = -r; i <= r; ++i )
     {
         for ( int j = -r; j <= r; ++j )
         {
-            float curPix   = tex2D( depthTex, x + j, y + i );
+            T curPix        = fetchTexture<T>( x+j, y+i ); //tex2D( *texRefPtr, x + j, y + i );
             float4 guidePix = tex2D( guideTex, x + j, y + i );
             if ( curPix == 0.f )
                 continue;
@@ -438,9 +457,25 @@ d_cross_bilateral_filterF( float *od, int w, int h, float e_d, int r )
     //od[y * w + x] = tex2D( depthTex, x , y );
 }
 
-extern "C"
-double crossBilateralFilterF( float *dDest,
-                              float *dImage, float *dTemp, uint pitch,
+/// Texture binding
+
+template <typename TImg>
+void prepareInputTex( textureReference const*& );
+
+template<> void prepareInputTex<float>( textureReference const*& texRefPtr )
+{
+    cudaGetTextureReference( &texRefPtr, &depthTex_32FC1 );
+}
+
+template<> void prepareInputTex<ushort>( textureReference const*& texRefPtr )
+{
+    cudaGetTextureReference( &texRefPtr, &depthTex_16UC1 );
+}
+
+
+template <typename T>
+double crossBilateralFilterF( T *dDest,
+                              T *dImage, T *dTemp, uint pitch,
                               uint *dGuide, uint guidePitch,
                               int width, int height,
                               float e_d, int radius, int iterations,
@@ -450,23 +485,26 @@ double crossBilateralFilterF( float *dDest,
     // var for kernel computation timing
     double dKernelTime;
 
-    // Bind the array to the texture
-    cudaChannelFormatDesc descF = cudaCreateChannelDesc<float>();
-    size_t offset = -1;
-    checkCudaErrors( cudaBindTexture2D(&offset, depthTex, dImage, descF, width, height, pitch) );
-    if ( offset > 0 )
-    {
-        std::cerr << "cudaBindTexture2D returne non-zero offset!!!" << std::endl;
-    }
+    // bind input image texture
+    textureReference const* texRefPtr;
+    prepareInputTex<T>( texRefPtr );
 
+    // Bind inpput image to the texture
+    cudaChannelFormatDesc descT = cudaCreateChannelDesc<T>();
+    size_t offset = -1;
+    checkCudaErrors( cudaBindTexture2D(&offset, texRefPtr, dImage, &descT, width, height, pitch) );
+    if ( offset > 0 ) std::cerr << "cudaBindTexture2D returned non-zero offset!!!" << std::endl;
+
+    // Bind guide texture
     cudaChannelFormatDesc descU4 = cudaCreateChannelDesc<uchar4>();
+    //size_t offset = -1;
     checkCudaErrors( cudaBindTexture2D(&offset, guideTex, dGuide, descU4, width, height, guidePitch) );
     if ( offset > 0 )
     {
         std::cerr << "cudaBindTexture2D returne non-zero offset!!!" << std::endl;
     }
 
-
+    // work
     for (int i=0; i<iterations; i++)
     {
         // sync host and start kernel computation timer
@@ -485,13 +523,28 @@ double crossBilateralFilterF( float *dDest,
         if (iterations > 1)
         {
             // copy result back from global memory to array
-            checkCudaErrors(cudaMemcpy2D(dTemp, pitch, dDest, sizeof(int)*width,
-                                         sizeof(int)*width, height, cudaMemcpyDeviceToDevice));
-            checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, descF, width, height, pitch));
+            checkCudaErrors(cudaMemcpy2D(dTemp, pitch, dDest, sizeof(T)*width,
+                                         sizeof(T)*width, height, cudaMemcpyDeviceToDevice));
+
+            checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, cudaCreateChannelDesc<T>(), width, height, pitch));
         }
     }
 
     return ((dKernelTime/1000.)/(double)iterations);
 }
 
+template double crossBilateralFilterF( float *dDest,
+                                       float *dImage, float *dTemp, uint pitch,
+                                       unsigned *dGuide, unsigned guidePitch,
+                                       int width, int height,
+                                       float e_d, int radius, int iterations,
+                                       StopWatchInterface *timer );
 
+#if 0 // Not implemented yet...
+template double crossBilateralFilterF( ushort *dDest,
+                                       ushort *dImage, ushort *dTemp, uint pitch,
+                                       unsigned *dGuide, unsigned guidePitch,
+                                       int width, int height,
+                                       float e_d, int radius, int iterations,
+                                       StopWatchInterface *timer );
+#endif

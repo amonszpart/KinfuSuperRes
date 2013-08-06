@@ -1,6 +1,6 @@
 #include "ViewPointMapperCuda.h"
 
-#include "GpuDepthMap.h"
+#include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
 
 #include <iostream>
@@ -15,7 +15,7 @@ extern void runCopyKernel2D( T *in , unsigned w_in , unsigned h_in , size_t pitc
 
 void ViewPointMapperCuda::runMyCopyKernelTest( cv::Mat const& in, cv::Mat &out )
 {
-    GpuDepthMap d_in;
+    GpuDepthMap<float> d_in;
     {
         d_in.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
         float *tmp = NULL;
@@ -25,7 +25,7 @@ void ViewPointMapperCuda::runMyCopyKernelTest( cv::Mat const& in, cv::Mat &out )
         tmp = NULL;
     }
 
-    GpuDepthMap d_out;
+    GpuDepthMap<float> d_out;
     d_out.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
 
     runCopyKernel2D<float>( d_in.Get() , d_in.GetWidth() , d_in.GetHeight() , d_in.GetPitch(),
@@ -39,12 +39,13 @@ void ViewPointMapperCuda::runMyCopyKernelTest( cv::Mat const& in, cv::Mat &out )
     }
 }
 
-extern "C"
-void runMapViewpoint( GpuDepthMap const& in, GpuDepthMap &out );
+
+template<typename T>
+extern void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out );
 
 void ViewPointMapperCuda::runViewpointMapping( cv::Mat const& in, cv::Mat &out )
 {
-    static GpuDepthMap d_in;
+    static GpuDepthMap<float> d_in;
     {
         d_in.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
         float *tmp = NULL;
@@ -54,10 +55,10 @@ void ViewPointMapperCuda::runViewpointMapping( cv::Mat const& in, cv::Mat &out )
         tmp = NULL;
     }
 
-    static GpuDepthMap d_out;
+    static GpuDepthMap<float> d_out;
     d_out.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
 
-    runMapViewpoint( d_in, d_out );
+    runMapViewpoint<float>( d_in, d_out );
 
     // copy out
     {

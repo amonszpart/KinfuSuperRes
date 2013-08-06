@@ -40,7 +40,7 @@
 #include <pcl/common/angles.h>
 //#include "../src/internal.h"
 
-
+#include "BilateralFilterCuda.hpp"
 
 #include <iostream>
 
@@ -420,6 +420,10 @@ namespace am
 
         if (has_data)
         {
+            // prefilter
+            BilateralFilterCuda<float> bilateralFilterCuda;
+            //bilateralFilterCuda.runBilateralFiltering( img16, cv::Mat(), bFiltered16 );
+
             // upload depth
             depth_device_.upload (depth.data, depth.step, depth.rows, depth.cols);
             // upload rgb
@@ -512,7 +516,7 @@ namespace am
         {
             boost::unique_lock<boost::mutex> lock(data_ready_mutex_);
 
-            if (!triggered_capture)
+            if ( !triggered_capture )
                 capture_.start (); // Start stream
 
             bool scene_view_not_stopped= viz_ ? !scene_cloud_view_.cloud_viewer_->wasStopped () : true;
@@ -522,7 +526,7 @@ namespace am
             int frame_count = 0;
             while (!exit_ && scene_view_not_stopped && image_view_not_stopped)
             {
-                if (triggered_capture)
+                if ( triggered_capture )
                     capture_.start(); // Triggers new frame
                 bool has_data = data_ready_cond_.timed_wait (lock, boost::posix_time::millisec(100));
 
@@ -553,7 +557,6 @@ namespace am
         }
         c.disconnect();
     }
-
 
     int
     mainKinfuApp (int argc, char* argv[])

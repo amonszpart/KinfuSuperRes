@@ -20,11 +20,17 @@ if(TROLL)
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
 
+    SET( CUDA_LIB cuda )
+    SET( GLEW_LIB GLEW )
+
     SET( CMAKE_CXX_COMPILER "/usr/bin/gcc-4.4" )
     SET( CUDA_HOST_COMPILER "/usr/bin/gcc-4.4" )
 else(TROLL) # Ubul
     #SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
+
+    SET( CUDA_LIB /usr/lib/nvidia-310-updates/libcuda.so )
+    SET( GLEW_LIB /usr/lib/x86_64-linux-gnu/libGLEW.so )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     #SET(OPENNI_INCLUDE /usr/include/ni)
 
@@ -67,8 +73,8 @@ SET( MY_LIBRARIES
     stdc++
     glut
     GL
-    /usr/lib/nvidia-310-updates/libcuda.so
-    /usr/lib/x86_64-linux-gnu/libGLEW.so
+    ${CUDA_LIB}
+    ${GLEW_LIB}
     #/usr/lib/x86_64-linux-gnu/libcudart.so.5.0
     #/usr/local/cuda-5.0/lib/libcublas.so
     ${OpenCV_LIBS}
@@ -103,9 +109,9 @@ endif(USE_PCL)
 
 SET( HEADERS_LIST
     src/ViewPointMapperCuda.h
-    src/BilateralFilterCuda.h
+    src/BilateralFilterCuda.hpp
     src/GpuImage.h
-    src/GpuDepthMap.h
+    src/GpuDepthMap.hpp
     src/GpuExecutionStream.h
     src/cutil_math.cuh
     src/AmCudaHelper.cuh
@@ -116,14 +122,14 @@ set( CUFILES
     src/ViewPointMapperCuda.cu
     src/BilateralFilterCuda.cu
     src/GpuImage.cu
-    src/GpuDepthMap.cu
+    #src/GpuDepthMap.cu
     src/AMCudaUtil.cu
 )
 
 # SRC
 SET( CCFILES
     src/ViewPointMapperCuda.cpp
-    src/BilateralFilterCuda.cpp
+    #src/BilateralFilterCuda.cpp
     src/AmCudaUtil.cpp
     #src/bilateralFilter_cpu.cpp
     #src/bmploader.cpp

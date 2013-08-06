@@ -1,7 +1,7 @@
 project(MyKinfuApp)
 cmake_minimum_required(VERSION 2.8)
 
-INCLUDE(localcfg.cmake)
+INCLUDE(../localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
 # FLAGS
@@ -69,6 +69,19 @@ add_subdirectory( src/calibration )
 
 ############## MY_KINFU_APP ##############
 
+
+# BilateralFilteringCuda
+add_library ( imp_bilFilCuda STATIC IMPORTED)
+set_property( TARGET imp_bilFilCuda PROPERTY
+              IMPORTED_LOCATION ../../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
+
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+
+SET( MY_LIBRARIES ${MY_LIBRARIES}
+                  ${CUDA_PATH}/lib64/libcudart.so )
+
+
 # HEADERS
 SET( KINFU_HEADERS_LIST
     src/kinfu/tools/kinfu_pcl_headers.h
@@ -87,6 +100,8 @@ SET( HEADERS_LIST
     src/util/XnVUtil.h
     src/myopenni/MyONIGrabber.h
     src/myopenni/MyOpenNIGrabber.h
+    ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
+    ../BilateralFilteringCuda/src/BilateralFilterCuda.hpp
     ${KINFU_HEADERS_LIST}
 )
 
@@ -116,7 +131,7 @@ INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
 # LINK
-TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} )
+TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} imp_bilFilCuda)
 
 ############## TSDF_VIS ##############
 

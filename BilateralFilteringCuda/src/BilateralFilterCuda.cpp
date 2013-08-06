@@ -826,21 +826,25 @@ int mySingleRun( MyImage<T> const& hImage, MyImage<guideT> const& hGuide, int ar
 
 #endif
 
-BilateralFilterCuda::BilateralFilterCuda()
+#if 0
+template <typename T>
+BilateralFilterCuda<T>::BilateralFilterCuda()
     : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1)
 {
     this->setGaussianParameters( m_gaussian_delta, m_filter_radius );
     sdkCreateTimer( &m_kernel_timer );
 }
 
-void BilateralFilterCuda::setGaussianParameters( float gaussian_delta, int filter_radius )
+template <typename T>
+void BilateralFilterCuda<T>::setGaussianParameters( float gaussian_delta, int filter_radius )
 {
     m_gaussian_delta = gaussian_delta;
     m_filter_radius  = filter_radius;
     updateGaussian( m_gaussian_delta, m_filter_radius );
 }
 
-void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
+template <typename T>
+void BilateralFilterCuda<T>::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
                                                  float gaussian_delta, float euclidian_delta, int filter_radius )
 {
     // empty - check input content
@@ -924,3 +928,4 @@ void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat cons
     }
 
 }
+#endif

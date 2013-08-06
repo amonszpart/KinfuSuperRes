@@ -3,7 +3,7 @@
 //#include "/media/Storage/workspace_ubuntu/rec/imgs_20130805_1047_calibPrism4/calibration.h"
 #include "calibration_cuda_constants_prism4.h"
 
-#include "GpuDepthMap.h"
+#include "GpuDepthMap.hpp"
 #include "cutil_math.cuh"
 #include "AMCudaUtil.cu"
 #include "AmCudaHelper.cuh"
@@ -105,8 +105,9 @@ __device__ float2 World2CamRgb( float3 xw,
 // Args:
 //   depth_abs - the absolute depth from the kinect.
 //   depth_proj - the projected depth.
-__global__ void mapViewpoint( const float* in,
-                              float *out,
+template <typename T>
+__global__ void mapViewpointKernel( const T* in,
+                              T *out,
                               int w, int h,
                               size_t in_pitch,
                               size_t out_pitch )
@@ -162,12 +163,10 @@ __global__ void mapViewpoint( const float* in,
     int2 int_p_right = { nearbyintf(p_right.x), nearbyintf(p_right.y) };
 
     // check boundaries
-    if (    int_p_right.x >= w
-            || int_p_right.y >= h
-            || int_p_right.x < 0
-            || int_p_right.y < 0
-            )
-        return;
+    if ( (int_p_right.x >= w) ||
+         (int_p_right.y >= h) ||
+         (int_p_right.x <  0) ||
+         (int_p_right.y <  0)   ) return;
 
     float old = atomicCAS ( (int*)&(out[ int_p_right.y * w + int_p_right.x ]), 0, *pZ );
     if ( old != 0.f )
@@ -190,17 +189,18 @@ __global__ void mapViewpoint( const float* in,
 #endif
 }
 
-extern "C"
-void runMapViewpoint( GpuDepthMap const& in, GpuDepthMap &out )
+
+template<typename T>
+void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out )
 {
-    cudaMemset( out.Get(), 0, out.GetWidth() * out.GetHeight() * sizeof(float) );
+    cudaMemset( out.Get(), 0, out.GetWidth() * out.GetHeight() * sizeof(T) );
     checkCudaErrors( cudaDeviceSynchronize() );
 
     //runSetKernel2D( out.Get(), 22222.f, out.GetWidth(), out.GetHeight() );
 
     dim3 gridSize((in.GetWidth() + 16 - 1) / 16, (in.GetHeight() + 16 - 1) / 16);
     dim3 blockSize( 16, 16 );
-    mapViewpoint<<< gridSize, blockSize>>>( in.Get(), out.Get(),
+    mapViewpointKernel<<< gridSize, blockSize>>>( in.Get(), out.Get(),
                                             in.GetWidth(), in.GetHeight(),
                                             in.GetPitch(), out.GetPitch() );
 
@@ -208,4 +208,5 @@ void runMapViewpoint( GpuDepthMap const& in, GpuDepthMap &out )
     checkCudaErrors( cudaDeviceSynchronize() );
 }
 
-
+template void runMapViewpoint<float>( GpuDepthMap<float> const& in, GpuDepthMap<float> &out );
+template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const& in, GpuDepthMap<unsigned short> &out );
