@@ -63,7 +63,8 @@ SET( MY_LIBRARIES
     stdc++
     glut
     GL
-    /usr/lib/nvidia-310-updates/libcuda.so
+    #/usr/lib/nvidia-310-updates/libcuda.so
+    cuda
     /usr/lib/x86_64-linux-gnu/libGLEW.so
     #/usr/lib/x86_64-linux-gnu/libcudart.so.5.0
     #/usr/local/cuda-5.0/lib/libcublas.so
