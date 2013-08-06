@@ -1,12 +1,10 @@
 project(BilateralFilteringCuda)
 cmake_minimum_required(VERSION 2.8)
 
-#INCLUDE(localcfg.cmake)
+INCLUDE(../localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
 # FLAGS
-SET( CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
-SET( CUDA_HOST_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
 SET( CUDA_NVCC_FLAGS "-arch=sm_11" )
 
 #set(CUDA_SEPARABLE_COMPILATION ON)
@@ -21,11 +19,17 @@ if(TROLL)
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
+
+    SET( CMAKE_CXX_COMPILER "/usr/bin/gcc-4.4" )
+    SET( CUDA_HOST_COMPILER "/usr/bin/gcc-4.4" )
 else(TROLL) # Ubul
     #SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     #SET(OPENNI_INCLUDE /usr/include/ni)
+
+    SET( CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
+    SET( CUDA_HOST_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
 endif(TROLL)
 
 # PACKAGES

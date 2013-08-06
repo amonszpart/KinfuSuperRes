@@ -104,6 +104,38 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
     return EXIT_SUCCESS;
 }
 
+#if CV_MINOR_VERSION < 4
+namespace cv
+{
+    enum
+    {
+        // 8bit, color or not
+        IMREAD_UNCHANGED  =-1,
+        // 8bit, gray
+        IMREAD_GRAYSCALE  =0,
+        // ?, color
+        IMREAD_COLOR      =1,
+        // any depth, ?
+        IMREAD_ANYDEPTH   =2,
+        // ?, any color
+        IMREAD_ANYCOLOR   =4
+    };
+
+    enum
+    {
+        IMWRITE_JPEG_QUALITY =1,
+        IMWRITE_PNG_COMPRESSION =16,
+        IMWRITE_PNG_STRATEGY =17,
+        IMWRITE_PNG_STRATEGY_DEFAULT =0,
+        IMWRITE_PNG_STRATEGY_FILTERED =1,
+        IMWRITE_PNG_STRATEGY_HUFFMAN_ONLY =2,
+        IMWRITE_PNG_STRATEGY_RLE =3,
+        IMWRITE_PNG_STRATEGY_FIXED =4,
+        IMWRITE_PXM_BINARY =32
+    };
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
