@@ -23,9 +23,7 @@
 // Includes
 //---------------------------------------------------------------------------
 
-#include "MaCvImageBroadcaster.h"
 #include "BilateralFiltering.h"
-#include "HomographyCalculator.h"
 #include "prism_camera_parameters.h"
 #include "../../BilateralFilteringCuda/src/ViewPointMapperCuda.h"
 #include "../../BilateralFilteringCuda/src/BilateralFilterCuda.h"
@@ -264,8 +262,23 @@ struct MyCVPlayer
         }
 };
 
+//// TRACKBAR CALLBACKS
 void on_contrast_alpha_trackbar( int, void* );
 void on_contrast_beta_trackbar( int, void* );
+
+// "crossFiltered8"
+void on_cross_gaussian_delta_trackbar( int, void* );
+void on_cross_eucledian_delta_trackbar( int, void* );
+void on_cross_filter_range_trackbar( int, void* );
+
+struct MyTrackbar
+{
+        int slider;
+        int slider_max;
+        float value;
+        MyTrackbar( int slider, int slider_max, float value )
+            : slider(slider), slider_max(slider_max), value(value) {}
+};
 
 struct MyPlayer
 {
@@ -283,6 +296,17 @@ struct MyPlayer
         int beta_slider_max = 255;
         float alpha = 1.f;
         float beta  = 0.f;
+
+        // "crossFiltered8"
+        const char *CROSS_WINDOW_NAME = "crossFiltered8";
+        MyTrackbar cross_gaussian_delta  = MyTrackbar( 100, 500, 1.f );
+        MyTrackbar cross_eucledian_delta = MyTrackbar( 100, 1000, .1f );
+        MyTrackbar cross_filter_range    = MyTrackbar( 2, 50, 2 );
+        // "crossFiltered8"
+        const char *BIL_WINDOW_NAME     = "bilFiltered8";
+        MyTrackbar bil_gaussian_delta   = MyTrackbar( 100, 500, 1.f );
+        MyTrackbar bil_eucledian_delta  = MyTrackbar( 100, 1000, .1f );
+        MyTrackbar bil_filter_range     = MyTrackbar( 2, 50, 2 );
 
         int toggleAltViewpoint()
         {
@@ -351,11 +375,21 @@ struct MyPlayer
             XnStatus nRetVal = XN_STATUS_OK;
 
             // Calibration data
-            TCalibData prismKinect;
-            initPrismCamera( prismKinect );
+            //TCalibData prismKinect;
+            //initPrismCamera( prismKinect );
 
             // declare CV
             cv::Mat dep8, dep16, rgb8, ir8;
+
+            // init windows
+            cv::namedWindow( CROSS_WINDOW_NAME );
+            cv::createTrackbar( "cross_gaussian_delta", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
+            cv::createTrackbar( "cross_eucledian_delta", CROSS_WINDOW_NAME, &cross_eucledian_delta.slider, cross_eucledian_delta.slider_max, on_cross_eucledian_delta_trackbar );
+            cv::createTrackbar( "cross_filter_range", CROSS_WINDOW_NAME, &cross_filter_range.slider, cross_filter_range.slider_max, on_cross_filter_range_trackbar );
+            /*cv::namedWindow( CROSS_WINDOW_NAME );
+            cv::createTrackbar( "cross_gaussian_delta", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
+            cv::createTrackbar( "cross_eucledian_delta", CROSS_WINDOW_NAME, &cross_eucledian_delta.slider, cross_eucledian_delta.slider_max, on_cross_eucledian_delta_trackbar );
+            cv::createTrackbar( "cross_filter_range", CROSS_WINDOW_NAME, &cross_filter_range.slider, cross_filter_range.slider_max, on_cross_filter_range_trackbar );*/
 
             char c = 0;
             while ( (!xnOSWasKeyboardHit()) && (c != 27) )
@@ -445,10 +479,11 @@ struct MyPlayer
                 cv::Mat crossFiltered16;
                 {
                     static BilateralFilterCuda bfc;
-                    bfc.runBilateralFiltering( mapped16, rgb8, crossFiltered16 );
+                    bfc.runBilateralFiltering( mapped16, rgb8, crossFiltered16,
+                                               cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );
                     cv::Mat crossFiltered8;
                     crossFiltered16.convertTo( crossFiltered8, CV_8UC1, 255.f / 10001.f );
-                    cv::imshow( "crossFiltered8", crossFiltered8 );
+                    cv::imshow( CROSS_WINDOW_NAME, crossFiltered8 );
                 }
 
                 // IR8 + RGB8
@@ -468,7 +503,7 @@ struct MyPlayer
                     //cv::Mat mapped8C3;
                     //cv::merge( (std::vector<cv::Mat>){mapped8, mapped8, mapped8}, mapped8C3 );
                     //cv::addWeighted( mapped8C3, .5, rgb8, .5, 0., dep8AndRgb );
-                    cv::merge( (std::vector<cv::Mat>){rgb8s[0],rgb8s[1], mapped8 * 2.f}, dep8AndRgb );
+                    cv::merge( (std::vector<cv::Mat>){rgb8s[0]*0.8f,rgb8s[1]*0.8f, mapped8 * 2.f}, dep8AndRgb );
                     imshow( "dep8AndRgb", dep8AndRgb );
                     std::cout << "dep8AndRgb showed..." << std::endl;
                 }
@@ -583,6 +618,21 @@ void on_contrast_alpha_trackbar( int, void* )
 void on_contrast_beta_trackbar( int, void* )
 {
     myPlayer.beta = (double) myPlayer.beta_slider;// / myPlayer.beta_slider_max ;
+}
+
+void on_cross_gaussian_delta_trackbar( int, void* )
+{
+    myPlayer.cross_gaussian_delta.value = (double) myPlayer.cross_gaussian_delta.slider / myPlayer.cross_gaussian_delta.slider_max ;
+}
+
+void on_cross_eucledian_delta_trackbar( int, void* )
+{
+    myPlayer.cross_eucledian_delta.value = (double) myPlayer.cross_eucledian_delta.slider / myPlayer.cross_eucledian_delta.slider_max ;
+}
+
+void on_cross_filter_range_trackbar( int, void* )
+{
+    myPlayer.cross_filter_range.value = myPlayer.cross_filter_range.slider;
 }
 
 

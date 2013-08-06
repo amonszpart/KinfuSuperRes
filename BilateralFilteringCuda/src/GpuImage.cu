@@ -1,9 +1,9 @@
-// http://www.cl.cam.ac.uk/research/rainbow/projects/dcbgrid/DCBGrid-preprint.pdf
+// source: http://www.cl.cam.ac.uk/research/rainbow/projects/dcbgrid/DCBGrid-preprint.pdf
 
 #include "GpuImage.h"
-//#include "CudaHelperCommon.cuh"
-#include <iostream>
+#include "helper_cuda.h"
 #include "AmCudaHelper.cuh"
+#include <iostream>
 
 void GpuImage::Create( GpuImageType type, int width, int height )
 {
@@ -50,6 +50,7 @@ void GpuImage::CopyDataIn(unsigned int* hostData)
         w * sizeof(unsigned int), h, cudaMemcpyHostToDevice));
 }
 
+#if 0
 void GpuImage::AsyncCopyFrom(const GpuImage* const other, const GpuExecutionStream & stream)
 {
     // Resize image if needed, then copy in the relevant data
@@ -57,6 +58,7 @@ void GpuImage::AsyncCopyFrom(const GpuImage* const other, const GpuExecutionStre
     checkCudaErrors(cudaMemcpy2DAsync(gpuImage, gpuImagePitch, other->gpuImage, other->gpuImagePitch,
         w, h, cudaMemcpyDeviceToDevice, stream.Get()));
 }
+#endif
 
 void GpuImage::SizeToMatch(const GpuImage & other)
 {

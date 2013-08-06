@@ -1,4 +1,8 @@
+#ifndef __GPU_DEPTH_MAP_H
+#define __GPU_DEPTH_MAP_H
 #pragma once
+
+#include <stddef.h>
 
 enum GpuDepthMapType
 {
@@ -40,3 +44,5 @@ public:
 	// and responsibilities with the 'other' depth map
     void SwapData( GpuDepthMap & other );
 };
+
+#endif // __GPU_DEPTH_MAP_H

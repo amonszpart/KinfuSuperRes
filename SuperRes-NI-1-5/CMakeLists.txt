@@ -105,7 +105,6 @@ SET( HEADERS_LIST
     src/util/XnVUtil.h
     src/util/MaUtil.h
     src/prism_camera_parameters.h
-    src/BilateralFilteringCuda.h
     ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
 )
 
@@ -120,7 +119,6 @@ SET( SRC_LIST
     src/util/MaUtil.cpp
     src/yetAnotherRecorder.cpp
     src/prism_camera_parameters.cpp
-    src/BilateralFilteringCuda.cpp
 )
 
 # INCLUDES

@@ -1,6 +1,9 @@
+#ifndef __GPU_IMAGE_H
+#define __GPU_IMAGE_H
 #pragma once
 
-#include "GpuExecutionStream.h"
+//#include "GpuExecutionStream.h"
+#include <stddef.h>
 
 enum GpuImageType
 {
@@ -37,7 +40,7 @@ public:
 	void SwapData(GpuImage & other);
 
 	// Copies from the other to this image, on the specified execution stream
-	void AsyncCopyFrom(const GpuImage* const other, const GpuExecutionStream & stream);
+    //void AsyncCopyFrom(const GpuImage* const other, const GpuExecutionStream & stream);
 	void SizeToMatch(const GpuImage & other);
 
 	// Copies xrgb data into the image, assuming hostData is dimensioned correctly
@@ -49,3 +52,5 @@ public:
 	// Sets this image to a down-sampled version of 'other'
 	void DownsampleFrom(const GpuImage* const other, int downsampleFactor);
 };
+
+#endif // __GPU_IMAGE_H

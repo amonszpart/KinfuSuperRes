@@ -1,9 +1,12 @@
+#ifndef __GPUEXECUTIONSTREAM_H
+#define __GPUEXECUTIONSTREAM_H
 #pragma once
 
 //#include "CudaDebug.h"
 #include <cuda_runtime_api.h>
-#include <stdexcept>
+#include "cuda.h"
 #include "helper_cuda.h"
+#include <stdexcept>
 
 // A very simple wrapper around the cudaStream_t type
 class GpuExecutionStream
@@ -39,3 +42,5 @@ public:
 
 	cudaStream_t Get() const { return stream; }
 };
+
+#endif // __GPUEXECUTIONSTREAM_H

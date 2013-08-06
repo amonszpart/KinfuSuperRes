@@ -1,5 +1,18 @@
 #include "BilateralFilterCuda.h"
 
+// CUDA utilities and system includes
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
+
+#include <helper_cuda.h>       // CUDA device initialization helper functions
+
+
+// Shared Library Test Functions
+#include <helper_functions.h>  // CUDA SDK Helper functions
+
+#include "AmCudaUtil.h"
+
+#if 0
 /*
  * Copyright 1993-2012 NVIDIA Corporation.  All rights reserved.
  *
@@ -44,18 +57,7 @@
 #include <GL/freeglut.h>
 #endif
 
-// CUDA utilities and system includes
-#include <cuda_runtime.h>
-#include <cuda_gl_interop.h>
-
-#include <helper_cuda.h>       // CUDA device initialization helper functions
 #include <helper_cuda_gl.h>    // CUDA device + OpenGL initialization functions
-
-// Shared Library Test Functions
-#include <helper_functions.h>  // CUDA SDK Helper functions
-
-#include "ViewPointMapperCuda.h"
-#include "AmCudaUtil.h"
 
 #include <opencv2/highgui/highgui.hpp>
 #include <vector>
@@ -822,8 +824,7 @@ int mySingleRun( MyImage<T> const& hImage, MyImage<guideT> const& hGuide, int ar
     return nTotalErrors;
 }
 
-#include "GpuImage.h"
-#include "GpuDepthMap.h"
+#endif
 
 BilateralFilterCuda::BilateralFilterCuda()
     : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1)
@@ -842,90 +843,77 @@ void BilateralFilterCuda::setGaussianParameters( float gaussian_delta, int filte
 void BilateralFilterCuda::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
                                                  float gaussian_delta, float euclidian_delta, int filter_radius )
 {
-    // check input content
+    // empty - check input content
     if ( in.empty() )
         return;
 
-    // check input type
+    // type - check input type
     if ( in.type() != CV_16UC1 )
     {
         std::cerr << "BilateralFilterCuda::runBilateralFiltering input is expected to be CV_16UC1 with max 10001.f...exiting..." << std::endl;
         return;
     }
 
-    // drop not-meaningful input parameters
-    if ( gaussian_delta < 0.f )
-    {
-        gaussian_delta = m_gaussian_delta;
-    }
-    if ( filter_radius < 0.f )
-    {
-        filter_radius = m_filter_radius;
-    }
+    // params - drop not-meaningful input parameters
+    if ( gaussian_delta  <  0.f ) gaussian_delta    = m_gaussian_delta;
+    if ( filter_radius   <  0.f ) filter_radius     = m_filter_radius;
     if ( (gaussian_delta != m_gaussian_delta) || (filter_radius != m_filter_radius) )
     {
         this->setGaussianParameters( gaussian_delta, filter_radius );
     }
-    if ( euclidean_delta >= 0.f )
-    {
-        m_euclidean_delta = euclidean_delta;
-    }
+    if ( euclidian_delta >= 0.f ) m_euclidean_delta = euclidian_delta;
 
-    // Copy input to device
-    GpuDepthMap dDep16;
+    // dDep16 (input), dTemp
     {
-        dDep16.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
+        m_dDep16.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
+        m_dTemp .Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
 
         float *tmp = NULL;
         cv2Continuous32FC1<ushort,float>( in, tmp, 1.f / 10001.f );
 
-        dDep16.CopyDataIn( tmp );
+        m_dDep16.CopyDataIn( tmp );
 
         delete [] tmp; tmp = NULL;
     }
-    GpuDepthMap dTemp;
-    {
-        dTemp.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
-    }
-    GpuImage dGuide;
+
+    // dGuide
     if ( !guide.empty() )
     {
-        dGuide.Create( IMAGE_TYPE_XRGB32, guide.cols, guide.rows );
+        m_dGuide.Create( IMAGE_TYPE_XRGB32, guide.cols, guide.rows );
 
         unsigned *tmp = NULL;
         cv2Continuous8UC4( guide, tmp, guide.cols, guide.rows, 1.f );
 
-        dGuide.CopyDataIn( tmp );
+        m_dGuide.CopyDataIn( tmp );
 
         free( tmp ); tmp = NULL;
     }
 
-    // prepare output on device
-    GpuDepthMap dFiltered;
-    dFiltered.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
+    // dFiltered (output)
+    m_dFiltered.Create( DEPTH_MAP_TYPE_FLOAT, in.cols, in.rows );
 
     // work
     if ( guide.empty() )
     {
-        bilateralFilterF( dFiltered.Get(),
-                          dDep16.GetWidth(), dDep16.GetHeight(),
+        bilateralFilterF( m_dFiltered.Get(),
+                          m_dDep16.GetWidth(), m_dDep16.GetHeight(),
                           m_euclidean_delta, m_filter_radius, m_iterations,
                           m_kernel_timer,
-                          dDep16.Get(), dTemp.Get(), dDep16.GetPitch() );
+                          m_dDep16.Get(), m_dTemp.Get(), m_dDep16.GetPitch() );
     }
     else
     {
-        crossBilateralFilterF( dFiltered.Get(),
-                               dDep16.Get(), dTemp.Get(), dDep16.GetPitch(),
-                               dGuide.Get(), dGuide.GetPitch(),
-                               dDep16.GetWidth(), dDep16.GetHeight(),
+        crossBilateralFilterF( m_dFiltered.Get(),
+                               m_dDep16.Get(), m_dTemp.Get(), m_dDep16.GetPitch(),
+                               m_dGuide.Get(), m_dGuide.GetPitch(),
+                               m_dDep16.GetWidth(), m_dDep16.GetHeight(),
                                m_euclidean_delta, m_filter_radius, m_iterations, m_kernel_timer );
     }
 
     // copy output from device
     {
         float *tmp = new float[ in.cols * in.rows ];
-        dFiltered.CopyDataOut( tmp );
+        m_dFiltered.CopyDataOut( tmp );
 
         cv::Mat cvTmp;
         continuous2Cv32FC1<float>( tmp, cvTmp, in.rows, in.cols, 10001.f );

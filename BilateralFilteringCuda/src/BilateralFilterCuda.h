@@ -11,6 +11,8 @@
  *
  */
 
+#include "GpuImage.h"
+#include "GpuDepthMap.h"
 #include <opencv2/core/core.hpp>
 
 class StopWatchInterface;
@@ -48,10 +50,10 @@ double bilateralFilterRGBA( unsigned *dDest,
 
 extern "C"
 double bilateralFilterF( float *dDest,
-                        int width, int height,
-                        float e_d, int radius, int iterations,
-                        StopWatchInterface *timer,
-                        float* dImage, float* dTemp, uint pitch );
+                         int width, int height,
+                         float e_d, int radius, int iterations,
+                         StopWatchInterface *timer,
+                         float* dImage, float* dTemp, uint pitch );
 
 extern "C"
 double crossBilateralFilterRGBA( unsigned *dDest,
@@ -72,16 +74,24 @@ double crossBilateralFilterF( float *dDest,
 
 class BilateralFilterCuda
 {
+    public:
+        BilateralFilterCuda();
+
+        void runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
+                                    float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 );
+
+        void setGaussianParameters( float gaussian_delta, int filter_radius );
+
+    private:
         float               m_gaussian_delta;
         float               m_euclidean_delta;
         int                 m_filter_radius;
         StopWatchInterface  *m_kernel_timer;
         int                 m_iterations;
-    public:
-        BilateralFilterCuda();
-        void setGaussianParameters( float gaussian_delta, int filter_radius );
-        void runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
-                                    float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 );
+
+        GpuDepthMap         m_dDep16;
+        GpuDepthMap         m_dTemp, m_dFiltered;
+        GpuImage            m_dGuide;
 };
 
 #endif //__BILATERAL_FILTER_CUDA_H
