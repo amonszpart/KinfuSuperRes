@@ -60,12 +60,12 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
     cv::imshow( "img16", img16 );
 
     cv::Mat bFiltered16;
-    BilateralFilterCuda bilateralFilterCuda;
+    BilateralFilterCuda<float> bilateralFilterCuda;
     bilateralFilterCuda.runBilateralFiltering( img16, cv::Mat(), bFiltered16 );
     cv::imshow( "bfiltered16", bFiltered16 );
 
     cv::Mat cFiltered16;
-    BilateralFilterCuda crossBilateralFilterCuda;
+    BilateralFilterCuda<float> crossBilateralFilterCuda;
     crossBilateralFilterCuda.runBilateralFiltering( bFiltered16, guide, cFiltered16 );
     cv::imshow( "cbfiltered16", cFiltered16 );
 
@@ -103,6 +103,38 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
     cv::waitKey();
     return EXIT_SUCCESS;
 }
+
+#if CV_MINOR_VERSION < 4
+namespace cv
+{
+enum
+{
+    // 8bit, color or not
+    IMREAD_UNCHANGED  =-1,
+    // 8bit, gray
+    IMREAD_GRAYSCALE  =0,
+    // ?, color
+    IMREAD_COLOR      =1,
+    // any depth, ?
+    IMREAD_ANYDEPTH   =2,
+    // ?, any color
+    IMREAD_ANYCOLOR   =4
+};
+
+enum
+{
+    IMWRITE_JPEG_QUALITY =1,
+    IMWRITE_PNG_COMPRESSION =16,
+    IMWRITE_PNG_STRATEGY =17,
+    IMWRITE_PNG_STRATEGY_DEFAULT =0,
+    IMWRITE_PNG_STRATEGY_FILTERED =1,
+    IMWRITE_PNG_STRATEGY_HUFFMAN_ONLY =2,
+    IMWRITE_PNG_STRATEGY_RLE =3,
+    IMWRITE_PNG_STRATEGY_FIXED =4,
+    IMWRITE_PXM_BINARY =32
+};
+}
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main

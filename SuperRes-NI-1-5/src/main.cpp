@@ -476,14 +476,27 @@ struct MyPlayer
                 }
 
                 // filtering
-                cv::Mat crossFiltered16;
+                //cv::Mat crossFiltered16;
                 {
                     static BilateralFilterCuda bfc;
-                    bfc.runBilateralFiltering( mapped16, rgb8, crossFiltered16,
+                    bfc.runBilateralFiltering( mapped16, rgb8, filtered_mats["crossFiltered16"],
                                                cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );
                     cv::Mat crossFiltered8;
-                    crossFiltered16.convertTo( crossFiltered8, CV_8UC1, 255.f / 10001.f );
+                    filtered_mats["crossFiltered16"].convertTo( crossFiltered8, CV_8UC1, 255.f / 10001.f );
                     cv::imshow( CROSS_WINDOW_NAME, crossFiltered8 );
+                }
+
+                // diff
+                {
+                    cv::Mat fMapped16;
+                    mapped16.convertTo( fMapped16, CV_32FC1, 1.f / 10001.f );
+
+                    cv::Mat fFiltered;
+                    filtered_mats["crossFiltered16"].convertTo( fFiltered, CV_32FC1, 1.f / 10001.f );
+
+                    cv::Mat diff;
+                    cv::absdiff( fMapped16, fFiltered, diff );
+                    cv::imshow( "absdiff(crossFiltered16,mapped16)", diff );
                 }
 
                 // IR8 + RGB8

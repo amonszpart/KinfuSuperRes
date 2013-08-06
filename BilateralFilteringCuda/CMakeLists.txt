@@ -133,8 +133,8 @@ INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 #ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 source_group("CUDA Source Files" FILES ${CUFILES})
 
-#cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
-cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+#cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
 
 # LINK
 TARGET_LINK_LIBRARIES( cu${PROJECT_NAME} ${MY_LIBRARIES} )
