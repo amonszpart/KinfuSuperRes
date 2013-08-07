@@ -90,10 +90,10 @@ class BilateralFilterCuda
 
         void runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
                                     float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 );
-        void runBilateralFiltering( ushort* const& in, unsigned* const& guide, ushort*& out,
-                                    unsigned width, unsigned height,
-                                    float gaussian_delta, float eucledian_delta, int filter_radius );
-        void runBilateralFiltering( T* const& in, unsigned* const& guide, T*& out,
+        void runBilateralFilteringWithUShort( unsigned short const* const& in, unsigned const* const& guide, short unsigned int* & out,
+                                              unsigned width, unsigned height,
+                                              float gaussian_delta, float eucledian_delta, int filter_radius );
+        void runBilateralFiltering( T* const& in, unsigned const* const& guide, T*& out,
                                     unsigned width, unsigned height,
                                     float gaussian_delta, float euclidian_delta, int filter_radius );
 
@@ -178,9 +178,10 @@ void BilateralFilterCuda<T>::runBilateralFiltering( cv::Mat const& in, cv::Mat c
 
 // ushort* -> float -> run -> float -> ushort*
 template <typename T>
-void BilateralFilterCuda<T>::runBilateralFiltering( ushort* const& in, unsigned* const& guide, ushort*& out,
-                                                    unsigned width, unsigned height,
-                                                    float gaussian_delta, float eucledian_delta, int filter_radius )
+void BilateralFilterCuda<T>::runBilateralFilteringWithUShort( short unsigned int const* const& in, unsigned const* const& guide,
+                                                              short unsigned int* & out,
+                                                              unsigned width, unsigned height,
+                                                              float gaussian_delta, float eucledian_delta, int filter_radius )
 {
     const int size = width * height;
 
@@ -189,16 +190,12 @@ void BilateralFilterCuda<T>::runBilateralFiltering( ushort* const& in, unsigned*
     for ( int i = 0; i < size; ++i)
     {
         tmpIn[i] = (float)in[i] / 10001.f;
-
-        // debug
-        if ( in[i] > 255 )
-            std::cout << "in ok..." << in[i] << std::endl;
     }
 
     // out
     T* tmpOut = new T[ size ];
 
-    runBilateralFiltering( in, guide, tmpOut, width, height, gaussian_delta, eucledian_delta, filter_radius );
+    runBilateralFiltering( tmpIn, guide, tmpOut, width, height, gaussian_delta, eucledian_delta, filter_radius );
 
     for ( int i = 0; i < size; ++i )
     {
@@ -213,7 +210,7 @@ void BilateralFilterCuda<T>::runBilateralFiltering( ushort* const& in, unsigned*
  * Assumes everything is allocated from before
  **/
 template <typename T>
-void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned* const& guide, T*& out,
+void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const* const& guide, T*& out,
                                                     unsigned width, unsigned height,
                                                     float gaussian_delta, float eucledian_delta, int filter_radius )
 {

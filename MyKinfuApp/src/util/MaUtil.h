@@ -121,6 +121,8 @@ namespace util
     float distance2D( cv::Vec2f const& a, cv::Vec3f const& b );
 
     std::string getCvImageType( int type );
+
+    std::string outputDirectoryNameWithTimestamp( std::string path );
 }
 
 #endif // UTIL_H
