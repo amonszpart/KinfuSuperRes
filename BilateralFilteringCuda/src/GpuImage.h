@@ -44,7 +44,7 @@ public:
 	void SizeToMatch(const GpuImage & other);
 
 	// Copies xrgb data into the image, assuming hostData is dimensioned correctly
-	void CopyDataIn(unsigned int* hostData);
+    void CopyDataIn(unsigned int const* hostData);
 
 	// Copies the image out to a greyscale floating-point array
 	void CopyDataOut(float* hostData);

@@ -47,6 +47,9 @@ SET( MY_INCLUDES
     ../../ctbf
 )
 
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+
 # LIBRARIES
 add_library(imp_ctbf STATIC IMPORTED)
 set_property(TARGET imp_ctbf PROPERTY

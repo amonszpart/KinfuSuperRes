@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 #include <cuda_runtime.h>
+#include "driver_types.h"
 #include "helper_cuda.h"
 
 enum GpuDepthMapType

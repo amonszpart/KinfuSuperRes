@@ -1,12 +1,11 @@
 project(BilateralFilteringCuda)
 cmake_minimum_required(VERSION 2.8)
 
-#INCLUDE(localcfg.cmake)
+MESSAGE( STATUS "CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR} )
+INCLUDE( ${CMAKE_SOURCE_DIR}/../localcfg.cmake )
 #add_subdirectory( src/kinfu_large_scale )
 
 # FLAGS
-SET( CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
-SET( CUDA_HOST_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
 SET( CUDA_NVCC_FLAGS "-arch=sm_11" )
 
 #set(CUDA_SEPARABLE_COMPILATION ON)
@@ -21,11 +20,23 @@ if(TROLL)
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
+
+    SET( CUDA_LIB cuda )
+    SET( GLEW_LIB GLEW )
+
+    SET( CMAKE_CXX_COMPILER "/usr/bin/gcc-4.4" )
+    SET( CUDA_HOST_COMPILER "/usr/bin/gcc-4.4" )
 else(TROLL) # Ubul
     #SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
+
+    SET( CUDA_LIB /usr/lib/nvidia-310-updates/libcuda.so )
+    SET( GLEW_LIB /usr/lib/x86_64-linux-gnu/libGLEW.so )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     #SET(OPENNI_INCLUDE /usr/include/ni)
+
+    SET( CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
+    SET( CUDA_HOST_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
 endif(TROLL)
 
 # PACKAGES
@@ -50,7 +61,7 @@ MESSAGE( STATUS "CUDA_INC_PATH: " ${CUDA_INC_PATH} )
 
 # INCLUDES
 SET( MY_INCLUDES
-    inc
+    inc/
     #/usr/include/eigen3/
     #/usr/include/vtk-5.8/
     #${CUDA_PATH}/include
@@ -63,9 +74,8 @@ SET( MY_LIBRARIES
     stdc++
     glut
     GL
-    #/usr/lib/nvidia-310-updates/libcuda.so
-    cuda
-    /usr/lib/x86_64-linux-gnu/libGLEW.so
+    ${CUDA_LIB}
+    ${GLEW_LIB}
     #/usr/lib/x86_64-linux-gnu/libcudart.so.5.0
     #/usr/local/cuda-5.0/lib/libcublas.so
     ${OpenCV_LIBS}
@@ -134,8 +144,8 @@ INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 #ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 source_group("CUDA Source Files" FILES ${CUFILES})
 
-cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
-#cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+#cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
 
 # LINK
 TARGET_LINK_LIBRARIES( cu${PROJECT_NAME} ${MY_LIBRARIES} )

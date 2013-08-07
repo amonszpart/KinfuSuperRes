@@ -44,7 +44,7 @@ void GpuImage::SwapData(GpuImage & other)
     std::swap<int>(h, other.h);
 }
 
-void GpuImage::CopyDataIn(unsigned int* hostData)
+void GpuImage::CopyDataIn(unsigned int const* hostData)
 {
     checkCudaErrors(cudaMemcpy2D(gpuImage, gpuImagePitch, hostData, w * sizeof(unsigned int),
         w * sizeof(unsigned int), h, cudaMemcpyHostToDevice));

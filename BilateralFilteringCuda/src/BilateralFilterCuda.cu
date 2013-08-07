@@ -404,8 +404,19 @@ double crossBilateralFilterRGBA( uint *dDest,
 }
 
 
-//// CrossBilateral 32FC1
+////
+/// CrossBilateral 32FC1
+////
 
+// NOTE: there is no point using <ushort> textures,
+// since that would normalise over 65536 and not 10001
+
+/*
+ * @brief Input type dependent texture read function
+ * @param T     Texture selector (depthTex_32FC1, or depthTex_16UC1)
+ * @param x     x coordinate to read from in texture
+ * @param y     y coordinate to read from in texture
+ */
 template <typename T>
 __device__
 float fetchTexture( int x, int y );
@@ -420,6 +431,14 @@ template<> float fetchTexture<ushort>( int x, int y )
     return tex2D( depthTex_16UC1, x, y );
 }
 
+/*
+ * @brief Main crossfilter kernel
+ * @param od    normalised float output memory
+ * @param w     texture width
+ * @param h     texture height
+ * @param e_d   eucledian delta (range sigma)
+ * @param r     kernel half width
+ */
 template <typename T>
 __global__ void
 d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r )
@@ -445,8 +464,8 @@ d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r )
             float4 guidePix = tex2D( guideTex, x + j, y + i );
             if ( curPix == 0.f )
                 continue;
-            factor = cGaussian[i + r] * cGaussian[j + r] *     //domain factor
-                     euclideanLen( guidePix, center, e_d );             //range factor
+            factor = cGaussian[i + r] * cGaussian[j + r] *     // domain factor
+                     euclideanLen( guidePix, center, e_d );    // range factor
 
             t   += factor * curPix;
             sum += factor;
@@ -454,25 +473,42 @@ d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r )
     }
 
     od[y * w + x] = t / sum;
-    //od[y * w + x] = tex2D( depthTex, x , y );
 }
 
-/// Texture binding
-
+/*
+ * @brief Texture binding based on input template type (float tested only)
+ * @param texRefPtr Cuda reference pointer to one of the globals at top of the file.
+ */
 template <typename TImg>
 void prepareInputTex( textureReference const*& );
 
+// <float> expects dImage to be normalised float
 template<> void prepareInputTex<float>( textureReference const*& texRefPtr )
 {
     cudaGetTextureReference( &texRefPtr, &depthTex_32FC1 );
 }
 
+// <ushort> expects dImage to be 0..65536
 template<> void prepareInputTex<ushort>( textureReference const*& texRefPtr )
 {
     cudaGetTextureReference( &texRefPtr, &depthTex_16UC1 );
 }
 
-
+/*
+ * @brief Cross biltareal filtering. Use <float> version, the others are untested.
+ * @param dDest     Device pointer, currently giving normalised floats
+ * @param dImage    Input pointer, currently expecting normalised floats
+ * @param dTemp     Copy buffer for dImage
+ * @param pitch     dImage and dTemp pitch, not used (since texturing)
+ * @param dGuide    uchar4 XRGB image (0..255) read as normalised float through "guideTex"
+ * @param guidePitch dGuide pitch, not used, since texturing
+ * @param width     Width of every input, and output
+ * @param height    Height of every input and output
+ * @param e_d       Eucledian delta (range sigma)
+ * @param radius    Kernel half width
+ * @param iterations Not tested to be other, than one
+ * @param timer     Performance timing
+ */
 template <typename T>
 double crossBilateralFilterF( T *dDest,
                               T *dImage, T *dTemp, uint pitch,
@@ -533,6 +569,9 @@ double crossBilateralFilterF( T *dDest,
     return ((dKernelTime/1000.)/(double)iterations);
 }
 
+/*
+ * @brief Template specialisation declaration (needed by "extern" in BilateralFilteringCuda.hpp)
+ */
 template double crossBilateralFilterF( float *dDest,
                                        float *dImage, float *dTemp, uint pitch,
                                        unsigned *dGuide, unsigned guidePitch,

@@ -277,6 +277,23 @@ namespace util
 
         return out.str();
     }
+
+    std::string outputDirectoryNameWithTimestamp( std::string path )
+    {
+        std::string outputPath;
+
+        time_t rawtime;
+        struct tm * timeinfo;
+        char buffer [80];
+
+        time (&rawtime);
+        timeinfo = localtime (&rawtime);
+
+        strftime ( buffer, 80, "_%Y%m%d_%H%M", timeinfo );
+
+        outputPath = path + std::string( buffer );
+        return outputPath;
+    }
 }
 
 #if 0

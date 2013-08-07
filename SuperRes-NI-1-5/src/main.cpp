@@ -26,7 +26,7 @@
 #include "BilateralFiltering.h"
 #include "prism_camera_parameters.h"
 #include "../../BilateralFilteringCuda/src/ViewPointMapperCuda.h"
-#include "../../BilateralFilteringCuda/src/BilateralFilterCuda.h"
+#include "../../BilateralFilteringCuda/src/BilateralFilterCuda.hpp"
 
 #include "io/Recorder.h"
 #include "io/CvImageDumper.h"
@@ -478,7 +478,7 @@ struct MyPlayer
                 // filtering
                 //cv::Mat crossFiltered16;
                 {
-                    static BilateralFilterCuda bfc;
+                    static BilateralFilterCuda<float> bfc;
                     bfc.runBilateralFiltering( mapped16, rgb8, filtered_mats["crossFiltered16"],
                                                cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );
                     cv::Mat crossFiltered8;

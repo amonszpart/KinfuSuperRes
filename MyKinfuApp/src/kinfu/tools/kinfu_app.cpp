@@ -40,9 +40,10 @@
 #include <pcl/common/angles.h>
 //#include "../src/internal.h"
 
-
+#include "BilateralFilterCuda.hpp"
 
 #include <iostream>
+#include "../../util/MaUtil.h"
 
 using namespace std;
 using namespace pcl;
@@ -414,16 +415,38 @@ namespace am
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void
-    KinFuApp::execute(const PtrStepSz<const unsigned short>& depth, const PtrStepSz<const KinfuTracker::PixelRGB>& rgb24, bool has_data)
+    KinFuApp::execute(const PtrStepSz<const unsigned short>& depth_arg, const PtrStepSz<const KinfuTracker::PixelRGB>& rgb24, bool has_data)
     {
         bool has_image = false;
 
+        std::vector<ushort> cFilteredDepth;
+        PtrStepSz<const unsigned short> cFilteredDepthPtr;
         if (has_data)
         {
+            // prefilter
+            {
+                // prepare data holder
+                cFilteredDepth.resize( depth_arg.cols * depth_arg.rows );
+
+                // run filter
+                static BilateralFilterCuda<float> bilateralFilterCuda;
+                unsigned short* tmp = cFilteredDepth.data();
+                bilateralFilterCuda.runBilateralFilteringWithUShort( depth_arg.data,
+                                                                     reinterpret_cast<const unsigned*>( rgb24.data ),
+                                                                     /*reinterpret_cast<ushort*>(&cFilteredDepth[0])*/ tmp,
+                                                                     depth_arg.cols, depth_arg.rows,
+                                                                     1.f, .1f, 4 );
+                // create new depth pointer
+                cFilteredDepthPtr.cols = depth_arg.cols;
+                cFilteredDepthPtr.rows = depth_arg.rows;
+                cFilteredDepthPtr.step = depth_arg.step;
+                cFilteredDepthPtr.data = &cFilteredDepth[0];
+            }
+
             // upload depth
-            depth_device_.upload (depth.data, depth.step, depth.rows, depth.cols);
+            depth_device_.upload (cFilteredDepthPtr.data, cFilteredDepthPtr.step, cFilteredDepthPtr.rows, cFilteredDepthPtr.cols);
             // upload rgb
-            if (integrate_colors_)
+            if ( integrate_colors_ )
                 image_view_.colors_device_.upload (rgb24.data, rgb24.step, rgb24.rows, rgb24.cols);
 
             // run Kinfu
@@ -437,14 +460,14 @@ namespace am
                     has_image = kinfu_ (depth_device_);
             }
 
-            image_view_.showDepth (depth);
+            image_view_.showDepth ( cFilteredDepthPtr );
             //image_view_.showGeneratedDepth(kinfu_, kinfu_.getCameraPose());
         }
 
         if (scan_)
         {
             scan_ = false;
-            scene_cloud_view_.show (kinfu_, integrate_colors_);
+            scene_cloud_view_.show ( kinfu_, integrate_colors_ );
 
             if (scan_volume_)
             {
@@ -461,7 +484,7 @@ namespace am
                 cout << "[!] tsdf volume download is disabled" << endl << endl;
         }
 
-        if (scan_mesh_)
+        if ( scan_mesh_ )
         {
             scan_mesh_ = false;
             scene_cloud_view_.showMesh(kinfu_, integrate_colors_);
@@ -469,12 +492,12 @@ namespace am
 
         if ( has_image && (scene_cloud_view_.cloud_viewer_) )
         {
-            Eigen::Affine3f viewer_pose = getViewerPose(*scene_cloud_view_.cloud_viewer_);
+            Eigen::Affine3f viewer_pose = getViewerPose( *scene_cloud_view_.cloud_viewer_ );
             image_view_.showScene (kinfu_, rgb24, registration_, independent_camera_ ? &viewer_pose : 0);
         }
 
         if (current_frame_cloud_view_)
-            current_frame_cloud_view_->show (kinfu_);
+            current_frame_cloud_view_->show ( kinfu_ );
 
         if ( (!independent_camera_) &&
              (scene_cloud_view_.cloud_viewer_) /*aron:my addition */
@@ -484,7 +507,7 @@ namespace am
         // save screenshots and poses
         if ( dump_poses_ )
         {
-            screenshot_manager_.saveImage( kinfu_.getCameraPose(), rgb24, depth );
+            screenshot_manager_.saveImage( kinfu_.getCameraPose(), rgb24, cFilteredDepthPtr );
         }
     }
 
@@ -512,17 +535,17 @@ namespace am
         {
             boost::unique_lock<boost::mutex> lock(data_ready_mutex_);
 
-            if (!triggered_capture)
+            if ( !triggered_capture )
                 capture_.start (); // Start stream
 
-            bool scene_view_not_stopped= viz_ ? !scene_cloud_view_.cloud_viewer_->wasStopped () : true;
-            bool image_view_not_stopped= viz_ ? !image_view_.viewerScene_->wasStopped () : true;
+            bool scene_view_not_stopped = viz_ ? !scene_cloud_view_.cloud_viewer_->wasStopped () : true;
+            bool image_view_not_stopped = viz_ ? !image_view_.viewerScene_->wasStopped () : true;
 
             int latest_has_data_frame = 0;
             int frame_count = 0;
-            while (!exit_ && scene_view_not_stopped && image_view_not_stopped)
+            while ( !exit_ && scene_view_not_stopped && image_view_not_stopped )
             {
-                if (triggered_capture)
+                if ( triggered_capture )
                     capture_.start(); // Triggers new frame
                 bool has_data = data_ready_cond_.timed_wait (lock, boost::posix_time::millisec(100));
 
@@ -554,11 +577,11 @@ namespace am
         c.disconnect();
     }
 
-
     int
     mainKinfuApp (int argc, char* argv[])
     {
-        if (pc::find_switch (argc, argv, "--help") || pc::find_switch (argc, argv, "-h"))
+        if ( pc::find_switch (argc, argv, "--help") ||
+             pc::find_switch (argc, argv, "-h"    )    )
             return print_cli_help ();
 
         int device = 0;
@@ -576,19 +599,19 @@ namespace am
         std::string eval_folder, match_file, openni_device, oni_file, pcd_dir;
         try
         {
-            if (pc::parse_argument (argc, argv, "-dev", openni_device) > 0)
+                 if (pc::parse_argument (argc, argv, "-dev" , openni_device) > 0)
             {
                 capture.reset (new pcl::OpenNIGrabber (openni_device));
             }
-            else if (pc::parse_argument (argc, argv, "-oni", oni_file) > 0)
+            else if (pc::parse_argument (argc, argv, "-oni" , oni_file     ) > 0)
             {
                 triggered_capture = true;
                 bool repeat = false; // Only run ONI file once
-                std::cout << "oni: " << oni_file << std::endl;
+                std::cout << "trying to read oni: " << oni_file << "...";
                 capture.reset (new pcl::ONIGrabber (oni_file, repeat, ! triggered_capture));
-                std::cout << "finished reading oni..." << std::endl;
+                std::cout << "YES, will use oni as input source..." << std::endl;
             }
-            else if (pc::parse_argument (argc, argv, "-pcd", pcd_dir) > 0)
+            else if (pc::parse_argument (argc, argv, "-pcd" , pcd_dir      ) > 0)
             {
                 float fps_pcd = 15.0f;
                 pc::parse_argument (argc, argv, "-pcd_fps", fps_pcd);
@@ -599,7 +622,7 @@ namespace am
                 sort (pcd_files.begin (), pcd_files.end ());
                 capture.reset (new pcl::PCDGrabber<pcl::PointXYZ> (pcd_files, fps_pcd, false));
             }
-            else if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
+            else if (pc::parse_argument (argc, argv, "-eval", eval_folder  ) > 0)
             {
                 //init data source latter
                 pc::parse_argument (argc, argv, "-match_file", match_file);
@@ -618,17 +641,17 @@ namespace am
         catch (const pcl::PCLException& /*e*/) { return cout << "Can't open depth source" << endl, -1; }
 
         float volume_size = 3.f;
-        pc::parse_argument (argc, argv, "-volume_size", volume_size);
+        pc::parse_argument ( argc, argv, "-volume_size", volume_size );
 
         int icp = 1, visualization = 0;
-        pc::parse_argument (argc, argv, "--icp", icp);
-        pc::parse_argument (argc, argv, "--viz", visualization);
-        std::cout << "visualisation: " << (visualization ? "yes" : "no") << std::endl;
+        pc::parse_argument ( argc, argv, "--icp", icp );
+        pc::parse_argument ( argc, argv, "--viz", visualization );
+        std::cout << "Visualisation: " << (visualization ? "yes" : "no") << std::endl;
 
         std::string outFileName = "cloud";
-        pc::parse_argument (argc, argv, "-out", outFileName );
+        pc::parse_argument ( argc, argv, "-out", outFileName );
 
-        KinFuApp app (*capture, volume_size, icp, visualization);
+        KinFuApp app ( *capture, volume_size, icp, visualization );
 
         if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
             app.toggleEvaluationMode(eval_folder, match_file);
@@ -660,12 +683,16 @@ namespace am
         catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
         catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
 
-        std::cout << "writing..." << std::endl;
-        app.writeCloud ( nsKinFuApp::PLY, outFileName );
-        app.writeMesh ( nsKinFuApp::MESH_PLY, outFileName );
-        //app.writeCloud ( nsKinFuApp::PCD_BIN, outFileName );
-        app.saveTSDFVolume( outFileName );
-
+        // save computations to files
+        {
+            std::string path = util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
+            xnOSCreateDirectory( path.c_str() );
+            std::cout << "writing to " << path << "..." << std::endl;
+            app.writeCloud    ( nsKinFuApp::PLY     , path+"cloud" );
+            app.writeMesh     ( nsKinFuApp::MESH_PLY, path+"cloud" );
+            app.saveTSDFVolume( path + "cloud" );
+            app.writeCloud ( nsKinFuApp::PCD_BIN, path+outFileName );
+        }
 #ifdef HAVE_OPENCV
         for (size_t t = 0; t < app.image_view_.views_.size (); ++t)
         {
