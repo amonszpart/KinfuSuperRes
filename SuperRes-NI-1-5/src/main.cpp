@@ -284,7 +284,7 @@ struct MyPlayer
 {
         bool showIR  = false;
         bool showRgb = false;
-        bool showDep8 = true;
+        bool showDep8 = false;
         bool showIrAndRgb = true;
         bool showDep16AndRgb = true;
         bool showOffset = false;
@@ -383,8 +383,8 @@ struct MyPlayer
 
             // init windows
             cv::namedWindow( CROSS_WINDOW_NAME );
-            cv::createTrackbar( "cross_gaussian_delta", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
-            cv::createTrackbar( "cross_eucledian_delta", CROSS_WINDOW_NAME, &cross_eucledian_delta.slider, cross_eucledian_delta.slider_max, on_cross_eucledian_delta_trackbar );
+            cv::createTrackbar( "cross_gaussian_delta (0..5.0)", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
+            cv::createTrackbar( "cross_eucledian_delta (0..1.0)", CROSS_WINDOW_NAME, &cross_eucledian_delta.slider, cross_eucledian_delta.slider_max, on_cross_eucledian_delta_trackbar );
             cv::createTrackbar( "cross_filter_range", CROSS_WINDOW_NAME, &cross_filter_range.slider, cross_filter_range.slider_max, on_cross_filter_range_trackbar );
             /*cv::namedWindow( CROSS_WINDOW_NAME );
             cv::createTrackbar( "cross_gaussian_delta", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
@@ -481,12 +481,12 @@ struct MyPlayer
                     static BilateralFilterCuda<float> bfc;
                     bfc.runBilateralFiltering( mapped16, rgb8, filtered_mats["crossFiltered16"],
                                                cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );
-                    cv::Mat crossFiltered8;
-                    filtered_mats["crossFiltered16"].convertTo( crossFiltered8, CV_8UC1, 255.f / 10001.f );
-                    cv::imshow( CROSS_WINDOW_NAME, crossFiltered8 );
+                    filtered_mats["crossFiltered16"].convertTo( filtered_mats["crossFiltered8"], CV_8UC1, 255.f / 10001.f );
+                    cv::imshow( CROSS_WINDOW_NAME, filtered_mats["crossFiltered8"] );
                 }
 
                 // diff
+                cv::Mat fMapped16;
                 {
                     cv::Mat fMapped16;
                     mapped16.convertTo( fMapped16, CV_32FC1, 1.f / 10001.f );
@@ -497,6 +497,13 @@ struct MyPlayer
                     cv::Mat diff;
                     cv::absdiff( fMapped16, fFiltered, diff );
                     cv::imshow( "absdiff(crossFiltered16,mapped16)", diff );
+                }
+
+                // gradient
+                {
+                   cv::Mat edges;
+                    cv::Canny( filtered_mats["crossFiltered8"], edges, .2f, .3f );
+                    cv::imshow( "edges", edges );
                 }
 
                 // IR8 + RGB8
@@ -546,7 +553,11 @@ struct MyPlayer
                 }
 
                 // Key Input
-                c = cv::waitKey( 300 );
+                if ( irGenerator.IsGenerating() )
+                    c = cv::waitKey( 300 );
+                else
+                    c = cv::waitKey( 10 );
+
                 switch ( c )
                 {
                     case 32:
@@ -635,7 +646,7 @@ void on_contrast_beta_trackbar( int, void* )
 
 void on_cross_gaussian_delta_trackbar( int, void* )
 {
-    myPlayer.cross_gaussian_delta.value = (double) myPlayer.cross_gaussian_delta.slider / myPlayer.cross_gaussian_delta.slider_max ;
+    myPlayer.cross_gaussian_delta.value = (double) myPlayer.cross_gaussian_delta.slider / myPlayer.cross_gaussian_delta.slider_max * 5.;
 }
 
 void on_cross_eucledian_delta_trackbar( int, void* )
