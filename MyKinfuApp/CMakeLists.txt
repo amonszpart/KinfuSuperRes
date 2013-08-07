@@ -44,7 +44,10 @@ SET( MY_INCLUDES
     ${OPENNI_INCLUDE}
     ${PCL_LOC}/include/pcl-1.7
     ${PCL_LOC}/include/pcl-1.7/pcl/visualization
+    ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/
 )
+
+Message( STATUS ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
 
 # LIBRARIES
 SET( MY_LIBRARIES
@@ -93,6 +96,7 @@ SET( KINFU_HEADERS_LIST
     src/kinfu/tools/image_view.h
     src/kinfu/tools/kinfu_util.h
     src/kinfu/tools/my_screenshot_manager.h
+    src/kinfu/src/internal.h
     #src/kinfu/tools/openni_capture.h
 )
 SET( HEADERS_LIST
@@ -100,6 +104,7 @@ SET( HEADERS_LIST
     src/util/XnVUtil.h
     src/myopenni/MyONIGrabber.h
     src/myopenni/MyOpenNIGrabber.h
+    src/kinfu/AMKinfuTracker.h
     ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
     ../BilateralFilteringCuda/src/BilateralFilterCuda.hpp
     ${KINFU_HEADERS_LIST}
@@ -121,6 +126,7 @@ SET( SRC_LIST src/main.cpp
               src/util/MaUtil.cpp
               src/myopenni/MyONIGrabber.cpp
               src/myopenni/MyOpenNIGrabber.cpp
+              src/kinfu/AMKinfuTracker.cpp
               ${KINFU_SRC_LIST}
 )
 
