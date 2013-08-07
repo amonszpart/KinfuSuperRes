@@ -41,6 +41,7 @@ main (int argc, char* argv[] )
 #if 1
     //--viz 0 -oni /home/amonszpart/cpp_projects/SuperRes-NI-1-5/build/out/imgs_20130701_1440/recording_push.oni
     //--viz 0 -oni /home/amonszpart/cpp_projects/SuperRes-NI-1-5/build/out/imgs_20130701_1627/recording_push.oni
+    // -oni ~/rec/troll_recordings/keyboard_imgs_20130701_1440/recording_push.oni -out ~/rec/testing/keyboard_cross_nomap -ic --eval ~/rec/testing/eval --viz 1
     std::cout << "running main.cpp" << std::endl;
     return am::mainKinfuApp( argc, argv );
 #endif

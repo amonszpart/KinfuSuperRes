@@ -76,7 +76,7 @@ namespace am
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     KinFuApp::KinFuApp(pcl::Grabber& source, float vsz, int icp, int viz)
         : exit_ (false), scan_ (false), scan_mesh_(false), scan_volume_ (false), independent_camera_ (false),
-          registration_ (false), integrate_colors_ (false), dump_poses_ (false), focal_length_(-1.f), capture_ (source), scene_cloud_view_(viz), image_view_(viz), time_ms_(0), icp_(icp), viz_(viz)
+          registration_ (false), integrate_colors_ (false), dump_poses_ (false), focal_length_(-1.f), capture_ (source), scene_cloud_view_(viz), image_view_(viz), rgb_view_(viz), time_ms_(0), icp_(icp), viz_(viz)
     {
         //Init Kinfu Tracker
         Eigen::Vector3f volume_size = Vector3f::Constant (vsz/*meters*/);
@@ -311,7 +311,7 @@ namespace am
         if ( !scene_cloud_view_.marching_cubes_ )
             scene_cloud_view_.marching_cubes_ = MarchingCubes::Ptr( new MarchingCubes() );
 
-        DeviceArray<PointXYZ> triangles_device = scene_cloud_view_.marching_cubes_->run(kinfu_.volume(), scene_cloud_view_.triangles_buffer_device_);
+        DeviceArray<PointXYZ> triangles_device = scene_cloud_view_.marching_cubes_->run( kinfu_.volume(), scene_cloud_view_.triangles_buffer_device_ );
         scene_cloud_view_.mesh_ptr_ = convertToMesh( triangles_device );
     }
 
@@ -421,8 +421,26 @@ namespace am
 
         std::vector<ushort> cFilteredDepth;
         PtrStepSz<const unsigned short> cFilteredDepthPtr;
+        cv::Mat rgbMat640;
+        std::vector<uchar> rgb640;
         if (has_data)
         {
+            // resize rgb
+            {
+                const cv::Mat rgbMat1280( rgb24.rows, rgb24.cols, CV_8UC3, const_cast<uchar*>(reinterpret_cast<const uchar*>(&rgb24[0])) );
+                cv::resize( rgbMat1280, rgbMat640, cv::Size(depth_arg.cols,depth_arg.rows), 0, 0, CV_INTER_LANCZOS4 );
+                rgb640.resize( rgbMat640.cols * rgbMat640.rows * rgbMat640.channels() );
+                int offset = 0;
+                for ( int y = 0; y < rgbMat640.rows; ++y, offset += rgbMat640.cols * rgbMat640.channels() * sizeof(uchar) )
+                {
+                    memcpy( &rgb640[offset], rgbMat640.ptr<cv::Vec3b>(y,0), rgbMat640.cols * rgbMat640.channels() * sizeof(uchar) );
+                }
+                //rgbMat640.copyTo( rgb640 );
+                //rgb640 = cv::Mat_<uchar>( rgbMat640.reshape(1, rgbMat640.cols * rgbMat640.rows) );
+                //unsigned* rgb640 = reinterpret_cast<unsigned*>(.data);
+                //cv::cvtColor (cv::Mat (480, 640, CV_8UC3, (void*)&view_host_[0]), views_.back (), CV_RGB2GRAY);
+            }
+
             // prefilter
             {
                 // prepare data holder
@@ -432,10 +450,10 @@ namespace am
                 static BilateralFilterCuda<float> bilateralFilterCuda;
                 unsigned short* tmp = cFilteredDepth.data();
                 bilateralFilterCuda.runBilateralFilteringWithUShort( depth_arg.data,
-                                                                     reinterpret_cast<const unsigned*>( rgb24.data ),
+                                                                     reinterpret_cast<const unsigned*>( &rgb640[0] ),
                                                                      /*reinterpret_cast<ushort*>(&cFilteredDepth[0])*/ tmp,
                                                                      depth_arg.cols, depth_arg.rows,
-                                                                     1.f, .1f, 4 );
+                                                                     .38f, .21f, 4 );
                 // create new depth pointer
                 cFilteredDepthPtr.cols = depth_arg.cols;
                 cFilteredDepthPtr.rows = depth_arg.rows;
@@ -461,7 +479,10 @@ namespace am
             }
 
             image_view_.showDepth ( cFilteredDepthPtr );
+            //if (viz_)
+            //    image_view_.viewerScene_->showRGBImage (reinterpret_cast<const unsigned char*> (rgb24.data), rgb24.cols, rgb24.rows );
             //image_view_.showGeneratedDepth(kinfu_, kinfu_.getCameraPose());
+            rgb_view_.viewerScene_->showRGBImage( rgb640.data(), depth_arg.cols, depth_arg.rows );
         }
 
         if (scan_)
@@ -683,6 +704,7 @@ namespace am
         catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
         catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
 
+# if 0
         // save computations to files
         {
             std::string path = util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
@@ -691,8 +713,9 @@ namespace am
             app.writeCloud    ( nsKinFuApp::PLY     , path+"cloud" );
             app.writeMesh     ( nsKinFuApp::MESH_PLY, path+"cloud" );
             app.saveTSDFVolume( path + "cloud" );
-            app.writeCloud ( nsKinFuApp::PCD_BIN, path+outFileName );
+            app.writeCloud ( nsKinFuApp::PCD_BIN, path+"cloud" );
         }
+#endif
 #ifdef HAVE_OPENCV
         for (size_t t = 0; t < app.image_view_.views_.size (); ++t)
         {
