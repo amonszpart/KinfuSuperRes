@@ -15,7 +15,7 @@ if(TROLL)
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
 else(TROLL) # Ubul
-    SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/build/install )
+    SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     SET(OPENNI_INCLUDE /usr/include/ni)
