@@ -12,6 +12,7 @@
 #include <helper_math.h>
 #include <helper_functions.h>
 #include <helper_cuda.h>       // CUDA device initialization helper functions
+#include "BilateralFilterCuda.hpp"
 
 /*
     Perform a simple bilateral filter.
@@ -441,7 +442,7 @@ template<> float fetchTexture<ushort>( int x, int y )
  */
 template <typename T>
 __global__ void
-d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r )
+d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r, bool onlyZeros = false )
 {
     int x = blockIdx.x*blockDim.x + threadIdx.x;
     int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -454,18 +455,28 @@ d_cross_bilateral_filterF( T *od, int w, int h, float e_d, int r )
     float sum = 0.0f;
     float factor;
     float t = 0.f;
-    float4 center = tex2D( guideTex, x, y );
+    float4 guideCenter = tex2D( guideTex, x, y );
+    T      centerPix   = fetchTexture<T>( x, y );
+
+    // check for early exit
+    if ( onlyZeros && (centerPix != 0.f) )
+    {
+        od[y * w + x] = centerPix;
+        return;
+    }
 
     for ( int i = -r; i <= r; ++i )
     {
         for ( int j = -r; j <= r; ++j )
         {
-            T curPix        = fetchTexture<T>( x+j, y+i ); //tex2D( *texRefPtr, x + j, y + i );
-            float4 guidePix = tex2D( guideTex, x + j, y + i );
+            T curPix = fetchTexture<T>( x+j, y+i ); //tex2D( *texRefPtr, x + j, y + i );
             if ( curPix == 0.f )
                 continue;
+
+            float4 guidePix = tex2D( guideTex, x + j, y + i );
+
             factor = cGaussian[i + r] * cGaussian[j + r] *     // domain factor
-                     euclideanLen( guidePix, center, e_d );    // range factor
+                     euclideanLen( guidePix, guideCenter, e_d );    // range factor
 
             t   += factor * curPix;
             sum += factor;
@@ -514,7 +525,7 @@ double crossBilateralFilterF( T *dDest,
                               T *dImage, T *dTemp, uint pitch,
                               uint *dGuide, uint guidePitch,
                               int width, int height,
-                              float e_d, int radius, int iterations,
+                              float e_d, int radius, int iterations, unsigned char fillOnlyZeros,
                               StopWatchInterface *timer
                               )
 {
@@ -541,7 +552,7 @@ double crossBilateralFilterF( T *dDest,
     }
 
     // work
-    for (int i=0; i<iterations; i++)
+    for ( int i = 0; i < iterations; ++i )
     {
         // sync host and start kernel computation timer
         dKernelTime = 0.0;
@@ -550,7 +561,13 @@ double crossBilateralFilterF( T *dDest,
 
         dim3 gridSize((width + 16 - 1) / 16, (height + 16 - 1) / 16);
         dim3 blockSize(16, 16);
-        d_cross_bilateral_filterF<<< gridSize, blockSize>>>( dDest, width, height, e_d, radius );
+        d_cross_bilateral_filterF<<< gridSize, blockSize>>>( dDest,
+                                                             width, height,
+                                                             e_d, radius,
+                                                             /* fillOnlyZeros: */ (fillOnlyZeros == FILL_ALL) ? false :
+                                                                                         ( fillOnlyZeros == FILL_ONLY_ZEROS ? true : (i>0) )
+                                                                                                                );
+
 
         // sync host and stop computation timer
         checkCudaErrors(cudaDeviceSynchronize());
@@ -562,7 +579,8 @@ double crossBilateralFilterF( T *dDest,
             checkCudaErrors(cudaMemcpy2D(dTemp, pitch, dDest, sizeof(T)*width,
                                          sizeof(T)*width, height, cudaMemcpyDeviceToDevice));
 
-            checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, cudaCreateChannelDesc<T>(), width, height, pitch));
+            //checkCudaErrors(cudaBindTexture2D(0, rgbaTex, dTemp, cudaCreateChannelDesc<T>(), width, height, pitch));
+            checkCudaErrors( cudaBindTexture2D(&offset, texRefPtr, dTemp, &descT, width, height, pitch) );
         }
     }
 
@@ -576,7 +594,7 @@ template double crossBilateralFilterF( float *dDest,
                                        float *dImage, float *dTemp, uint pitch,
                                        unsigned *dGuide, unsigned guidePitch,
                                        int width, int height,
-                                       float e_d, int radius, int iterations,
+                                       float e_d, int radius, int iterations, unsigned char fillOnlyZeros,
                                        StopWatchInterface *timer );
 
 #if 0 // Not implemented yet...

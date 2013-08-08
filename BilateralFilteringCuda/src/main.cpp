@@ -60,14 +60,14 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
 {
     cv::imshow( "img16", img16 );
 
-    cv::Mat bFiltered16;
+    /*cv::Mat bFiltered16;
     BilateralFilterCuda<float> bilateralFilterCuda;
     bilateralFilterCuda.runBilateralFiltering( img16, cv::Mat(), bFiltered16 );
-    cv::imshow( "bfiltered16", bFiltered16 );
+    cv::imshow( "bfiltered16", bFiltered16 );*/
 
     cv::Mat cFiltered16;
     BilateralFilterCuda<float> crossBilateralFilterCuda;
-    crossBilateralFilterCuda.runBilateralFiltering( bFiltered16, guide, cFiltered16 );
+    crossBilateralFilterCuda.runBilateralFiltering( img16, guide, cFiltered16 );
     cv::imshow( "cbfiltered16", cFiltered16 );
 
     cv::Mat filtered8;

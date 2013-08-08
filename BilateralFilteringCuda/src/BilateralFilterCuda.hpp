@@ -78,9 +78,15 @@ extern double crossBilateralFilterF( T *dDest,
                                      T *dImage, T *dTemp, uint pitch,
                                      unsigned *dGuide, unsigned guidePitch,
                                      int width, int height,
-                                     float e_d, int radius, int iterations,
+                                     float e_d, int radius, int iterations, unsigned char fillOnlyZeros,
                                      StopWatchInterface *timer
                                      );
+
+enum {
+    FILL_ALL,                 // run on all pixels
+    FILL_ALL_THEN_FILL_ZEROS, // run on all pixels, then zeros only, requires m_iterations to be more than 1
+    FILL_ONLY_ZEROS           // run on zero pixels only
+};
 
 template <typename T>
 class BilateralFilterCuda
@@ -100,21 +106,24 @@ class BilateralFilterCuda
 
         void setGaussianParameters( float gaussian_delta, int filter_radius );
 
+        void setIterations( int iter ) { m_iterations = iter; }
+
     private:
         float               m_gaussian_delta;
         float               m_euclidean_delta;
         int                 m_filter_radius;
         StopWatchInterface  *m_kernel_timer;
         int                 m_iterations;
+        unsigned char       m_fill_only_zeros;
 
-        GpuDepthMap<T>         m_dDep16;
-        GpuDepthMap<T>         m_dTemp, m_dFiltered;
+        GpuDepthMap<T>      m_dDep16;
+        GpuDepthMap<T>      m_dTemp, m_dFiltered;
         GpuImage            m_dGuide;
 };
 
 template <typename T>
 BilateralFilterCuda<T>::BilateralFilterCuda()
-    : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1)
+    : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1), m_fill_only_zeros( FILL_ALL_THEN_FILL_ZEROS )
 {
     this->setGaussianParameters( m_gaussian_delta, m_filter_radius );
     sdkCreateTimer( &m_kernel_timer );
@@ -258,7 +267,8 @@ void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const
                                   m_dDep16.Get(), m_dTemp.Get(), m_dDep16.GetPitch(),
                                   m_dGuide.Get(), m_dGuide.GetPitch(),
                                   m_dDep16.GetWidth(), m_dDep16.GetHeight(),
-                                  m_euclidean_delta, m_filter_radius, m_iterations, m_kernel_timer );
+                                  m_euclidean_delta, m_filter_radius, m_iterations, m_fill_only_zeros,
+                                  m_kernel_timer );
     }
 
     // copy output from device
@@ -268,6 +278,7 @@ void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const
     }
 
 }
+
 
 
 #endif //__BILATERAL_FILTER_CUDA_H

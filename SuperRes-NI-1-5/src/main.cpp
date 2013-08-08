@@ -270,6 +270,8 @@ void on_contrast_beta_trackbar( int, void* );
 void on_cross_gaussian_delta_trackbar( int, void* );
 void on_cross_eucledian_delta_trackbar( int, void* );
 void on_cross_filter_range_trackbar( int, void* );
+void on_cross_filter_iterations_trackbar( int, void* );
+
 
 struct MyTrackbar
 {
@@ -289,6 +291,7 @@ struct MyPlayer
         bool showDep16AndRgb = true;
         bool showOffset = false;
         bool altViewPoint = false;
+        bool showGuided = false;
 
         int alpha_slider = 367;
         int alpha_slider_max = 500;
@@ -298,10 +301,11 @@ struct MyPlayer
         float beta  = 0.f;
 
         // "crossFiltered8"
-        const char *CROSS_WINDOW_NAME = "crossFiltered8";
-        MyTrackbar cross_gaussian_delta  = MyTrackbar( 100, 500, 1.f );
-        MyTrackbar cross_eucledian_delta = MyTrackbar( 100, 1000, .1f );
-        MyTrackbar cross_filter_range    = MyTrackbar( 2, 50, 2 );
+        const char *CROSS_WINDOW_NAME      = "crossFiltered8";
+        MyTrackbar cross_gaussian_delta    = MyTrackbar( 100, 500, 1.f );
+        MyTrackbar cross_eucledian_delta   = MyTrackbar( 100, 1000, .1f );
+        MyTrackbar cross_filter_range      = MyTrackbar( 2, 50, 2 );
+        MyTrackbar cross_filter_iterations = MyTrackbar( 1, 10, 1 );
         // "crossFiltered8"
         const char *BIL_WINDOW_NAME     = "bilFiltered8";
         MyTrackbar bil_gaussian_delta   = MyTrackbar( 100, 500, 1.f );
@@ -386,6 +390,8 @@ struct MyPlayer
             cv::createTrackbar( "cross_gaussian_delta (0..5.0)", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
             cv::createTrackbar( "cross_eucledian_delta (0..1.0)", CROSS_WINDOW_NAME, &cross_eucledian_delta.slider, cross_eucledian_delta.slider_max, on_cross_eucledian_delta_trackbar );
             cv::createTrackbar( "cross_filter_range", CROSS_WINDOW_NAME, &cross_filter_range.slider, cross_filter_range.slider_max, on_cross_filter_range_trackbar );
+            cv::createTrackbar( "cross_filter_iterations", CROSS_WINDOW_NAME, &cross_filter_iterations.slider, cross_filter_iterations.slider_max, on_cross_filter_iterations_trackbar );
+
             /*cv::namedWindow( CROSS_WINDOW_NAME );
             cv::createTrackbar( "cross_gaussian_delta", CROSS_WINDOW_NAME, &cross_gaussian_delta.slider, cross_gaussian_delta.slider_max, on_cross_gaussian_delta_trackbar );
             cv::createTrackbar( "cross_eucledian_delta", CROSS_WINDOW_NAME, &cross_eucledian_delta.slider, cross_eucledian_delta.slider_max, on_cross_eucledian_delta_trackbar );
@@ -395,21 +401,25 @@ struct MyPlayer
             while ( (!xnOSWasKeyboardHit()) && (c != 27) )
             {
                 // read DEPTH
-                nRetVal = context.WaitOneUpdateAll( depthGenerator );
-                if (nRetVal != XN_STATUS_OK)
                 {
-                    printf("UpdateData failed: %s\n", xnGetStatusString(nRetVal));
-                    continue;
+                    nRetVal = context.WaitOneUpdateAll( depthGenerator );
+                    if (nRetVal != XN_STATUS_OK)
+                    {
+                        printf("UpdateData failed: %s\n", xnGetStatusString(nRetVal));
+                        continue;
+                    }
+
+                    if ( depthGenerator.IsGenerating() )
+                        util::nextDepthToMats( depthGenerator, &dep8, &dep16 );
                 }
 
-                if ( depthGenerator.IsGenerating() )
-                    util::nextDepthToMats( depthGenerator, &dep8, &dep16 );
-
+                // read RGB
                 if ( imageGenerator.IsGenerating() )
                 {
                     util::nextImageAsMat ( imageGenerator, &rgb8 );
                 }
 
+                // read IR
                 if ( irGenerator.IsGenerating() )
                 {
                     std::cout << "fetching ir..." << std::endl;
@@ -418,6 +428,7 @@ struct MyPlayer
                 }
 
 #if 1
+                // read IR and RGB
                 if ( showIrAndRgb && irGenerator.IsGenerating() )
                 {
                     std::cout << "fetching ir...";
@@ -439,31 +450,29 @@ struct MyPlayer
 
                     util::nextImageAsMat ( imageGenerator, &rgb8 );
                 }
-#else
-                //cv::Mat mapped16;
-                //toImageSpace( dep16, mapped16, prismKinect );
-                //imshow( "mapped16", mapped16 );
 #endif
 
                 // Distribute
-                TMatDict filtered_mats;
+                TMatDict mats;
 
-                if ( showIR && !ir8.empty() )
-                {
-                    //cv::Mat ir8adjusted;
-                    ir8.convertTo( ir8, ir8.type(), alpha, beta );
-                    //cv::medianBlur( ir8, ir8, 3);
-                    imshow("ir8", ir8 );
-                    std::cout << "ir8 showed..." << std::endl;
-                }
-                if ( showRgb && !rgb8.empty() )
-                {
-                    imshow("img8", rgb8 );
-                }
+                // show Depth8
                 if ( showDep8 && !dep8.empty() )
                 {
                     imshow("dep8", dep8 );
-                    std::cout << "dep8 showed..." << std::endl;
+                }
+
+                // show RGB
+                if ( showRgb && !rgb8.empty() )
+                {
+                    imshow("rgb8", rgb8 );
+                }
+
+                // show IR
+                if ( showIR && !ir8.empty() )
+                {
+                    ir8.convertTo( ir8, ir8.type(), alpha, beta );
+                    //cv::medianBlur( ir8, ir8, 3);
+                    imshow("ir8", ir8 );
                 }
 
                 // mapping
@@ -478,32 +487,96 @@ struct MyPlayer
                 // filtering
                 //cv::Mat crossFiltered16;
                 {
-                    static BilateralFilterCuda<float> bfc;
-                    bfc.runBilateralFiltering( mapped16, rgb8, filtered_mats["crossFiltered16"],
-                                               cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );
-                    filtered_mats["crossFiltered16"].convertTo( filtered_mats["crossFiltered8"], CV_8UC1, 255.f / 10001.f );
-                    cv::imshow( CROSS_WINDOW_NAME, filtered_mats["crossFiltered8"] );
+                    if ( !showGuided )
+                    {
+                        // crossFiltering
+                        static BilateralFilterCuda<float> bfc;
+                        bfc.setIterations( cross_filter_iterations.value );
+                        bfc.runBilateralFiltering( mapped16, rgb8, mats["crossFiltered16"],
+                                cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );
+                        mats["crossFiltered16"].convertTo( mats["crossFiltered8"], CV_8UC1, 255.f / 10001.f );
+                        cv::imshow( CROSS_WINDOW_NAME, mats["crossFiltered8"] );
+                    }
+                    else
+                    {
+#if 0
+                        // guided filtering
+                        cv::Mat rgb8Gray;
+                        // convert img
+                        cv::cvtColor( rgb8, rgb8Gray, CV_RGB2GRAY );
+
+                        Filtering::guidedFilterSrc1Guidance1( mapped8, rgb8Gray, mats["crossFiltered8"], 0.005, 8 );
+                        mats["crossFiltered8"].convertTo( mats["crossFiltered16"], CV_16UC1, 10001.f / 255.f );
+                        cv::imshow( CROSS_WINDOW_NAME, mats["crossFiltered8"] );
+                        cv::imshow( "guided16", mats["crossFiltered16"] );
+
+                        //cv::Mat fGuided255;
+                        //mats["fGuided"].convertTo( fGuided255, CV_8UC1 );
+                        //cv::imshow( "fGuided255", fGuided255 );
+
+                        //cv::Mat x1;
+                        //cv::addWeighted( rgb8Gray, .5, fGuided255, .5, .0, x1, CV_8UC1 );
+                        //cv::imshow( "overlay(rgb,guided)", x1 );
+#endif
+                    }
                 }
 
-                // diff
+
+                // diff filtered
                 cv::Mat fMapped16;
                 {
                     cv::Mat fMapped16;
                     mapped16.convertTo( fMapped16, CV_32FC1, 1.f / 10001.f );
 
                     cv::Mat fFiltered;
-                    filtered_mats["crossFiltered16"].convertTo( fFiltered, CV_32FC1, 1.f / 10001.f );
+                    mats["crossFiltered16"].convertTo( fFiltered, CV_32FC1, 1.f / 10001.f );
 
                     cv::Mat diff;
                     cv::absdiff( fMapped16, fFiltered, diff );
                     cv::imshow( "absdiff(crossFiltered16,mapped16)", diff );
                 }
 
-                // gradient
+                // gradient filtered
                 {
-                   cv::Mat edges;
-                    cv::Canny( filtered_mats["crossFiltered8"], edges, .2f, .3f );
-                    cv::imshow( "edges", edges );
+                    cv::Mat edgesX, edgesY, edgesMapped8, edgesCrossFiltered8;
+
+                    // canny mapped8
+                    cv::Canny( mapped8, edgesMapped8, .01f, .3f );
+                    cv::imshow( "Canny(Mapped16)", edgesMapped8 );
+
+                    // canny cross8
+                    cv::Canny( mats["crossFiltered8"], edgesCrossFiltered8, .01f, .3f );
+                    cv::imshow( "Canny(crossFiltered16)", edgesCrossFiltered8 );
+
+                    // sobel
+                    /*cv::Sobel( mats["crossFiltered8"], edgesX, mats["crossFiltered8"].type(), 1, 0 );
+                    cv::Sobel( mats["crossFiltered8"], edgesY, mats["crossFiltered8"].type(), 0, 1 );
+                    cv::addWeighted( edgesX, 0.5, edgesY, 0.5, 0, edges );*/
+
+                    // diff
+                    cv::Mat diff;
+                    cv::absdiff( edgesMapped8, edgesCrossFiltered8, diff );
+                    cv::imshow( "absdiff(edgesMapped8,edgesCrossFiltered8)", diff );
+                }
+
+                // guided filtering
+                {
+                    cv::Mat rgb8Gray, fGuided;
+                    // convert img
+                    cv::cvtColor( rgb8, rgb8Gray, CV_RGB2GRAY );
+
+                    Filtering::guidedFilterSrc1Guidance1( mapped8, rgb8Gray, fGuided, 0.005, 8 );
+                    //mats["crossFiltered8"].convertTo( mats["crossFiltered16"], CV_16UC1, 10001.f / 255.f );
+                    //cv::imshow( CROSS_WINDOW_NAME, mats["crossFiltered8"] );
+                    //cv::imshow( "guided16", mats["crossFiltered16"] );
+
+                    cv::Mat fGuided255;
+                    fGuided.convertTo( fGuided255, CV_8UC1 );
+                    cv::imshow( "fGuided255", fGuided255 );
+
+                    cv::Mat x1;
+                    cv::addWeighted( rgb8Gray, .5, fGuided255, .5, .0, x1, CV_8UC1 );
+                    cv::imshow( "overlay(rgb,guided)", x1 );
                 }
 
                 // IR8 + RGB8
@@ -520,9 +593,6 @@ struct MyPlayer
                 {
                     std::vector<cv::Mat> rgb8s;
                     cv::split( rgb8, rgb8s );
-                    //cv::Mat mapped8C3;
-                    //cv::merge( (std::vector<cv::Mat>){mapped8, mapped8, mapped8}, mapped8C3 );
-                    //cv::addWeighted( mapped8C3, .5, rgb8, .5, 0., dep8AndRgb );
                     cv::merge( (std::vector<cv::Mat>){rgb8s[0]*0.8f,rgb8s[1]*0.8f, mapped8 * 2.f}, dep8AndRgb );
                     imshow( "dep8AndRgb", dep8AndRgb );
                     std::cout << "dep8AndRgb showed..." << std::endl;
@@ -532,24 +602,23 @@ struct MyPlayer
                 if ( showOffset && g_ir.IsGenerating() && !ir8.empty() && !dep8.empty() )
                 {
                     std::cout << "starting irAndDep8" << std::endl;
-                    //overlay<uchar,uchar>( dep8, ir8, irAndDep8, 255, 255, .1f );
-                    cv::merge( (std::vector<cv::Mat>{dep8/2,dep8/2,ir8*10}), filtered_mats["irAndDep8"] );
+                    cv::merge( (std::vector<cv::Mat>{dep8/2,dep8/2,ir8*10}), mats["irAndDep8"] );
                     std::cout << "finished irAndDep8" << std::endl;
-                    imshow( "irAndDep8", filtered_mats["irAndDep8"] );
+                    imshow( "irAndDep8", mats["irAndDep8"] );
 
                     cv::Mat offsIr, offsDep8;
                     ir8.colRange(4,ir8.cols-4).copyTo( offsIr );
                     dep8.colRange(0,dep8.cols-8).copyTo( offsDep8 );
-                    cv::merge( (std::vector<cv::Mat>{offsDep8/2,offsDep8/2,offsIr*10}), filtered_mats["offsIrAndDep8"] );
+                    cv::merge( (std::vector<cv::Mat>{offsDep8/2,offsDep8/2,offsIr*10}), mats["offsIrAndDep8"] );
                     std::cout << "showed offsIrAndDep8" << std::endl;
-                    imshow( "offsIrAndDep8", filtered_mats["offsIrAndDep8"] );
+                    imshow( "offsIrAndDep8", mats["offsIrAndDep8"] );
 
                     cv::Mat offs2Ir, offs2Dep8;
                     ir8.colRange(8,ir8.cols).copyTo( offs2Ir );
                     dep8.colRange(0,dep8.cols-8).copyTo( offs2Dep8 );
-                    cv::merge( (std::vector<cv::Mat>{offs2Dep8/2,offs2Dep8/2,offs2Ir*10}), filtered_mats["offs2IrAndDep8"] );
+                    cv::merge( (std::vector<cv::Mat>{offs2Dep8/2,offs2Dep8/2,offs2Ir*10}), mats["offs2IrAndDep8"] );
                     std::cout << "showed offs2IrAndDep8" << std::endl;
-                    imshow( "offs2IrAndDep8", filtered_mats["offs2IrAndDep8"] );
+                    imshow( "offs2IrAndDep8", mats["offs2IrAndDep8"] );
                 }
 
                 // Key Input
@@ -562,7 +631,7 @@ struct MyPlayer
                 {
                     case 32:
                         {
-                            for ( auto it = filtered_mats.begin(); it != filtered_mats.end(); ++it )
+                            for ( auto it = mats.begin(); it != mats.end(); ++it )
                             {
                                 am::CvImageDumper::Instance().dump( it->second, it->first, false );
                             }
@@ -602,6 +671,9 @@ struct MyPlayer
                         break;
                     case 'a':
                         toggleAltViewpoint();
+                        break;
+                    case 'g':
+                        showGuided = !showGuided;
                         break;
 
                     case 's':
@@ -659,6 +731,10 @@ void on_cross_filter_range_trackbar( int, void* )
     myPlayer.cross_filter_range.value = myPlayer.cross_filter_range.slider;
 }
 
+void on_cross_filter_iterations_trackbar( int, void* )
+{
+    myPlayer.cross_filter_iterations.value = myPlayer.cross_filter_iterations.slider;
+}
 
 #define Yang 1
 int testFiltering()
