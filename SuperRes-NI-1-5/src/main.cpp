@@ -638,6 +638,8 @@ struct MyPlayer
 
                             am::CvImageDumper::Instance().dump( dep8,        "dep8",        false, "pgm" );
                             am::CvImageDumper::Instance().dump( dep16,       "dep16",       false, "pgm" );
+                            am::CvImageDumper::Instance().dump( dep16,       "dep16",       false, "png" );
+                            am::CvImageDumper::Instance().dump( mapped16,    "mapped16",    false, "png" );
                             am::CvImageDumper::Instance().dump( rgb8,        "img8",        false );
                             am::CvImageDumper::Instance().dump( ir8,         "ir8",         false );
                             am::CvImageDumper::Instance().dump( dep8AndRgb, "dep8AndRgb", false );
@@ -858,8 +860,114 @@ int testFiltering()
     cv::waitKey(0);
 }
 
+int testCostVolume()
+{
+    char c = 0;
+
+    std::string path = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130808_1944/";
+    cv::Mat dep16 = cv::imread( path + "mapped16_00000000.png", cv::IMREAD_UNCHANGED );
+    cv::Mat rgb8 = cv::imread( path + "img8_00000000.png", cv::IMREAD_UNCHANGED );
+
+    cv::imshow( "dep16", dep16 );
+    cv::imshow( "img8", rgb8 );
+
+    // crossFiltering
+    static BilateralFilterCuda<float> bfc;
+    /*bfc.runBilateralFiltering( mapped16, rgb8, mats["crossFiltered16"],
+            cross_gaussian_delta.value, cross_eucledian_delta.value, cross_filter_range.value );*/
+    cv::Mat dep8;
+    dep16.convertTo( dep8, CV_8UC1, 255.f / 10001.f );
+
+
+    cv::Mat &dep = dep8;
+    cv::Mat fDep; dep.convertTo( fDep, CV_32FC1 );
+    cv::Mat fDep_next( dep.rows, dep.cols, CV_32FC1 );
+
+    double maxVal;
+    cv::minMaxIdx( dep, 0, &maxVal );
+    std::cout << "max: " << maxVal << std::endl;
+    const int L = 10;
+
+    cv::Mat C    ( cv::Mat::zeros(dep.rows, dep.cols, CV_32FC1) ),
+            C2   ( cv::Mat::zeros(dep.rows, dep.cols, CV_32FC1) ),
+            minC ( dep.rows, dep.cols, CV_32FC1 ); minC.setTo( maxVal * maxVal );
+    cv::Mat minDs( dep.rows, dep.cols, CV_32FC1 );
+
+    for ( int d = 0; d < maxVal + L + 1; ++d )
+    {
+        std::cout << d << std::endl;
+        cv::absdiff( fDep, d, C );
+        cv::multiply( C, C, C2 );
+
+        bfc.runBilateralFiltering( C2, rgb8, C2, .4f, .08f, 3 );
+        cv::imshow( "C2", C2 / 65536.f );
+
+        minC = cv::min( minC, C2 );
+        cv::Mat minMask;
+        cv::compare( minC, C2, minMask, CV_CMP_EQ );
+        minDs.setTo( d, minMask );
+
+        c = cv::waitKey(10);
+        if ( c == 27 )
+            break;
+    }
+    cv::imshow( "minC" , minC / 65536.f );
+    cv::imshow( "minDs", minDs );
+
+    /// calculate costs of neighbour depths
+    cv::Mat ftmp( dep.rows, dep.cols, CV_32FC1 );
+    // d_-
+    cv::Mat d_m1( dep.rows, dep.cols, CV_32FC1 );
+    cv::subtract( minDs, 1.f, d_m1, cv::Mat(), CV_32FC1 );
+    // d_+
+    cv::Mat d_p1( dep.rows, dep.cols, CV_32FC1 );
+    cv::add( minDs, 1.f, d_p1, cv::Mat(), CV_32FC1 );
+
+    // f(d_-)
+    cv::Mat f_d_m1;//( dep.rows, dep.cols, CV_32FC1 );
+    cv::absdiff( fDep, d_m1, ftmp );
+    cv::multiply( ftmp, ftmp, f_d_m1 );
+    // f(d_+)
+    cv::Mat f_d_p1( dep.rows, dep.cols, CV_32FC1 );
+    cv::absdiff( fDep, d_p1, ftmp );
+    cv::multiply( ftmp, ftmp, f_d_p1 );
+
+    /// subpixel
+    cv::Mat a1 = ( f_d_p1 - f_d_m1 );
+    cv::Mat a2 = ( 2.f * (f_d_p1 + f_d_m1 - 2.f * minC) );
+    cv::Mat a3 = a1 / a2;
+    a3.convertTo( a3, CV_32FC1 );
+
+    cv::subtract( minDs, a3, fDep_next, cv::Mat(), CV_32FC1 );
+    //fDep_next = minDs - a3;
+
+    /*fDep_next = minDs -
+                (
+                    ( f_d_p1 - f_d_m1 )
+                    /
+                    ( 2.f * (f_d_p1 + f_d_m1 - 2.f * minC) )
+                );*/
+
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( fDep_next, &minVal, &maxVal );
+        std::cout << "minVal(fDep_next): " << minVal << ", "
+                  << "maxVal(fDep_next): " << maxVal << std::endl;
+    }
+
+    cv::imshow( "fDep_next", fDep_next / 255.f );
+
+    while ( c != 27 )
+    {
+        c = cv::waitKey();
+    }
+
+    return EXIT_SUCCESS;
+}
+
 int main( int argc, char* argv[] )
 {
+    return testCostVolume();
     //MyCVPlayer::run();
     //return 0;
 

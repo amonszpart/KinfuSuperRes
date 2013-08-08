@@ -51,6 +51,16 @@ void updateGaussian( float delta, int radius );
  * @param radius        Filter radius
  * @param iterations    Number of iterations
 */
+template <typename T>
+extern
+double crossBilateralFilterF( T *dDest,                uint destPitch,
+                              T *dImage, T *dTemp, uint imagePitch,
+                              uint  *dGuide,               uint guidePitch,
+                              //float *dCostVolume,          uint costVolumePitch,
+                              cudaExtent volumeSize,
+                              float e_d, int radius, int iterations, unsigned char fillOnlyZeros,
+                              StopWatchInterface *timer );
+
 extern "C"
 double bilateralFilterRGBA( unsigned *dDest,
                             int width, int height,
@@ -73,15 +83,6 @@ double crossBilateralFilterRGBA( unsigned *dDest,
                                  float e_d, int radius, int iterations,
                                  StopWatchInterface *timer
                                  );
-template <typename T>
-extern double crossBilateralFilterF( T *dDest,
-                                     T *dImage, T *dTemp, uint pitch,
-                                     unsigned *dGuide, unsigned guidePitch,
-                                     int width, int height,
-                                     float e_d, int radius, int iterations, unsigned char fillOnlyZeros,
-                                     StopWatchInterface *timer
-                                     );
-
 enum {
     FILL_ALL,                 // run on all pixels
     FILL_ALL_THEN_FILL_ZEROS, // run on all pixels, then zeros only, requires m_iterations to be more than 1
@@ -94,8 +95,8 @@ class BilateralFilterCuda
     public:
         BilateralFilterCuda();
 
-        void runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
-                                    float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 );
+        void runBilateralFiltering(cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
+                                    float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 , float max = 10001.f );
         void runBilateralFilteringWithUShort( unsigned short const* const& in, unsigned const* const& guide, short unsigned int* & out,
                                               unsigned width, unsigned height,
                                               float gaussian_delta, float eucledian_delta, int filter_radius );
@@ -115,15 +116,18 @@ class BilateralFilterCuda
         StopWatchInterface  *m_kernel_timer;
         int                 m_iterations;
         unsigned char       m_fill_only_zeros;
+        uint                m_cost_volume_z_dim;
 
         GpuDepthMap<T>      m_dDep16;
         GpuDepthMap<T>      m_dTemp, m_dFiltered;
+        GpuDepthMap<float>  m_dCostVolume;
         GpuImage            m_dGuide;
 };
 
 template <typename T>
 BilateralFilterCuda<T>::BilateralFilterCuda()
-    : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1), m_fill_only_zeros( FILL_ALL_THEN_FILL_ZEROS )
+    : m_gaussian_delta(2.f), m_euclidean_delta( .1f ), m_filter_radius(2), m_iterations(1), m_fill_only_zeros( FILL_ALL_THEN_FILL_ZEROS ),
+      m_cost_volume_z_dim( 1 )
 {
     this->setGaussianParameters( m_gaussian_delta, m_filter_radius );
     sdkCreateTimer( &m_kernel_timer );
@@ -141,22 +145,35 @@ void BilateralFilterCuda<T>::setGaussianParameters( float gaussian_delta, int fi
 // U16 -> float -> run -> float -> U16
 template <typename T>
 void BilateralFilterCuda<T>::runBilateralFiltering( cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
-                                                    float gaussian_delta, float eucledian_delta, int filter_radius )
+                                                    float gaussian_delta, float eucledian_delta, int filter_radius,
+                                                    float max )
 {
     // empty - check input content
     if ( in.empty() )
         return;
 
     // type - check input type
-    if ( in.type() != CV_16UC1 )
+    /*if ( in.type() != CV_16UC1 )
     {
         std::cerr << "BilateralFilterCuda::runBilateralFiltering input is expected to be CV_16UC1 with max 10001.f...exiting..." << std::endl;
         return;
-    }
+    }*/
 
     // in
     T *inData = NULL;
-    cv2Continuous32FC1<ushort,T>( in, inData, 1.f / 10001.f );
+    if ( in.type() == CV_16UC1 )
+    {
+        cv2Continuous32FC1<ushort,T>( in, inData, 1.f / max );
+    }
+    else if ( in.type() == CV_32FC1 )
+    {
+        cv2Continuous32FC1<float,T>( in, inData, 1.f / max );
+    }
+    else
+    {
+        std::cerr << "runBilateralFiltering unrecognized input type...exiting" << std::endl;
+        return;
+    }
 
     // guide
     unsigned *guideData = NULL;
@@ -174,9 +191,9 @@ void BilateralFilterCuda<T>::runBilateralFiltering( cv::Mat const& in, cv::Mat c
     // out
     {
         cv::Mat cvTmp;
-        continuous2Cv32FC1<T>( outData, cvTmp, in.rows, in.cols, 10001.f );
+        continuous2Cv32FC1<T>( outData, cvTmp, in.rows, in.cols, max );
 
-        cvTmp.convertTo( out, CV_16UC1 );
+        cvTmp.convertTo( out, in.type() );
     }
 
     // cleanup
@@ -237,6 +254,7 @@ void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const
     {
         m_dDep16.Create( DEPTH_MAP_TYPE_FLOAT, width, height );
         m_dTemp .Create( DEPTH_MAP_TYPE_FLOAT, width, height );
+        //m_dCostVolume.Create( DEPTH_MAP_TYPE_FLOAT, width, height * m_cost_volume_z_dim );
 
         m_dDep16.CopyDataIn( in );
     }
@@ -245,6 +263,7 @@ void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const
     if ( guide )
     {
         m_dGuide.Create( IMAGE_TYPE_XRGB32, width, height);
+
 
         m_dGuide.CopyDataIn( guide );
     }
@@ -263,10 +282,13 @@ void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const
     }
     else
     {
-        crossBilateralFilterF<T>( m_dFiltered.Get(),
-                                  m_dDep16.Get(), m_dTemp.Get(), m_dDep16.GetPitch(),
-                                  m_dGuide.Get(), m_dGuide.GetPitch(),
-                                  m_dDep16.GetWidth(), m_dDep16.GetHeight(),
+
+        cudaExtent volumeSize = make_cudaExtent( m_dDep16.GetWidth(), m_dDep16.GetHeight(), m_cost_volume_z_dim );
+        crossBilateralFilterF<T>( m_dFiltered  .Get(),           m_dFiltered  .GetPitch(),
+                                  m_dDep16.Get(), m_dTemp.Get(), m_dDep16     .GetPitch(),
+                                  m_dGuide     .Get(),           m_dGuide     .GetPitch(),
+                                  //m_dCostVolume.Get(),           m_dCostVolume.GetPitch(),
+                                  volumeSize,
                                   m_euclidean_delta, m_filter_radius, m_iterations, m_fill_only_zeros,
                                   m_kernel_timer );
     }
