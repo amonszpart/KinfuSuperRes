@@ -8,6 +8,9 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <string>
+#include <fstream>
+#include <iostream>
+
 
 /* ----------------------------------------
  * DEFINES
@@ -21,6 +24,7 @@ typedef unsigned char uchar;
 #include "XnVUtil.h"
 
 #define scUC(a) static_cast<unsigned char>(a)
+#define SQR(a) (a*a)
 
 /* ----------------------------------------
  * TEMPLATES
@@ -108,6 +112,25 @@ namespace util
 
     void CopyCvImgToDouble( cv::Mat const& cvImg, double**& img );
     void CopyDoubleToCvImage( double** const& img, unsigned h, unsigned w, cv::Mat & cvImg );
+
+    template <typename T>
+    void writeCvMat2MFile( cv::Mat const& mx, std::string const& path, std::string const& matVarName )
+    {
+        std::ofstream myfile;
+        myfile.open ( path.c_str() );
+        myfile << matVarName << " = [ ..." << std::endl;
+        for ( unsigned r = 0U; r < mx.rows; ++r )
+        {
+            for ( unsigned c = 0U; c < mx.cols; ++c )
+            {
+                myfile << mx.at<T>(r,c) << ", ";
+            }
+            myfile << ";" << std::endl;
+        }
+        myfile << " ]; ";
+        myfile.close();
+        std::cout << "write2MFile( " << path << " ) finished" << std::endl;
+    }
 }
 
 #endif // UTIL_H

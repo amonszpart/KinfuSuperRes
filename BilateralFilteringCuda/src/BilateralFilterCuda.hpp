@@ -108,6 +108,7 @@ class BilateralFilterCuda
         void setGaussianParameters( float gaussian_delta, int filter_radius );
 
         void setIterations( int iter ) { m_iterations = iter; }
+        void setFillMode( uchar fill_mode ) { m_fill_only_zeros = fill_mode; }
 
     private:
         float               m_gaussian_delta;

@@ -31,7 +31,19 @@ namespace am
         std::cout << "img: " << img.cols << "x" << img.rows << std::endl;
         char name[256];
         sprintf( name, ("%s/%s_%08d." + extension).c_str(), outputPath.c_str(), title.c_str(), frameID );
-        cv::imwrite( name, img );
+        std::vector<int> imwrite_params;
+
+        if ( extension == "png" )
+        {
+            imwrite_params.push_back( cv::IMWRITE_PNG_COMPRESSION );
+            imwrite_params.push_back( 0 );
+        }
+        else if ( (extension == "jpg") || (extension == "jpeg") )
+        {
+            imwrite_params.push_back( cv::IMWRITE_JPEG_QUALITY );
+            imwrite_params.push_back( 100 );
+        }
+        cv::imwrite( name, img, imwrite_params);
 
         std::cout << "dumped " << name << "..." << std::endl;
 

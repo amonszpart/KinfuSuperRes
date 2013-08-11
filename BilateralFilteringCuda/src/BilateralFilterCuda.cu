@@ -78,6 +78,16 @@ __device__ float euclideanLen(float4 a, float4 b, float d)
     return __expf(-mod / (2.f * d * d));
 }
 
+__device__ float yangRangeDist( float4 a, float4 b, float d )
+{
+
+    float mod = ( fabs(b.x - a.x) +
+                  fabs(b.y - a.y) +
+                  fabs(b.z - a.z)  ) / 3.f;
+
+    return __expf(-mod / d);
+}
+
 __device__ float euclideanLen( float a, float b, float d )
 {
 
@@ -122,14 +132,15 @@ __device__ float4 rgbaIntToFloat(uint c)
              (total filter size = 2 * radius + 1)
 */
 extern "C"
-void updateGaussian(float delta, int radius)
+void updateGaussian( float delta, int radius )
 {
     float  fGaussian[64];
 
-    for (int i = 0; i < 2*radius + 1; ++i)
+    for ( int i = 0; i < 2*radius + 1; ++i )
     {
         float x = i-radius;
-        fGaussian[i] = expf(-(x*x) / (2*delta*delta));
+        fGaussian[i] = expf(-(x*x) / (2*delta*delta)); // orig
+        //fGaussian[i] = expf(-(x*x) / (2*delta*delta));   // Yang?
     }
 
     checkCudaErrors(cudaMemcpyToSymbol(cGaussian, fGaussian, sizeof(float)*(2*radius+1)));
@@ -202,30 +213,31 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
     }
 
     // estimate cost volume
-
-        for ( int i = -r; i <= r; ++i )
+    for ( int i = -r; i <= r; ++i )
+    {
+        for ( int j = -r; j <= r; ++j )
         {
-            for ( int j = -r; j <= r; ++j )
-            {
-                // read depth
-                T curPix = fetchTexture<T>( x+j, y+i );
-                // skip, if no data
-                if ( curPix == 0.f )
-                    continue;
+            // read depth
+            T curPix = fetchTexture<T>( x+j, y+i );
 
-                // read rgb
-                float4 guidePix = tex2D( guideTex, x + j, y + i );
+            // skip, if no data
+            if ( onlyZeros && curPix == 0.f )
+                continue;
 
-                // estimate weight
-                factor = cGaussian[i + r] * cGaussian[j + r] *       // spatial factor
-                         euclideanLen( guidePix, guideCenter, e_d ); // range   factor
+            // read rgb
+            float4 guidePix = tex2D( guideTex, x + j, y + i );
 
-                // accumulate
-                t   += factor * curPix;
-                sum += factor;
-            }
+            // estimate weight
+            factor = cGaussian[i + r] * cGaussian[j + r] *       // spatial factor
+                     //expf( -sqrt(i*i+j*j) / e_d ) *
+                     yangRangeDist( guidePix, guideCenter, e_d ); // range   factor
+
+            // accumulate
+            t   += factor * curPix;
+            sum += factor;
         }
-        dOut[y * outPitch + x] = t / sum;
+    }
+    dOut[y * outPitch + x] = t / sum;
 }
 
 /*
