@@ -43,7 +43,8 @@
 #include <pcl/pcl_macros.h>
 #include <pcl/point_types.h>
 #include <pcl/gpu/containers/device_array.h>
-#include <pcl/gpu/kinfu/pixel_rgb.h>
+//#include <pcl/gpu/kinfu/pixel_rgb.h>
+#include "pixel_rgb.h"
 #include <boost/shared_ptr.hpp>
 #include <Eigen/Geometry>
 

@@ -84,7 +84,10 @@ writePolygonMeshFile (int format, const pcl::PolygonMesh& mesh, std::string file
 boost::shared_ptr<pcl::PolygonMesh> convertToMesh(const DeviceArray<PointXYZ>& triangles)
 {
     if (triangles.empty())
+    {
+        std::cerr << "kinfu_util::convertToMesh(): triangles empty...returning null..." << std::endl;
         return boost::shared_ptr<pcl::PolygonMesh>();
+    }
 
     pcl::PointCloud<pcl::PointXYZ> cloud;
     cloud.width  = (int)triangles.size();

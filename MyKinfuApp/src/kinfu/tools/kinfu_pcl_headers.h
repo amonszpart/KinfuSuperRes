@@ -6,9 +6,14 @@
 
 #include <boost/filesystem.hpp>
 
-#include <pcl/gpu/kinfu/kinfu.h>
-#include <pcl/gpu/kinfu/raycaster.h>
-#include <pcl/gpu/kinfu/marching_cubes.h>
+// from MyKinfuTracker/include
+#include "kinfu.h"
+#include "raycaster.h"
+#include "marching_cubes.h"
+
+//#include <pcl/gpu/kinfu/kinfu.h>
+//#include <pcl/gpu/kinfu/raycaster.h>
+//#include <pcl/gpu/kinfu/marching_cubes.h>
 #include <pcl/gpu/containers/initialization.h>
 
 #include <pcl/common/time.h>

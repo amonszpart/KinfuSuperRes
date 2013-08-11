@@ -39,7 +39,8 @@
 #include <algorithm>
 
 #include <pcl/common/time.h>
-#include <pcl/gpu/kinfu/kinfu.h>
+//#include <pcl/gpu/kinfu/kinfu.h>
+#include "kinfu.h"
 #include "internal.h"
 
 #include <Eigen/Core>

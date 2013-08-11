@@ -4,8 +4,6 @@
 #include <pcl/PolygonMesh.h>
 #include <vector_types.h> // cuda-5.0
 
-
-
 namespace am
 {
 
@@ -76,8 +74,11 @@ namespace am
         //  cloud_viewer_->addPolygonMesh(*mesh_ptr);
 
         // save mesh
-        pcl::io::savePLYFile( path + "_mesh.ply", *mesh_ptr );
-        std::cout << "saved mesh in " << path + "_mesh.ply" << std::endl;
+        if ( mesh_ptr.get() != NULL )
+        {
+            pcl::io::savePLYFile( path + "_mesh.ply", *mesh_ptr );
+            std::cout << "saved mesh in " << path + "_mesh.ply" << std::endl;
+        }
 
     }
 

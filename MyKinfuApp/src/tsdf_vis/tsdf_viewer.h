@@ -1,8 +1,9 @@
 #ifndef TSDF_VIEWER_H
 #define TSDF_VIEWER_H
 
-#include <pcl/gpu/kinfu/kinfu.h>
-#include <pcl/gpu/kinfu/marching_cubes.h>
+//#include <pcl/gpu/kinfu/kinfu.h>
+#include "kinfu.h"
+#include "marching_cubes.h"
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include "../kinfu/tools/tsdf_volume.h"
