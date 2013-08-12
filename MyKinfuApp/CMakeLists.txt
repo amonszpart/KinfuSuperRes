@@ -166,8 +166,10 @@ SET( SRC_LIST
 )
 
 ### INCLUDES
+SET(MYKINFU TRUE)
+
 IF(MYKINFU)
-    SET( KINFU_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}"/../MyKinfuTracker/include/" )
+    SET( KINFU_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/include/" )
     #INCLUDE_DIRECTORIES( "../MyKinfuTracker/include/" )
 ELSE(MYKINFU)
     SET( KINFU_INCLUDE ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
