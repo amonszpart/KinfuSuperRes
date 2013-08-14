@@ -44,10 +44,9 @@ SET( MY_INCLUDES
     ${OPENNI_INCLUDE}
     ${PCL_LOC}/include/pcl-1.7
     ${PCL_LOC}/include/pcl-1.7/pcl/visualization
-    ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/
+    #${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/
+    #src/kinfu/include/pcl/gpu/kinfu/
 )
-
-Message( STATUS ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
 
 # LIBRARIES
 SET( MY_LIBRARIES
@@ -55,7 +54,6 @@ SET( MY_LIBRARIES
     ${PCL_LOC}/lib/libpcl_common.so
     ${PCL_LOC}/lib/libpcl_io.so
     ${PCL_LOC}/lib/libpcl_visualization.so
-    ${PCL_LOC}/lib/libpcl_gpu_kinfu.so
     ${PCL_LOC}/lib/libpcl_gpu_containers.so
     OpenNI
     boost_system
@@ -64,28 +62,59 @@ SET( MY_LIBRARIES
     vtkCommon
     vtkFiltering
     vtkRendering
+    ${CUDA_PATH}/lib64/libcudart.so
 )
 
 #############################################################################################
 
-add_subdirectory( src/calibration )
+#add_subdirectory( src/calibration )
 
 ############## MY_KINFU_APP ##############
 
-
-# BilateralFilteringCuda
+####################
+### BilateralFilteringCuda
 add_library ( imp_bilFilCuda STATIC IMPORTED)
 set_property( TARGET imp_bilFilCuda PROPERTY
-              IMPORTED_LOCATION ../../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
 
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
 
-SET( MY_LIBRARIES ${MY_LIBRARIES}
-                  ${CUDA_PATH}/lib64/libcudart.so )
+####################
+
+####################
+### MyKinfuTracker
+
+add_library ( libMyKinfuTracker STATIC IMPORTED)
+set_property( TARGET libMyKinfuTracker PROPERTY
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/build/libMyKinfuTracker.a )
+
+#INCLUDE_DIRECTORIES( "../MyKinfuTracker/include/" )
+#INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+
+####################
+
+#SET( KINFU_TRACKER_Hs
+#    src/kinfu/include/pcl/gpu/kinfu/color_volume.h
+#    src/kinfu/include/pcl/gpu/kinfu/tsdf_volume.h
+#    src/kinfu/include/pcl/gpu/kinfu/marching_cubes.h
+#    src/kinfu/include/pcl/gpu/kinfu/pixel_rgb.h
+#    src/kinfu/include/pcl/gpu/kinfu/raycaster.h
+#    src/kinfu/include/pcl/gpu/kinfu/kinfu.h
+#    src/kinfu/src/safe_call.hpp
+#)
+#SET( KINFU_TRACKER_CPPs
+#    src/kinfu/src/color_volume.cpp
+#    src/kinfu/src/tsdf_volume.cpp
+#    src/kinfu/src/marching_cubes.cpp
+#    src/kinfu/src/raycaster.cpp
+#    src/kinfu/src/kinfu.cpp
+#)
+
+####################
 
 
-# HEADERS
+### HEADERS
 SET( KINFU_HEADERS_LIST
     src/kinfu/tools/kinfu_pcl_headers.h
     src/kinfu/tools/evaluation.h
@@ -96,21 +125,11 @@ SET( KINFU_HEADERS_LIST
     src/kinfu/tools/image_view.h
     src/kinfu/tools/kinfu_util.h
     src/kinfu/tools/my_screenshot_manager.h
-    src/kinfu/src/internal.h
+    #src/kinfu/src/internal.h
     #src/kinfu/tools/openni_capture.h
 )
-SET( HEADERS_LIST
-    src/util/MaUtil.h
-    src/util/XnVUtil.h
-    src/myopenni/MyONIGrabber.h
-    src/myopenni/MyOpenNIGrabber.h
-    src/kinfu/AMKinfuTracker.h
-    ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
-    ../BilateralFilteringCuda/src/BilateralFilterCuda.hpp
-    ${KINFU_HEADERS_LIST}
-)
 
-# SRC
+### SRC
 SET( KINFU_SRC_LIST
     src/kinfu/tools/kinfu_app.cpp
     #src/kinfu/tools/capture.cpp
@@ -120,51 +139,61 @@ SET( KINFU_SRC_LIST
     src/kinfu/tools/image_view.cpp
     src/kinfu/tools/kinfu_util.cpp
     src/kinfu/tools/my_screenshot_manager.cpp
+    src/kinfu/mainKinfuApp.cpp
 )
 
-SET( SRC_LIST src/main.cpp
-              src/util/MaUtil.cpp
-              src/myopenni/MyONIGrabber.cpp
-              src/myopenni/MyOpenNIGrabber.cpp
-              src/kinfu/AMKinfuTracker.cpp
-              ${KINFU_SRC_LIST}
-)
-
-# INCLUDES
-INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
-
-# EXECUTABLE
-ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
-
-# LINK
-TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} imp_bilFilCuda)
-
-############## TSDF_VIS ##############
-
-SET( TSDF_VIS_NAME "TSDFVis" )
-
-SET( HEADER_LIST
-    src/kinfu/tools/tsdf_volume.h
-    src/kinfu/tools/tsdf_volume.hpp
-    src/kinfu/tools/kinfu_util.h
-    src/tsdf_vis/tsdf_viewer.h
-    src/tsdf_vis/my_pcd_viewer.h
-
+### MA
+SET( HEADERS_LIST
+    ${KINFU_TRACKER_Hs}
+    ${KINFU_HEADERS_LIST}
+    src/util/MaUtil.h
+    src/util/XnVUtil.h
+    src/myopenni/MyONIGrabber.h
+    src/myopenni/MyOpenNIGrabber.h
+    #src/kinfu/AMKinfuTracker.h
+    ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
+    ../BilateralFilteringCuda/src/BilateralFilterCuda.hpp
 )
 
 SET( SRC_LIST
-    src/kinfu/tools/kinfu_util.cpp
-    src/tsdf_vis/main.cpp
-    src/tsdf_vis/tsdf_viewer.cpp
-    src/tsdf_vis/my_pcd_viewer.cpp
+    ${KINFU_TRACKER_CPPs}
+    ${KINFU_SRC_LIST}
+    src/main.cpp
+    src/util/MaUtil.cpp
+    src/myopenni/MyONIGrabber.cpp
+    src/myopenni/MyOpenNIGrabber.cpp
+    #src/kinfu/AMKinfuTracker.cpp
 )
 
-# INCLUDES
-INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
+### INCLUDES
+SET(MYKINFU TRUE)
 
-# EXECUTABLE
-ADD_EXECUTABLE( ${TSDF_VIS_NAME} ${SRC_LIST} ${HEADERS_LIST} )
+IF(MYKINFU)
+    SET( KINFU_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/include/" )
+    #INCLUDE_DIRECTORIES( "../MyKinfuTracker/include/" )
+ELSE(MYKINFU)
+    SET( KINFU_INCLUDE ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
+    #INCLUDE_DIRECTORIES( ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
+ENDIF(MYKINFU)
 
-# LINK
-TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME} ${MY_LIBRARIES} )
+INCLUDE_DIRECTORIES( ${KINFU_INCLUDE} ${MY_INCLUDES} )
 
+### EXECUTABLE
+ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
+
+### LINK
+TARGET_LINK_LIBRARIES( ${PROJECT_NAME} imp_bilFilCuda )
+
+IF(MYKINFU)
+    SET( KINFU_LIB libMyKinfuTracker )
+    #TARGET_LINK_LIBRARIES( ${PROJECT_NAME} libMyKinfuTracker )
+ELSE(MYKINFU)
+    SET( KINFU_LIB ${PCL_LOC}/lib/libpcl_gpu_kinfu.so )
+    #TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${PCL_LOC}/lib/libpcl_gpu_kinfu.so )
+ENDIF(MYKINFU)
+
+TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${KINFU_LIB} ${MY_LIBRARIES} )
+
+############## TSDF_VIS ##############
+
+add_subdirectory( src/tsdf_vis )

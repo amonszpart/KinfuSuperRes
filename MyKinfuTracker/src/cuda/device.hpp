@@ -42,7 +42,7 @@
 //#include <pcl/gpu/utils/device/vector_math.hpp>
 #include "utils.hpp" //temporary reimplementing to release kinfu without pcl_gpu_utils
 
-#include "internal.h"
+#include "../internal.h"
 
 namespace pcl
 {

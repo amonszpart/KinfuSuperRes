@@ -35,8 +35,9 @@
 *
 */
 
-#include <pcl/gpu/kinfu/kinfu.h>
-#include <pcl/gpu/kinfu/marching_cubes.h>
+//#include <pcl/gpu/kinfu/kinfu.h>
+#include "kinfu.h"
+#include "marching_cubes.h"
 #include "internal.h"
 
 using namespace pcl;

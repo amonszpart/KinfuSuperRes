@@ -40,10 +40,15 @@
 
 #include <pcl/pcl_macros.h>
 #include <pcl/gpu/containers/device_array.h>
-#include <pcl/gpu/kinfu/pixel_rgb.h>
-#include <pcl/gpu/kinfu/tsdf_volume.h>
-#include <pcl/gpu/kinfu/color_volume.h>
-#include <pcl/gpu/kinfu/raycaster.h>
+//#include <pcl/gpu/kinfu/pixel_rgb.h>
+//#include <pcl/gpu/kinfu/tsdf_volume.h>
+//#include <pcl/gpu/kinfu/color_volume.h>
+//#include <pcl/gpu/kinfu/raycaster.h>
+#include "pixel_rgb.h"
+#include "tsdf_volume.h"
+#include "color_volume.h"
+#include "raycaster.h"
+
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <Eigen/Core>
