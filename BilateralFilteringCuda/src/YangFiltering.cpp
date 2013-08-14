@@ -149,7 +149,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
 
         // write
         std::vector<int> imwrite_params;
-        imwrite_params.push_back( cv::IMWRITE_PNG_COMPRESSION );
+        imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
         imwrite_params.push_back( 0 );
         cv::imwrite( title, dep_out, imwrite_params );
 
