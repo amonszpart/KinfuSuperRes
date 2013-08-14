@@ -4,6 +4,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+////
+/// Defines
+////
+
 #ifndef SAFE_DELETE
 #   define SAFE_DELETE(a) if ( a ) { delete a; a = NULL; }
 #endif //SAFE_DELETE
@@ -16,7 +20,37 @@
 #   define SAFE_DELETE_ARRAY(a) if ( a ) { delete [] a; a = NULL; }
 #endif //SAFE_DELETE_ARRAY
 
+////
+/// Classes
+////
+
+template <typename T>
+struct WeakDeviceMemory
+{
+    T* ptr;
+    int h,w;
+    size_t pitch;
+};
+
+////
+/// CUDA
+////
+
+template <typename T>
+extern void runSetKernel2D( T* memory, T value, unsigned width, unsigned height );
+
+////
+/// Functions
+////
+
 void cv2Continuous8UC4( cv::Mat const& img, unsigned*& hImg, unsigned width, unsigned height, float alpha = 255.f / 10001.f );
+
+// per row
+
+void fromContinuousFloat( float* const& ptr, cv::Mat & out );
+void toContinuousFloat( cv::Mat const& a, float*& ptr );
+
+// per pixel
 
 template <typename inT, typename outT>
 void cv2Continuous32FC1( cv::Mat const& in, outT*& out, float alpha = 1.f / 10001.f )

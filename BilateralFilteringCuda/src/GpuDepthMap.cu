@@ -1,6 +1,6 @@
 // http://www.cl.cam.ac.uk/research/rainbow/projects/dcbgrid/DCBGrid-preprint.pdf
 
-#include "GpuDepthMap.h"
+#include "GpuDepthMap.hpp"
 #include "AmCudaHelper.cuh"
 #include "helper_cuda.h"
 //#include "CudaHelperCommon.cuh"

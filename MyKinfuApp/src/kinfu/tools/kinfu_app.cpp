@@ -75,7 +75,8 @@ namespace am
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     KinFuApp::KinFuApp(pcl::Grabber& source, float vsz, int icp, int viz)
         : exit_ (false), scan_ (false), scan_mesh_(false), scan_volume_ (false), independent_camera_ (false),
-          registration_ (false), integrate_colors_ (false), dump_poses_ (false), focal_length_(-1.f), capture_ (source), scene_cloud_view_(viz), image_view_(viz), rgb_view_(viz), time_ms_(0), icp_(icp), viz_(viz)
+          registration_ (false), integrate_colors_ (false), dump_poses_ (false), focal_length_(-1.f), capture_ (source),
+          scene_cloud_view_(viz), image_view_(viz), rgb_view_(viz), time_ms_(0), icp_(icp), viz_(viz)
     {
         //Init Kinfu Tracker
         Eigen::Vector3f volume_size = Vector3f::Constant (vsz/*meters*/);

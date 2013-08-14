@@ -49,3 +49,38 @@ void cv2Continuous8UC4(cv::Mat const& img, unsigned*& hImg, unsigned width, unsi
     width  = img.cols;
     height = img.rows;
 }
+
+void toContinuousFloat( cv::Mat const& a, float*& ptr )
+{
+    if ( a.type() != CV_32FC1 )
+    {
+        std::cerr << "MyThrustUtil::toContinuousFloat CV32FC1 required...exiting" << std::endl;
+        return;
+    }
+
+    SAFE_DELETE_ARRAY( ptr );
+    ptr = new float[a.cols * a.rows];
+
+    int ptr_offs = 0;
+    int step = a.cols * sizeof( float );
+    for ( int y = 0; y < a.rows; ++y, ptr_offs += step )
+    {
+        memcpy( ptr+y*a.cols, a.ptr<float>(y,0), step );
+    }
+}
+
+void fromContinuousFloat( float* const& ptr, cv::Mat & out )
+{
+    if ( out.empty() )
+    {
+        std::cerr << "MyThrustUtil::fromContinuousFloat: please init out...exiting" << std::endl;
+        return;
+    }
+
+    int ptr_offs = 0;
+    int step = out.cols * sizeof( float );
+    for ( int y = 0; y < out.rows; ++y, ptr_offs += step )
+    {
+        memcpy( out.ptr<float>(y,0), ptr+y*out.cols, step );
+    }
+}

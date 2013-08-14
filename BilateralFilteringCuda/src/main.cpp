@@ -5,6 +5,7 @@
 
 #include "ViewPointMapperCuda.h"
 #include "BilateralFilterCuda.hpp"
+#include "MyThrustUtil.h"
 
 /*
  * @brief       Testruns ViewPointMapperCuda::runViewPointMapping
@@ -138,6 +139,114 @@ namespace cv
 }
 #endif
 
+float testEqual( cv::Mat const& C1, cv::Mat const& C2 )
+{
+    int ok = 0;
+    for ( int y = 0; y < C1.rows; ++y )
+        for ( int x = 0; x < C1.cols; ++x )
+        {
+            if ( C1.at<float>(y,x) != C2.at<float>(y,x) )
+                std::cout << C1.at<float>(y,x) << " "
+                          << C2.at<float>(y,x) << " "
+                          << C1.at<float>(y,x) - C2.at<float>(y,x)
+                          << std::endl;
+            else
+                ++ok;
+        }
+    return float(ok) / (float)C1.cols / (float)C1.rows * 100.f;
+}
+
+int testThrust( cv::Mat const& img16, cv::Mat const& guide )
+{
+    cv::Mat fImg16;
+    img16.convertTo( fImg16, CV_32FC1 );
+    cv::Mat fGuide;
+    img16.convertTo( fImg16, CV_32FC1 );
+
+    float d = 5.f;
+
+    /// squareDiff
+    // gpu
+    cv::Mat C2_gpu;
+    MyThrustUtil::squareDiff( fImg16, d, C2_gpu );
+    // cpu
+    cv::Mat C, C2_cpu;
+    cv::absdiff( fImg16, d, C );
+    cv::multiply( C, C, C2_cpu );
+    // test
+    std::cout << "squareDiffScalar: " << testEqual( C2_gpu, C2_cpu ) << "%" << std::endl;
+
+    /// squareDiffTrunc
+    double minVal, maxVal;
+    cv::minMaxIdx( fImg16, &minVal, &maxVal );
+    double truncAt = maxVal/2.f;
+    // gpu
+    cv::Mat truncC_gpu;
+    MyThrustUtil::squareDiff( fImg16, d, truncC_gpu, truncAt );
+    // cpu
+    cv::Mat truncC_cpu = cv::min( C2_cpu, truncAt );
+    // test
+    std::cout << "squareDiffScalarTrunc: " << testEqual( truncC_gpu, truncC_cpu ) << "%" << std::endl;
+
+    /// minMaskedCopy
+    // prep
+    cv::Mat minC ( fImg16.size(), CV_32FC1 ); minC.setTo( maxVal * maxVal );
+    cv::Mat minCm1_gpu ( fImg16.size(), CV_32FC1 ); minCm1_gpu.setTo( maxVal * maxVal );
+    cv::Mat minCp1_gpu ( fImg16.size(), CV_32FC1 ); minCp1_gpu.setTo( maxVal * maxVal );
+    cv::Mat minDs_gpu( fImg16.size(), CV_32FC1 );
+    cv::Mat minDs_cpu( fImg16.size(), CV_32FC1 );
+    // gpu
+    MyThrustUtil::minMaskedCopy( truncC_gpu, truncC_gpu, d, minC, minDs_gpu, minCm1_gpu, minCp1_gpu );
+    // cpu
+    minC = cv::min( minC, truncC_cpu );
+    cv::Mat minMask;
+    cv::compare( minC, truncC_cpu, minMask, CV_CMP_EQ );
+    minDs_cpu.setTo( d, minMask );
+    // test (CV_CMP_EQ makes this "<=", gpu implementation is "<", that's more correct)
+    std::cout << "minMaskedCopy: " << testEqual( minDs_gpu, minDs_cpu ) << "%" << std::endl;
+
+    /// estimateSubpixel
+    // gpu
+    MyThrustUtil::subpixelRefine( minC, minCm1_gpu, minCp1_gpu, minDs_gpu );
+    std::cout << "suppixelRefine finished..." << std::endl;
+    return 0;
+    // cpu
+    {
+        cv::Mat fImg16;
+        cv::Mat ftmp( fImg16.size(), CV_32FC1 );
+        // d_-
+        cv::Mat d_m1( fImg16.size(), CV_32FC1 );
+        cv::subtract( minDs_cpu, 1.f, d_m1, cv::Mat(), CV_32FC1 );
+        // d_+
+        cv::Mat d_p1( fImg16.size(), CV_32FC1 );
+        cv::add( minDs_cpu, 1.f, d_p1, cv::Mat(), CV_32FC1 );
+
+        // f(d_-)
+        cv::Mat f_d_m1;
+        cv::absdiff( fImg16, d_m1, ftmp );
+        cv::multiply( ftmp, ftmp, f_d_m1 );
+        f_d_m1 = cv::min( f_d_m1, truncAt );
+
+        // f(d_+)
+        cv::Mat f_d_p1( fImg16.rows, fImg16.cols, CV_32FC1 );
+        cv::absdiff( fImg16, d_p1, ftmp );
+        cv::multiply( ftmp, ftmp, f_d_p1 );
+        f_d_p1 = cv::min( f_d_p1, truncAt );
+
+        /// subpixel
+        cv::Mat a1 = ( f_d_p1 - f_d_m1 );
+        cv::Mat a2 = ( 2.f * (f_d_p1 + f_d_m1 - 2.f * minC) );
+        cv::Mat a3;
+        cv::divide( a1, a2, a3, 1.0, CV_32FC1 );
+        cv::subtract( minDs_cpu, a3, minDs_cpu, cv::Mat(), CV_32FC1 );
+    }
+    std::cout << "subpixelRefine: " << testEqual( minDs_gpu, minDs_cpu ) << "%" << std::endl;
+
+
+
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
@@ -174,6 +283,10 @@ int main(int argc, char **argv)
         std::cerr << "need to provide guide file by '--guide filename' argument" << std::endl;
         exit( EXIT_FAILURE );
     }
+
+    return testThrust(img16,guide);
+
+
 
 #if 0 // VIEWPOINTMAPPING
     return testViewpointMapping( img16, guide );

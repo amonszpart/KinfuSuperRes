@@ -30,6 +30,8 @@ void runSetKernel2D( T* memory, T value, unsigned width, unsigned height )
     checkCudaErrors( cudaDeviceSynchronize() );
 }
 
+template void runSetKernel2D( float* memory, float value, unsigned width, unsigned height );
+
 // ************************************************************************* //
 // *  COPY KERNEL2D                                                        * //
 // ************************************************************************* //

@@ -181,6 +181,7 @@ void BilateralFilterCuda<T>::runBilateralFiltering( cv::Mat const& in, cv::Mat c
     if ( !guide.empty() )
     {
         cv2Continuous8UC4( guide, guideData, in.cols, in.rows, 1.f );
+        std::cout << "converted to 8UC4" << std::endl;
     }
 
     // out

@@ -24,7 +24,7 @@ typedef unsigned char uchar;
 #include "XnVUtil.h"
 
 #define scUC(a) static_cast<unsigned char>(a)
-#define SQR(a) (a*a)
+#define SQR(a) ((a)*(a))
 
 /* ----------------------------------------
  * TEMPLATES
