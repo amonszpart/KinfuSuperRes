@@ -108,44 +108,52 @@ endif(USE_PCL)
 
 ######################## PROJECT files ##############################
 
+SET( MY_INCLUDES
+     ${MY_INCLUDES}
+     "${CMAKE_CURRENT_SOURCE_DIR}/include"
+     "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
+# H
 SET( HEADERS_LIST
     src/ViewPointMapperCuda.h
     src/BilateralFilterCuda.hpp
+    src/MyThrustUtil.h
+    include/YangFiltering.h
     src/GpuImage.h
     src/GpuDepthMap.hpp
-    src/GpuExecutionStream.h
     src/cutil_math.cuh
     src/AmCudaHelper.cuh
     src/AmCudaUtil.h
 )
 
-set( CUFILES
-    src/ViewPointMapperCuda.cu
-    src/BilateralFilterCuda.cu
-    src/GpuImage.cu
-    #src/GpuDepthMap.cu
-    src/AMCudaUtil.cu
-)
-
 # SRC
 SET( CCFILES
     src/ViewPointMapperCuda.cpp
-    #src/BilateralFilterCuda.cpp
+    src/MyThrustUtil.cpp
+    src/YangFiltering.cpp
     src/AmCudaUtil.cpp
-    #src/bilateralFilter_cpu.cpp
-    #src/bmploader.cpp
     src/main.cpp
+)
+
+# CUDA
+set( CUFILES
+    src/ViewPointMapperCuda.cu
+    src/BilateralFilterCuda.cu
+    src/cuda/YangFiltering.cu
+    src/GpuImage.cu
+    src/AMCudaUtil.cu
+    src/MyThrustUtil.cu
 )
 
 # INCLUDES
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 
 # EXECUTABLE
-#ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
-source_group("CUDA Source Files" FILES ${CUFILES})
+SOURCE_GROUP( "CUDA Source Files" FILES ${CUFILES} )
 
 #cuda_add_executable( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
-cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES})
+cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES} ${HEADERS_LIST} )
 
 # LINK
 TARGET_LINK_LIBRARIES( cu${PROJECT_NAME} ${MY_LIBRARIES} )

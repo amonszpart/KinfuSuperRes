@@ -49,6 +49,7 @@ SET( MY_INCLUDES
 
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/include/" )
 
 # LIBRARIES
 add_library(imp_ctbf STATIC IMPORTED)
@@ -109,6 +110,8 @@ SET( HEADERS_LIST
     src/util/MaUtil.h
     src/prism_camera_parameters.h
     ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
+    ../BilateralFilteringCuda/src/BilateralFilterCuda.hpp
+    ../BilateralFilteringCuda/include/YangFiltering.h
 )
 
 # SRC

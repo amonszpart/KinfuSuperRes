@@ -174,19 +174,6 @@ __global__ void mapViewpointKernel( const T* in,
         atomicMin ( (int*)&(out[ int_p_right.y * w + int_p_right.x ]), *pZ );
     }
 
-#if 0
-    // ************************************************
-    // Finally, reassign the values in ROW MAJOR order.
-    // ************************************************
-    x = static_cast<int> (roundf(x_proj));
-    y = static_cast<int> (roundf(y_proj));
-
-    --x;
-    --y;
-
-    res_x[idx] = x;
-    res_y[idx] = y;
-#endif
 }
 
 

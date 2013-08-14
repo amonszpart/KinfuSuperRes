@@ -25,8 +25,11 @@
 
 #include "BilateralFiltering.h"
 #include "prism_camera_parameters.h"
-#include "../../BilateralFilteringCuda/src/ViewPointMapperCuda.h"
-#include "../../BilateralFilteringCuda/src/BilateralFilterCuda.hpp"
+
+#include "ViewPointMapperCuda.h"
+#include "BilateralFilterCuda.hpp"
+#include "MyThrustUtil.h"
+#include "YangFiltering.h"
 
 #include "io/Recorder.h"
 #include "io/CvImageDumper.h"
@@ -873,12 +876,16 @@ void getCost( cv::Mat const& )
 
 }
 
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/copy.h>
 int testCostVolume()
 {
     const int   L       = 20; // depth search range
     const float ETA     = .5f;
     const float ETA_L_2 = SQR(ETA*L);
-    const float MAXRES  = 2048.0f;
+    const float MAXRES  = 255.0f;
 
     // read
     //std::string path    = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130809_1415/";
@@ -900,27 +907,90 @@ int testCostVolume()
     cbfc.setFillMode( FILL_ALL );
 
     // select input depth
-    cv::Mat &dep = dep8;
+    float depMax = 255.f;
+    cv::Mat &dep = dep8; // 640 by default
+    // upscale
     if ( rgb8.size() != dep16.size() )
     {
         cv::resize( dep16, dep8_large, rgb8.size(), 0, 0, cv::INTER_NEAREST );
         dep = dep8_large;
+        depMax = 10001.f;
     }
 
     // convert input depth to float
-    cv::Mat fDep; dep.convertTo( fDep, CV_32FC1, MAXRES / 10001.f );
+    cv::Mat fDep; dep.convertTo( fDep, CV_32FC1  );
 
     BilateralFilterCuda<float> bfc;
     bfc.setIterations( 5 );
     bfc.setFillMode( FILL_ONLY_ZEROS );
-    cv::Mat bilf;
-    bfc.runBilateralFiltering( fDep, rgb8, bilf,
+    cv::Mat bilfiltered;
+    bfc.runBilateralFiltering( fDep, rgb8, bilfiltered,
                                5.f, .1f, 10, 1.f );
-    cv::imshow( "bilf", bilf / MAXRES );
-    //cv::waitKey();
-    bilf.copyTo( fDep );
-    //return 0;
+    cv::imshow( "bilf", bilfiltered / depMax );
+    bilfiltered.copyTo( fDep );
 
+#if 1
+    YangFiltering::run( fDep, rgb8, fDep );
+#elif 0
+    // input: fDep(CV_32FC1,0..10001.f), rgb8(CV_8UC3)
+
+    // prepare
+    cv::Mat truncC2     ( fDep.size(), CV_32FC1 ); // C(d)
+    cv::Mat truncC2_prev( fDep.size(), CV_32FC1 ); // C(d-1)
+    cv::Mat minDs       ( fDep.size(), CV_32FC1 ); // d_min
+    cv::Mat minC        ( fDep.size(), CV_32FC1 ); // C(d_min)
+    cv::Mat minCm1      ( fDep.size(), CV_32FC1 ); // C(d_min-1)
+    cv::Mat minCp1      ( fDep.size(), CV_32FC1 ); // C(d_min+1)
+
+    for ( int it = 0; it < 5; ++it )
+    {
+        // select range of candidates
+        double maxVal;
+        cv::minMaxIdx( fDep, 0, &maxVal );
+        std::cout << "max: " << maxVal << std::endl;
+
+        minC  .setTo( maxVal * maxVal );
+        minCm1.setTo( maxVal * maxVal );
+        minCp1.setTo( maxVal * maxVal );
+
+        for ( int d = 0; d < min((float)maxVal + L + 1, MAXRES); d+=1 )
+        {
+            std::cout << "d: " << d << " -> " << maxVal + L + 1 << std::endl;
+
+            // calculate truncated cost
+            MyThrustUtil::squareDiff( fDep, d, truncC2, ETA_L_2 );
+
+            // filter cost slice
+            cbfc.runBilateralFiltering( /*            in: */ truncC2,
+                                        /*         guide: */ rgb8,
+                                        /*           out: */ truncC2,
+                                        /* spatial sigma: */ 1.5f,
+                                        /*   range sigma: */ .03f,
+                                        /*  kernel range: */ 12 );
+
+            // track minimums
+            MyThrustUtil::minMaskedCopy( truncC2_prev, truncC2, d, minC, minDs, minCm1, minCp1 );
+
+            // show
+            //cv::imshow( "minC" , minC / MAXRES / MAXRES );
+            //cv::imshow( "minDs", minDs / depMax );
+
+            truncC2.copyTo( truncC2_prev );
+
+            //cv::waitKey(50);
+        }
+
+        // refine minDs based on C(d_min), C(d_min-1), C(d_min+1)
+        MyThrustUtil::subpixelRefine( minC, minCm1, minCp1, minDs );
+
+        // copy to output
+        minDs.copyTo( fDep );
+        cv::imshow( "fDep", fDep / MAXRES );
+        cv::waitKey(50);
+    }
+
+    // output: fDep
+#else
     // prepare output
     cv::Mat fDep_next( dep.rows, dep.cols, CV_32FC1 );
     // iterate
@@ -949,11 +1019,11 @@ int testCostVolume()
 
             // filter cost slice
             cbfc.runBilateralFiltering( /*            in: */ truncC2,
-                                       /*         guide: */ rgb8,
-                                       /*           out: */ truncC2,
-                                       /* spatial sigma: */ 1.5f,
-                                       /*   range sigma: */ .03f,
-                                       /*  kernel range: */ 12 );
+                                        /*         guide: */ rgb8,
+                                        /*           out: */ truncC2,
+                                        /* spatial sigma: */ 1.5f,
+                                        /*   range sigma: */ .03f,
+                                        /*  kernel range: */ 12 );
             //cv::imshow( "C2", C2 / 65536.f );
             //cv::imshow( "truncC2", truncC2 / ETA_L_2 / 2.f );
 
@@ -1033,6 +1103,7 @@ int testCostVolume()
         cv::waitKey(10);
         fDep_next.copyTo( fDep );
     }
+#endif
 
     {
         double minVal, maxVal;
@@ -1044,8 +1115,6 @@ int testCostVolume()
         cv::imwrite( "yang16.png", tmp, (std::vector<int>){cv::IMWRITE_PNG_COMPRESSION,0} );
     }
 
-
-
     while ( key_pressed != 27 )
     {
         key_pressed = cv::waitKey();
@@ -1056,6 +1125,7 @@ int testCostVolume()
 
 int main( int argc, char* argv[] )
 {
+
     return testCostVolume();
     //MyCVPlayer::run();
     //return 0;
