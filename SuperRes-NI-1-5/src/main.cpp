@@ -904,7 +904,7 @@ int testCostVolume()
 
     // crossFiltering
     static BilateralFilterCuda<float> cbfc;
-    cbfc.setFillMode( FILL_ALL );
+    cbfc.setFillMode( FILL_ONLY_ZEROS );
 
     // select input depth
     float depMax = 255.f;
@@ -1125,7 +1125,6 @@ int testCostVolume()
 
 int main( int argc, char* argv[] )
 {
-
     return testCostVolume();
     //MyCVPlayer::run();
     //return 0;

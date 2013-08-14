@@ -108,7 +108,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         for ( int d = 0; d < std::min(mx + L + 1, MAXRES); d+=1 )
         {
             // debug
-            std::cout << "d: " << d << " -> " << maxVal + L + 1 << std::endl;
+            std::cout << "d: " << d << " -> " << mx + L + 1 << std::endl;
 
             // calculate truncated cost
             squareDiff( /* in: */ d_fDep, /* curr depth: */ d, /* out: */ d_truncC2, /* truncAt: */ ETA_L_2 );
