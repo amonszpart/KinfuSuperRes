@@ -144,7 +144,7 @@ namespace am
 
             SceneCloudView scene_cloud_view_;
             ImageView image_view_;
-            ImageView rgb_view_;// aron
+            //ImageView rgb_view_;// aron
             boost::shared_ptr<CurrentFrameCloudView> current_frame_cloud_view_;
 
             KinfuTracker::DepthMap depth_device_;

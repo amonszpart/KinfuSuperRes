@@ -1,11 +1,11 @@
 project(SuperRes-NI-1-5)
 cmake_minimum_required(VERSION 2.8)
 
-INCLUDE(localcfg.cmake)
+INCLUDE(../localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
 # FLAGS
-SET( CMAKE_CXX_COMPILER /usr/bin/g++ )
+SET( CMAKE_CXX_COMPILER /usr/bin/gcc )
 SET( CMAKE_CXX_FLAGS "-std=c++0x" )
 
 # PARAMS
@@ -14,12 +14,16 @@ if(TROLL)
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/3rdparty/OpenNI-1.5/ )
     SET(OPENNI_INCLUDE /usr/include/openni)
+    SET(LIB_CUDA /usr/lib/libcuda.so)
+    SET(LIB_CUDART /usr/local/cuda-5.0/lib/libcudart.so)
 else(TROLL) # Ubul
     SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     SET(OPENNI_INCLUDE /usr/include/ni)
     #SET( CMAKE_CXX_COMPILER /usr/lib/nvidia-cuda-toolkit/bin/gcc )
+    SET(LIB_CUDA /usr/lib/nvidia-310-updates/libcuda.so)
+    SET(LIB_CUDART -lcudart)
 endif(TROLL)
 
 # PACKAGES
@@ -39,12 +43,12 @@ set( EXECUTABLE_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 set( LIBRARY_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 
 # INCLUDES
-SET( MY_INCLUDES
+SET(MY_INCLUDES
     /usr/include/eigen3/
     /usr/include/vtk-5.8/
     ${CUDA_PATH}/include
     ${OPENNI_INCLUDE}
-    ../../ctbf
+    #../../ctbf
 )
 
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
@@ -52,13 +56,21 @@ INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/include/" )
 
 # LIBRARIES
-add_library(imp_ctbf STATIC IMPORTED)
-set_property(TARGET imp_ctbf PROPERTY
-             IMPORTED_LOCATION ../../ctbf/build/libctbf.a )
+#add_library(imp_ctbf STATIC IMPORTED)
+#set_property(TARGET imp_ctbf PROPERTY
+#             IMPORTED_LOCATION ../../ctbf/build/libctbf.a )
+
 # LIBRARIES
-add_library(imp_bilFilCuda STATIC IMPORTED)
-set_property(TARGET imp_bilFilCuda PROPERTY
-             IMPORTED_LOCATION ../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
+####################
+### BilateralFilteringCuda
+add_library ( imp_bilFilCuda STATIC IMPORTED)
+set_property( TARGET imp_bilFilCuda PROPERTY
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
+
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+
+####################
 
 
 SET( MY_LIBRARIES
@@ -70,13 +82,13 @@ SET( MY_LIBRARIES
     vtkCommon
     vtkFiltering
     vtkRendering
-    imp_ctbf
-    imp_bilFilCuda
-    /usr/lib/nvidia-310-updates/libcuda.so
-    -lcudart
+    #imp_ctbf
     glut
     GL
     GLEW
+    imp_bilFilCuda
+    ${LIB_CUDART}
+    ${LIB_CUDA}
 )
 
 IF(USE_PCL)
@@ -130,6 +142,8 @@ SET( SRC_LIST
 # INCLUDES
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
 
+
+
 # EXECUTABLE
 ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
@@ -138,23 +152,23 @@ TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${MY_LIBRARIES} )
 
 ######################## FREENECT PLAYER ##############################
 
-SET( HEADERS_LIST
-    src/FreenectPlayer.h
-)
-
-# SRC
-SET( SRC_LIST
-    src/FreenectPlayer.cpp
-)
-
-SET( CMAKE_CXX_FLAGS "-std=c++0x" )
-
-# INCLUDES
-INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
-
-# EXECUTABLE
-ADD_EXECUTABLE( FreenectPlayer ${SRC_LIST} ${HEADERS_LIST} )
-
-# LINK
-TARGET_LINK_LIBRARIES( FreenectPlayer ${MY_LIBRARIES} freenect )
+#SET( HEADERS_LIST
+#    src/FreenectPlayer.h
+#)
+#
+## SRC
+#SET( SRC_LIST
+#    src/FreenectPlayer.cpp
+#)
+#
+#SET( CMAKE_CXX_FLAGS "-std=c++0x" )
+#
+## INCLUDES
+#INCLUDE_DIRECTORIES( ${MY_INCLUDES} )
+#
+## EXECUTABLE
+#ADD_EXECUTABLE( FreenectPlayer ${SRC_LIST} ${HEADERS_LIST} )
+#
+## LINK
+#TARGET_LINK_LIBRARIES( FreenectPlayer ${MY_LIBRARIES} freenect )
 

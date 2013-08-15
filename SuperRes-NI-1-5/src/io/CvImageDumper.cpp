@@ -6,6 +6,12 @@
 #include "../amCommon.h"
 #include <iostream>
 
+namespace cv {
+    const int IMREAD_UNCHANGED = -1;
+    const int IMWRITE_PNG_COMPRESSION = 16;
+    const int IMWRITE_JPEG_QUALITY = 1;
+}
+
 namespace am
 {
 

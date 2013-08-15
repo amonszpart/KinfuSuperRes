@@ -1,7 +1,7 @@
 #include "image_view.h"
 
 ImageView::ImageView(int viz)
-    : viz_(viz), paint_image_ (false), accumulate_views_ (false)
+    : viz_(viz), paint_image_ (true), accumulate_views_ (false)
 {
     if (viz_)
     {

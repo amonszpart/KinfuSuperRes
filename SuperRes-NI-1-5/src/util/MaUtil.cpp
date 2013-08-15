@@ -9,6 +9,7 @@
 
 /** STD includes */
 #include <iostream>
+#include <memory>
 
 namespace util
 {
@@ -25,10 +26,10 @@ namespace util
     // depth to CV::MAT
     int nextDepthToMats( xn::DepthGenerator& g_DepthGenerator, cv::Mat* pCvDepth8, cv::Mat* pCvDepth16 )
     {
-        static constexpr double conversionRatio = 255.0/2047.0;
+        static const double conversionRatio = 255.0/2047.0;
 
         // CHECK
-        if ( (pCvDepth8 == nullptr) && (pCvDepth16 == nullptr) )
+        if ( (pCvDepth8 == NULL) && (pCvDepth16 == NULL) )
             return -1;
 
         // INIT
@@ -47,12 +48,12 @@ namespace util
 
         // OUTPUT
         {
-            if (pCvDepth8 != nullptr)
+            if (pCvDepth8 != NULL)
             {
                 pCvDepth8->create( depthMD.FullYRes(), depthMD.FullXRes(), CV_8UC1 );
                 cvDepth16.convertTo( *pCvDepth8, CV_8UC1, conversionRatio );
             }
-            if (pCvDepth16 != nullptr)
+            if (pCvDepth16 != NULL)
             {
                 pCvDepth16->create( depthMD.FullYRes(), depthMD.FullXRes(), CV_16UC1 );
                 cvDepth16.copyTo( *pCvDepth16 );
@@ -81,7 +82,7 @@ namespace util
         }
 
         // OUT
-        if ( pImgRGB != nullptr )
+        if ( pImgRGB != NULL )
         {
             pImgRGB->create( imgBGR.size(), imgBGR.type() );
             cvtColor( imgBGR, *pImgRGB, CV_BGR2RGB );
@@ -272,9 +273,9 @@ namespace util
     {
         cv::Vec3f ret =
                 (
-                    alpha          * (cv::Vec3f)rgb                                    / (float)maxColor
+                    alpha         * (cv::Vec3f)rgb                                    * (1.f / (float)maxColor)
                     +
-                    (1.f - alpha) * ((cv::Vec3f){(float)dep, (float)dep, (float)dep}) / (float)maxDepth
+                    (1.f - alpha) * ((cv::Vec3f){(float)dep, (float)dep, (float)dep}) * (1.f / (float)maxDepth)
                     ) * maxColor;
 
         return cv::Vec3b( round(ret[0]), round(ret[1]), round(ret[2]) );

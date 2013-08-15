@@ -76,7 +76,7 @@ namespace am
     KinFuApp::KinFuApp(pcl::Grabber& source, float vsz, int icp, int viz)
         : exit_ (false), scan_ (false), scan_mesh_(false), scan_volume_ (false), independent_camera_ (false),
           registration_ (false), integrate_colors_ (false), dump_poses_ (false), focal_length_(-1.f), capture_ (source),
-          scene_cloud_view_(viz), image_view_(viz), rgb_view_(viz), time_ms_(0), icp_(icp), viz_(viz)
+          scene_cloud_view_(viz), image_view_(viz), /*rgb_view_(viz),*/ time_ms_(0), icp_(icp), viz_(viz)
     {
         //Init Kinfu Tracker
         Eigen::Vector3f volume_size = Vector3f::Constant (vsz/*meters*/);
@@ -321,11 +321,11 @@ namespace am
     {
         cout << "Saving TSDF volume to " + fileName + "_tsdf_volume.dat ... " << flush;
         this->tsdf_volume_.save ( fileName + "_tsdf_volume.dat", true );
-        cout << "done [" << this->tsdf_volume_.size () << " voxels]" << endl;
+        cout << "done [" << (int)this->tsdf_volume_.size () << " voxels]" << endl;
 
         cout << "Saving TSDF volume cloud to " + fileName + "_tsdf_cloud.pcd ... " << flush;
         pcl::io::savePCDFile<pcl::PointXYZI> (fileName+"_tsdf_cloud.pcd", *this->tsdf_cloud_ptr_, true);
-        cout << "done [" << this->tsdf_cloud_ptr_->size () << " points]" << endl;
+        cout << "done [" << (int)this->tsdf_cloud_ptr_->size () << " points]" << endl;
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -382,10 +382,10 @@ namespace am
                 case (int)'v': case (int)'V':
                     cout << "Saving TSDF volume to tsdf_volume.dat ... " << flush;
                     app->tsdf_volume_.save ("tsdf_volume.dat", true);
-                    cout << "done [" << app->tsdf_volume_.size () << " voxels]" << endl;
+                    cout << "done [" << (int)app->tsdf_volume_.size () << " voxels]" << endl;
                     cout << "Saving TSDF volume cloud to tsdf_cloud.pcd ... " << flush;
                     pcl::io::savePCDFile<pcl::PointXYZI> ("tsdf_cloud.pcd", *app->tsdf_cloud_ptr_, true);
-                    cout << "done [" << app->tsdf_cloud_ptr_->size () << " points]" << endl;
+                    cout << "done [" << (int)app->tsdf_cloud_ptr_->size () << " points]" << endl;
                     break;
 
                 default:
@@ -491,7 +491,7 @@ namespace am
             //if (viz_)
             //    image_view_.viewerScene_->showRGBImage (reinterpret_cast<const unsigned char*> (rgb24.data), rgb24.cols, rgb24.rows );
             //image_view_.showGeneratedDepth(kinfu_, kinfu_.getCameraPose());
-            rgb_view_.viewerScene_->showRGBImage( reinterpret_cast<const unsigned char*>(rgb640Ptr.ptr()), rgb640Ptr.cols, rgb640Ptr.rows );
+            //rgb_view_.viewerScene_->showRGBImage( reinterpret_cast<const unsigned char*>(rgb640Ptr.ptr()), rgb640Ptr.cols, rgb640Ptr.rows );
         }
 
         if (scan_)

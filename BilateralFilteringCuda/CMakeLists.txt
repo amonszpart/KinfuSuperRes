@@ -118,7 +118,7 @@ SET( MY_INCLUDES
 SET( HEADERS_LIST
     src/ViewPointMapperCuda.h
     src/BilateralFilterCuda.hpp
-    src/MyThrustUtil.h
+    #src/MyThrustUtil.h
     include/YangFiltering.h
     src/GpuImage.h
     src/GpuDepthMap.hpp
@@ -130,7 +130,7 @@ SET( HEADERS_LIST
 # SRC
 SET( CCFILES
     src/ViewPointMapperCuda.cpp
-    src/MyThrustUtil.cpp
+    #src/MyThrustUtil.cpp
     src/YangFiltering.cpp
     src/AmCudaUtil.cpp
     src/main.cpp
@@ -143,7 +143,7 @@ set( CUFILES
     src/cuda/YangFiltering.cu
     src/GpuImage.cu
     src/AMCudaUtil.cu
-    src/MyThrustUtil.cu
+    #src/MyThrustUtil.cu
 )
 
 # INCLUDES

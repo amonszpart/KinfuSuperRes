@@ -24,7 +24,7 @@ extern void subpixelRefine( GpuDepthMap<float> const& minC  ,
 template <typename T>
 extern T getMax( GpuDepthMap<T> const& img );
 
-int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep )
+int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep, int yang_iterations )
 {
     const int   L       = 10; // depth search range
     const float ETA     = .5f;
@@ -34,7 +34,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     const float spatial_sigma = 1.5f;
     const float range_sigma   = .03f;
     const int   kernel_range  = 3;
-    const int   iterations    = 1;
+    const int   cross_iterations    = 1;
     const char  fill_mode     = FILL_ALL;
     StopWatchInterface* kernel_timer = NULL;
     sdkCreateTimer( &kernel_timer );
@@ -90,7 +90,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     // filter cost slice
     const cudaExtent imageSizeCudaExtent = make_cudaExtent( d_truncC2.GetWidth(), d_truncC2.GetHeight(), 1 );
 
-    for ( int it = 0; it < 3; ++it )
+    for ( int it = 0; it < yang_iterations; ++it )
     {
         runSetKernel2D<float>( d_minC.Get(), maxVal*maxVal, d_minC.GetWidth(), d_minC.GetHeight() );
         runSetKernel2D<float>( d_minCm1.Get(), maxVal*maxVal, d_minCm1.GetWidth(), d_minCm1.GetHeight() );
@@ -108,7 +108,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         for ( int d = 0; d < std::min(mx + L + 1, MAXRES); d+=1 )
         {
             // debug
-            std::cout << "d: " << d << " -> " << mx + L + 1 << std::endl;
+            std::cout << "d: " << d << "/" << mx + L + 1<< " of it(" << it << ")" << std::endl;
 
             // calculate truncated cost
             squareDiff( /* in: */ d_fDep, /* curr depth: */ d, /* out: */ d_truncC2, /* truncAt: */ ETA_L_2 );
@@ -118,7 +118,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
                                           /* in:  */ d_truncC2.Get(), d_crossFilterTemp.Get(), d_truncC2.GetPitch(),
                                           d_guide.Get(), d_guide.GetPitch(),
                                           imageSizeCudaExtent,
-                                          range_sigma, kernel_range, iterations, fill_mode,
+                                          range_sigma, kernel_range, cross_iterations, fill_mode,
                                           kernel_timer );
 
             // track minimums

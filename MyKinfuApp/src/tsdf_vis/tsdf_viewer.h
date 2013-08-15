@@ -40,6 +40,10 @@ namespace am
             extractMeshFromVolume( const pcl::gpu::TsdfVolume::Ptr volume, boost::shared_ptr<pcl::PolygonMesh>& mesh_ptr );
             void dumpMesh( std::string path = "" );
 
+            std::vector<unsigned short> const& getLatestDepth() const { return depth_view_host_; };
+
+            std::vector<pcl::gpu::KinfuTracker::PixelRGB> const& getLatestRayCast() const { return ray_view_host_; }
+
         protected:
 
 

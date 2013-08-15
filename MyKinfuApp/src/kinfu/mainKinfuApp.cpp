@@ -36,6 +36,8 @@ namespace am
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // -oni ~/rec/troll_recordings/keyboard_imgs_20130701_1440/recording_push.oni -out ~/rec/testing/keyboard_cross_nomap -ic --viz 1 -r
+    // optionally: --dump-poses
     int
     mainKinfuApp (int argc, char* argv[])
     {

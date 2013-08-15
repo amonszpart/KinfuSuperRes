@@ -43,7 +43,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
-#include "qx_constant_time_bilateral_filter_published.h"
+//#include "qx_constant_time_bilateral_filter_published.h"
 
 #include <iostream>
 #include <math.h>
@@ -287,33 +287,45 @@ struct MyTrackbar
 
 struct MyPlayer
 {
-        bool showIR  = false;
-        bool showRgb = false;
-        bool showDep8 = false;
-        bool showIrAndRgb = true;
-        bool showDep16AndRgb = true;
-        bool showOffset = false;
-        bool altViewPoint = false;
-        bool showGuided = false;
+        MyPlayer()
+            : showIR(false), showRgb(false), showDep8(false), showIrAndRgb(true), showDep16AndRgb(false),
+              showOffset(false), altViewPoint(false), showGuided(false),
+              alpha_slider(367), alpha_slider_max(500), beta_slider(5), beta_slider_max(255), alpha(1.f), beta(0.f),
+              cross_gaussian_delta( MyTrackbar(100, 500, 1.f) ),
+              cross_eucledian_delta( MyTrackbar(100, 1000, .1f) ),
+              cross_filter_range( MyTrackbar(2, 50, 2) ),
+              cross_filter_iterations( MyTrackbar(1, 10, 1) ),
+                    CROSS_WINDOW_NAME("crossFiltered8")
 
-        int alpha_slider = 367;
-        int alpha_slider_max = 500;
-        int beta_slider = 5;
-        int beta_slider_max = 255;
-        float alpha = 1.f;
-        float beta  = 0.f;
+        {}
+
+        bool showIR;
+        bool showRgb;
+        bool showDep8;
+        bool showIrAndRgb;
+        bool showDep16AndRgb;
+        bool showOffset;
+        bool altViewPoint;
+        bool showGuided;
+
+        int alpha_slider;
+        int alpha_slider_max;
+        int beta_slider;
+        int beta_slider_max;
+        float alpha;
+        float beta;
 
         // "crossFiltered8"
-        const char *CROSS_WINDOW_NAME      = "crossFiltered8";
-        MyTrackbar cross_gaussian_delta    = MyTrackbar( 100, 500, 1.f );
-        MyTrackbar cross_eucledian_delta   = MyTrackbar( 100, 1000, .1f );
-        MyTrackbar cross_filter_range      = MyTrackbar( 2, 50, 2 );
-        MyTrackbar cross_filter_iterations = MyTrackbar( 1, 10, 1 );
+        const char *CROSS_WINDOW_NAME;
+        MyTrackbar cross_gaussian_delta;
+        MyTrackbar cross_eucledian_delta;
+        MyTrackbar cross_filter_range;
+        MyTrackbar cross_filter_iterations;
         // "crossFiltered8"
-        const char *BIL_WINDOW_NAME     = "bilFiltered8";
-        MyTrackbar bil_gaussian_delta   = MyTrackbar( 100, 500, 1.f );
-        MyTrackbar bil_eucledian_delta  = MyTrackbar( 100, 1000, .1f );
-        MyTrackbar bil_filter_range     = MyTrackbar( 2, 50, 2 );
+        //constexpr char *BIL_WINDOW_NAME     = "bilFiltered8";
+        //MyTrackbar bil_gaussian_delta   = MyTrackbar( 100, 500, 1.f );
+        //MyTrackbar bil_eucledian_delta  = MyTrackbar( 100, 1000, .1f );
+        //MyTrackbar bil_filter_range     = MyTrackbar( 2, 50, 2 );
 
         int toggleAltViewpoint()
         {
@@ -749,7 +761,13 @@ void on_cross_filter_iterations_trackbar( int, void* )
     myPlayer.cross_filter_iterations.value = myPlayer.cross_filter_iterations.slider;
 }
 
-#define Yang 1
+#define Yang 0
+namespace cv {
+    const int IMREAD_UNCHANGED = -1;
+    const int IMWRITE_PNG_COMPRESSION = 16;
+    const int IMWRITE_JPEG_QUALITY = 1;
+}
+
 int testFiltering()
 {
     //std::string path = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/dep16_00000001.png_mapped.png";

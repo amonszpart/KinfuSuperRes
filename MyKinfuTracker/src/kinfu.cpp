@@ -221,8 +221,7 @@ pcl::gpu::KinfuTracker::allocateBufffers (int rows, int cols)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool
-pcl::gpu::KinfuTracker::operator() (const DepthMap& depth_raw, 
-    Eigen::Affine3f *hint)
+pcl::gpu::KinfuTracker::operator() (const DepthMap& depth_raw, Eigen::Affine3f *hint, bool prefiltered )
 {  
   device::Intr intr (fx_, fy_, cx_, cy_);
 
@@ -230,8 +229,10 @@ pcl::gpu::KinfuTracker::operator() (const DepthMap& depth_raw,
   {
       {
         //ScopeTime time(">>> Bilateral, pyr-down-all, create-maps-all");
-        //depth_raw.copyTo(depths_curr[0]);
-        device::bilateralFilter (depth_raw, depths_curr_[0]);
+          if ( prefiltered )
+            depth_raw.copyTo( depths_curr_[0] );
+          else
+            device::bilateralFilter ( depth_raw, depths_curr_[0] );
 
         if (max_icp_distance_ > 0)
           device::truncateDepth(depths_curr_[0], max_icp_distance_);
@@ -537,7 +538,7 @@ pcl::gpu::KinfuTracker::operator() (const DepthMap& depth, const View& colors)
     Mat33&  device_Rcurr_inv = device_cast<Mat33> (R_inv);
     float3& device_tcurr = device_cast<float3> (t);
     
-    device::updateColorVolume(intr, tsdf_volume_->getTsdfTruncDist(), device_Rcurr_inv, device_tcurr, vmaps_g_prev_[0], 
+    device::updateColorVolume( intr, tsdf_volume_->getTsdfTruncDist(), device_Rcurr_inv, device_tcurr, vmaps_g_prev_[0],
         colors, device_volume_size, color_volume_->data(), color_volume_->getMaxWeight());
   }
 
