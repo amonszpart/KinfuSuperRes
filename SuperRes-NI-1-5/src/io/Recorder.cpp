@@ -8,6 +8,7 @@
 #include "../util/MaUtil.h"
 #include "opencv2/opencv.hpp"
 #include "CvImageDumper.h"
+#include "../util/XnVUtil.h"
 
 //---------------------------------------------------------------------------
 // Code
@@ -21,14 +22,20 @@ namespace am
     {
     }
 
-    int Recorder::run( bool displayColor )
+    Recorder::~Recorder()
+    {
+        context.Release();
+        imageGenerator.Release();
+        depthGenerator.Release();
+        irGenerator.Release();
+    }
+
+    int Recorder::autoConfig()
     {
         using namespace xn;
         XnStatus nRetVal = XN_STATUS_OK;
 
-        Context context;
         EnumerationErrors errors;
-        DepthMetaData depthMD;
 
         printf("Reading config from: '%s'\n", _sample_path.c_str() );
         nRetVal = context.InitFromXmlFile( _sample_path.c_str(), &errors );
@@ -53,20 +60,16 @@ namespace am
         CHECK_RC(nRetVal, "Enumerate nodes");
 
         // create recorder
-        xn::Recorder recorder;
         nRetVal = recorder.Create(context);
         CHECK_RC(nRetVal, "Create recorder");
 
-        nRetVal = recorder.SetDestination(XN_RECORD_MEDIUM_FILE, _recPath.c_str() );
-        CHECK_RC(nRetVal, "Set recorder destination file");
-
-        DepthGenerator depthGenerator;
+        //DepthGenerator depthGenerator;
         nRetVal = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator );
         CHECK_RC(nRetVal, "Find depth generator");
         nRetVal = recorder.AddNodeToRecording( depthGenerator );
         CHECK_RC(nRetVal, "Add depth node to recording");
 
-        ImageGenerator imageGenerator;
+        //ImageGenerator imageGenerator;
         nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator );
         CHECK_RC(nRetVal, "Find image generator");
         nRetVal = recorder.AddNodeToRecording( imageGenerator );
@@ -78,6 +81,18 @@ namespace am
         nRetVal = recorder.AddNodeToRecording( irGenerator );
         CHECK_RC(nRetVal, "Add IR node to recording");*/
 
+    }
+
+    int Recorder::run( bool displayColor )
+    {
+        using namespace xn;
+        XnStatus nRetVal = XN_STATUS_OK;
+
+        DepthMetaData depthMD;
+
+        // ouptut path
+        nRetVal = recorder.SetDestination(XN_RECORD_MEDIUM_FILE, _recPath.c_str() );
+        CHECK_RC(nRetVal, "Set recorder destination file");
 
         // Alternative viewpoint
         XnBool isSupported = depthGenerator.IsCapabilitySupported( "AlternativeViewPoint" );
@@ -150,11 +165,6 @@ namespace am
             c = cv::waitKey(5);
         }
 
-        depthGenerator.Release();
-        imageGenerator.Release();
-        recorder.Release();
-        context.Release();
-
         return 0;
     }
 
@@ -167,5 +177,62 @@ namespace am
     {
         this->_sample_path = samplePath;
     }
+
+    int Recorder::manualConfig( int vgaWidth, int irWidth, int vgaHeight, int irHeight )
+    {
+        XnStatus rc = XN_STATUS_OK;
+
+        /// init NODES
+        XnMapOutputMode modeVGA;
+        modeVGA.nXRes = vgaWidth;
+        modeVGA.nYRes = (vgaHeight < 0) ?
+                            ((vgaWidth == 1280) ? 1024 : 480) :
+                                vgaHeight;
+        modeVGA.nFPS = (vgaWidth == 640) ? 30 : 15;
+        XnMapOutputMode modeIR;
+        modeIR.nXRes = irWidth;
+        modeIR.nYRes = (irHeight < 0) ?
+                           ((irWidth == 1280) ? 1024 : 480) :
+                               irHeight;;
+        modeIR.nFPS = (irWidth == 640) ? 30 : 15;
+        printf( "Initing Recorder{ VGA(%d,%d,%d), IR(%d,%d,%d) }...\n",
+                modeVGA.nXRes, modeVGA.nYRes, modeVGA.nFPS,
+                modeIR.nXRes, modeIR.nYRes, modeIR.nFPS );
+
+        //context inizialization
+        rc = context.Init();
+        CHECK_RC(rc, "Initialize context");
+
+        // create recorder
+        rc = recorder.Create(context);
+        CHECK_RC(rc, "Create recorder");
+
+        //depth node creation
+        rc = depthGenerator.Create(context);
+        CHECK_RC(rc, "Create depth generator");
+        rc = depthGenerator.StartGenerating();
+        CHECK_RC(rc, "Start generating Depth");
+        rc = recorder.AddNodeToRecording( depthGenerator );
+        CHECK_RC(rc, "DepthGenerator add to recording");
+
+        //RGB node creation
+        rc = imageGenerator.Create(context);
+        CHECK_RC(rc, "Create rgb generator");
+        rc = imageGenerator.SetMapOutputMode(modeVGA);
+        CHECK_RC(rc, "Depth SetMapOutputMode XRes for 1280, YRes for 1024 and FPS for 15");
+        rc = imageGenerator.StartGenerating();
+        CHECK_RC(rc, "Start generating RGB");
+        rc = recorder.AddNodeToRecording( imageGenerator );
+        CHECK_RC(rc, "imageGenerator add to recording");
+
+        //IR node creation
+        rc = irGenerator.Create(context);
+        CHECK_RC(rc, "Create ir generator");
+        rc = irGenerator.SetMapOutputMode(modeIR);
+        CHECK_RC(rc, "IR SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30");
+        //rc = ir.StartGenerating();
+        //CHECK_RC(rc, "Start generating IR");
+    }
+
 
 } // ns am
