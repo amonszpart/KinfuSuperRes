@@ -762,11 +762,13 @@ void on_cross_filter_iterations_trackbar( int, void* )
 }
 
 #define Yang 0
+#if ((CV_MAJOR_VERSION==2) && (CV_MINOR_VERSION<4))
 namespace cv {
     const int IMREAD_UNCHANGED = -1;
     const int IMWRITE_PNG_COMPRESSION = 16;
     const int IMWRITE_JPEG_QUALITY = 1;
 }
+#endif
 
 int testFiltering()
 {
@@ -1143,7 +1145,7 @@ int testCostVolume()
 
 int main( int argc, char* argv[] )
 {
-    return testCostVolume();
+    //return testCostVolume();
     //MyCVPlayer::run();
     //return 0;
 
@@ -1155,7 +1157,7 @@ int main( int argc, char* argv[] )
 
     // CONFIG
     enum PlayMode { RECORD, PLAY, KINECT };
-    PlayMode playMode = KINECT;
+    PlayMode playMode = RECORD;
 
     // INPUT
     char* ONI_PATH = "recording_push.oni";
@@ -1181,8 +1183,14 @@ int main( int argc, char* argv[] )
                 am::Recorder rtest( ONI_PATH, SAMPLE_XML_PATH );
                 rtest.setSamplePath( SAMPLE_XML_PATH );
                 rtest.setAltViewpoint( false );
-
-                return rtest.run( false );
+                if ( XN_STATUS_OK == rtest.autoConfig() )
+                {
+                    return rtest.run( false );
+                }
+                else
+                {
+                    return EXIT_FAILURE;
+                }
 
                 break;
             }

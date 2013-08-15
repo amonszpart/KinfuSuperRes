@@ -6,11 +6,13 @@
 #include "../amCommon.h"
 #include <iostream>
 
+#if (CV_MAJOR_VERSION == 2) && (CV_MINOR_VERSION < 4)
 namespace cv {
     const int IMREAD_UNCHANGED = -1;
     const int IMWRITE_PNG_COMPRESSION = 16;
     const int IMWRITE_JPEG_QUALITY = 1;
 }
+#endif
 
 namespace am
 {

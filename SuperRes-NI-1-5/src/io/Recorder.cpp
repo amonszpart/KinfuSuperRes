@@ -18,7 +18,7 @@ namespace am
 {
 
     Recorder::Recorder( const std::string& recPath, std::string const samplePath )
-        : _recPath( recPath ), _sample_path( samplePath ), _altViewpoint( true )
+        : _recPath( recPath ), _sample_path( samplePath ), _altViewpoint( false )
     {
     }
 
@@ -58,10 +58,19 @@ namespace am
         NodeInfoList nodes;
         nRetVal = context.EnumerateExistingNodes(nodes);
         CHECK_RC(nRetVal, "Enumerate nodes");
+        for ( auto it = nodes.Begin(); it != nodes.End(); it++ )
+        {
+            std::cout << "Node: " << (*it).GetInstanceName() << std::endl;
+        }
+
+
 
         // create recorder
         nRetVal = recorder.Create(context);
         CHECK_RC(nRetVal, "Create recorder");
+        // ouptut path
+        nRetVal = recorder.SetDestination(XN_RECORD_MEDIUM_FILE, _recPath.c_str() );
+        CHECK_RC(nRetVal, "Set recorder destination file");
 
         //DepthGenerator depthGenerator;
         nRetVal = context.FindExistingNode(XN_NODE_TYPE_DEPTH, depthGenerator );
@@ -81,6 +90,7 @@ namespace am
         nRetVal = recorder.AddNodeToRecording( irGenerator );
         CHECK_RC(nRetVal, "Add IR node to recording");*/
 
+        return nRetVal;
     }
 
     int Recorder::run( bool displayColor )
@@ -89,10 +99,6 @@ namespace am
         XnStatus nRetVal = XN_STATUS_OK;
 
         DepthMetaData depthMD;
-
-        // ouptut path
-        nRetVal = recorder.SetDestination(XN_RECORD_MEDIUM_FILE, _recPath.c_str() );
-        CHECK_RC(nRetVal, "Set recorder destination file");
 
         // Alternative viewpoint
         XnBool isSupported = depthGenerator.IsCapabilitySupported( "AlternativeViewPoint" );
@@ -158,9 +164,9 @@ namespace am
                 cv::imshow("cvImg", cvImg);
             }
 
-            CvImageDumper::Instance().dump( cvImg, "img8", false );
-            CvImageDumper::Instance().dump( cvDepth8, "dep8", true );
-            CvImageDumper::Instance().dump( cvDepth16, "dep16", true );
+            //CvImageDumper::Instance().dump( cvImg, "img8", false );
+            //CvImageDumper::Instance().dump( cvDepth8, "dep8", false );
+            //CvImageDumper::Instance().dump( cvDepth16, "dep16", true );
 
             c = cv::waitKey(5);
         }
@@ -206,14 +212,16 @@ namespace am
         // create recorder
         rc = recorder.Create(context);
         CHECK_RC(rc, "Create recorder");
+        rc = recorder.SetDestination(XN_RECORD_MEDIUM_FILE, _recPath.c_str() );
+        CHECK_RC(rc, "Set recorder destination file");
 
         //depth node creation
         rc = depthGenerator.Create(context);
         CHECK_RC(rc, "Create depth generator");
-        rc = depthGenerator.StartGenerating();
-        CHECK_RC(rc, "Start generating Depth");
         rc = recorder.AddNodeToRecording( depthGenerator );
         CHECK_RC(rc, "DepthGenerator add to recording");
+        rc = depthGenerator.StartGenerating();
+        CHECK_RC(rc, "Start generating Depth");
 
         //RGB node creation
         rc = imageGenerator.Create(context);

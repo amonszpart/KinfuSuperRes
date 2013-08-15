@@ -89,6 +89,8 @@ SET( MY_LIBRARIES
     imp_bilFilCuda
     ${LIB_CUDART}
     ${LIB_CUDA}
+    m
+    stdc++
 )
 
 IF(USE_PCL)

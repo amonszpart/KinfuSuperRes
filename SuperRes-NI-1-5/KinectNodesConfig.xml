@@ -64,13 +64,13 @@
                 </Node>
 
         <!--  Normal IR  -->
-		
+        <!--
                 <Node type="IR" name="IR1">
                     <Configuration>
                         <MapOutputMode xRes="640" yRes="480" FPS="30"/>
                     </Configuration>
                 </Node>
-		
+        -->
 
         <!--  HighRes IR  -->
         <!--
