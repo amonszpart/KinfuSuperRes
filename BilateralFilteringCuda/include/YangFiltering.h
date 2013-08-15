@@ -6,7 +6,7 @@
 class YangFiltering
 {
     public:
-        static int run(cv::Mat const& dep16, cv::Mat const& img8, cv::Mat &fDep);
+        static int run(cv::Mat const& dep16, cv::Mat const& img8, cv::Mat &fDep, int iterations = 3);
 };
 
 #endif // YANGFILTERING_H

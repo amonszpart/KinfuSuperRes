@@ -76,7 +76,7 @@ namespace am
     KinFuApp::KinFuApp(pcl::Grabber& source, float vsz, int icp, int viz)
         : exit_ (false), scan_ (false), scan_mesh_(false), scan_volume_ (false), independent_camera_ (false),
           registration_ (false), integrate_colors_ (false), dump_poses_ (false), focal_length_(-1.f), capture_ (source),
-          scene_cloud_view_(viz), image_view_(viz), rgb_view_(viz), time_ms_(0), icp_(icp), viz_(viz)
+          scene_cloud_view_(viz), image_view_(viz), /*rgb_view_(viz),*/ time_ms_(0), icp_(icp), viz_(viz)
     {
         //Init Kinfu Tracker
         Eigen::Vector3f volume_size = Vector3f::Constant (vsz/*meters*/);
@@ -92,6 +92,7 @@ namespace am
         kinfu_.setIcpCorespFilteringParams (0.1f/*meters*/, sin ( pcl::deg2rad(20.f) ));
         //kinfu_.setDepthTruncationForICP(5.f/*meters*/);
         kinfu_.setCameraMovementThreshold(0.001f);
+        kinfu_.setDepthIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 ); // aron
 
         if (!icp)
             kinfu_.disableIcp();
@@ -141,7 +142,7 @@ namespace am
     void
     KinFuApp::toggleColorIntegration()
     {
-        if(registration_)
+        if ( registration_ )
         {
             const int max_color_integration_weight = 2;
             kinfu_.initColorIntegration(max_color_integration_weight);
@@ -320,11 +321,11 @@ namespace am
     {
         cout << "Saving TSDF volume to " + fileName + "_tsdf_volume.dat ... " << flush;
         this->tsdf_volume_.save ( fileName + "_tsdf_volume.dat", true );
-        cout << "done [" << this->tsdf_volume_.size () << " voxels]" << endl;
+        cout << "done [" << (int)this->tsdf_volume_.size () << " voxels]" << endl;
 
         cout << "Saving TSDF volume cloud to " + fileName + "_tsdf_cloud.pcd ... " << flush;
         pcl::io::savePCDFile<pcl::PointXYZI> (fileName+"_tsdf_cloud.pcd", *this->tsdf_cloud_ptr_, true);
-        cout << "done [" << this->tsdf_cloud_ptr_->size () << " points]" << endl;
+        cout << "done [" << (int)this->tsdf_cloud_ptr_->size () << " points]" << endl;
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -381,10 +382,10 @@ namespace am
                 case (int)'v': case (int)'V':
                     cout << "Saving TSDF volume to tsdf_volume.dat ... " << flush;
                     app->tsdf_volume_.save ("tsdf_volume.dat", true);
-                    cout << "done [" << app->tsdf_volume_.size () << " voxels]" << endl;
+                    cout << "done [" << (int)app->tsdf_volume_.size () << " voxels]" << endl;
                     cout << "Saving TSDF volume cloud to tsdf_cloud.pcd ... " << flush;
                     pcl::io::savePCDFile<pcl::PointXYZI> ("tsdf_cloud.pcd", *app->tsdf_cloud_ptr_, true);
-                    cout << "done [" << app->tsdf_cloud_ptr_->size () << " points]" << endl;
+                    cout << "done [" << (int)app->tsdf_cloud_ptr_->size () << " points]" << endl;
                     break;
 
                 default:
@@ -398,53 +399,78 @@ namespace am
     {
         bool has_image = false;
 
-        std::vector<ushort> cFilteredDepth;
-        PtrStepSz<const unsigned short> cFilteredDepthPtr;
+        std::vector<ushort> cFilteredDepth;                // owner
+        PtrStepSz<const unsigned short> cFilteredDepthPtr; // pointer
+
         cv::Mat rgbMat640;
-        std::vector<uchar> rgb640;
-        if (has_data)
+        std::vector<uchar> rgb640;                         // owner
+        PtrStepSz<const KinfuTracker::PixelRGB> rgb640Ptr; // pointer
+
+        if ( has_data )
         {
+            const int prefiltered = false;
+
             // resize rgb
+            if ( rgb24.cols > depth_arg.cols )
             {
+                // apply CV header
                 const cv::Mat rgbMat1280( rgb24.rows, rgb24.cols, CV_8UC3, const_cast<uchar*>(reinterpret_cast<const uchar*>(&rgb24[0])) );
+                // resize
                 cv::resize( rgbMat1280, rgbMat640, cv::Size(depth_arg.cols,depth_arg.rows), 0, 0, CV_INTER_LANCZOS4 );
+                // prepare output
+
                 rgb640.resize( rgbMat640.cols * rgbMat640.rows * rgbMat640.channels() );
                 int offset = 0;
                 for ( int y = 0; y < rgbMat640.rows; ++y, offset += rgbMat640.cols * rgbMat640.channels() * sizeof(uchar) )
                 {
                     memcpy( &rgb640[offset], rgbMat640.ptr<cv::Vec3b>(y,0), rgbMat640.cols * rgbMat640.channels() * sizeof(uchar) );
                 }
+
+                rgb640Ptr = PtrStepSz<const KinfuTracker::PixelRGB>(
+                                rgbMat640.rows, rgbMat640.cols,
+                                reinterpret_cast<KinfuTracker::PixelRGB*>(&rgb640[0]),
+                                rgbMat640.cols * 3 * sizeof(uchar) );
+
                 //rgbMat640.copyTo( rgb640 );
                 //rgb640 = cv::Mat_<uchar>( rgbMat640.reshape(1, rgbMat640.cols * rgbMat640.rows) );
                 //unsigned* rgb640 = reinterpret_cast<unsigned*>(.data);
                 //cv::cvtColor (cv::Mat (480, 640, CV_8UC3, (void*)&view_host_[0]), views_.back (), CV_RGB2GRAY);
             }
-
-            // prefilter
+            else
             {
-                // prepare data holder
-                cFilteredDepth.resize( depth_arg.cols * depth_arg.rows );
-
-                // run filter
-                static BilateralFilterCuda<float> bilateralFilterCuda;
-                unsigned short* tmp = cFilteredDepth.data();
-                bilateralFilterCuda.runBilateralFilteringWithUShort( depth_arg.data,
-                                                                     reinterpret_cast<const unsigned*>( &rgb640[0] ),
-                                                                     /*reinterpret_cast<ushort*>(&cFilteredDepth[0])*/ tmp,
-                                                                     depth_arg.cols, depth_arg.rows,
-                                                                     .38f, .21f, 4 );
-                // create new depth pointer
-                cFilteredDepthPtr.cols = depth_arg.cols;
-                cFilteredDepthPtr.rows = depth_arg.rows;
-                cFilteredDepthPtr.step = depth_arg.step;
-                cFilteredDepthPtr.data = &cFilteredDepth[0];
+                rgb640Ptr = rgb24;
             }
 
+
+            if ( prefiltered )
+            {
+                // prefilter
+                {
+                    // prepare data holder
+                    cFilteredDepth.resize( depth_arg.cols * depth_arg.rows );
+
+                    // run filter
+                    static BilateralFilterCuda<float> bilateralFilterCuda;
+                    unsigned short* tmp = cFilteredDepth.data();
+                    bilateralFilterCuda.runBilateralFilteringWithUShort( depth_arg.data,
+                                                                         reinterpret_cast<const unsigned*>( rgb640Ptr.ptr() ), // TODO: miSALLIGNED, C3 instead of C4
+                            /*reinterpret_cast<ushort*>(&cFilteredDepth[0])*/ tmp,
+                            depth_arg.cols, depth_arg.rows,
+                            .38f, .21f, 4 );
+                    // create new depth pointer
+                    cFilteredDepthPtr.cols = depth_arg.cols;
+                    cFilteredDepthPtr.rows = depth_arg.rows;
+                    cFilteredDepthPtr.step = depth_arg.step;
+                    cFilteredDepthPtr.data = &cFilteredDepth[0];
+                }
+            }
+            const PtrStepSz<const unsigned short> *pPreparedDepth = prefiltered ? &cFilteredDepthPtr : &depth_arg;
+
             // upload depth
-            depth_device_.upload (cFilteredDepthPtr.data, cFilteredDepthPtr.step, cFilteredDepthPtr.rows, cFilteredDepthPtr.cols);
+            depth_device_.upload ( pPreparedDepth->data, pPreparedDepth->step, pPreparedDepth->rows, pPreparedDepth->cols );
             // upload rgb
             if ( integrate_colors_ )
-                image_view_.colors_device_.upload (rgb24.data, rgb24.step, rgb24.rows, rgb24.cols);
+                image_view_.colors_device_.upload( rgb640Ptr.ptr(), rgb640Ptr.step, rgb640Ptr.rows, rgb640Ptr.cols);
 
             // run Kinfu
             {
@@ -452,16 +478,20 @@ namespace am
 
                 //run kinfu algorithm
                 if (integrate_colors_)
-                    has_image = kinfu_ (depth_device_, image_view_.colors_device_);
+                    has_image = kinfu_ ( depth_device_, image_view_.colors_device_ );
                 else
-                    has_image = kinfu_ (depth_device_);
+#if MYKINFU
+                    has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ prefiltered );
+#else
+                    has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL );
+#endif
             }
 
-            image_view_.showDepth ( cFilteredDepthPtr );
+            image_view_.showDepth ( *pPreparedDepth );
             //if (viz_)
             //    image_view_.viewerScene_->showRGBImage (reinterpret_cast<const unsigned char*> (rgb24.data), rgb24.cols, rgb24.rows );
             //image_view_.showGeneratedDepth(kinfu_, kinfu_.getCameraPose());
-            rgb_view_.viewerScene_->showRGBImage( rgb640.data(), depth_arg.cols, depth_arg.rows );
+            //rgb_view_.viewerScene_->showRGBImage( reinterpret_cast<const unsigned char*>(rgb640Ptr.ptr()), rgb640Ptr.cols, rgb640Ptr.rows );
         }
 
         if (scan_)
@@ -493,19 +523,19 @@ namespace am
         if ( has_image && (scene_cloud_view_.cloud_viewer_) )
         {
             Eigen::Affine3f viewer_pose = getViewerPose( *scene_cloud_view_.cloud_viewer_ );
-            image_view_.showScene (kinfu_, rgb24, registration_, independent_camera_ ? &viewer_pose : 0);
+            image_view_.showScene (kinfu_, rgb640Ptr, registration_, independent_camera_ ? &viewer_pose : 0);
         }
 
         if (current_frame_cloud_view_)
             current_frame_cloud_view_->show ( kinfu_ );
 
-        if ( (!independent_camera_) &&
-             (scene_cloud_view_.cloud_viewer_) /*aron:my addition */
+        if ( (!independent_camera_)
+             && (scene_cloud_view_.cloud_viewer_) /*aron:my addition */
              )
             setViewerPose (*scene_cloud_view_.cloud_viewer_, kinfu_.getCameraPose());
 
         // save screenshots and poses
-        if ( dump_poses_ )
+        if ( has_data && dump_poses_ )
         {
             screenshot_manager_.saveImage( kinfu_.getCameraPose(), rgb24, cFilteredDepthPtr );
         }

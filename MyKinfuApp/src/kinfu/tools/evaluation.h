@@ -42,7 +42,8 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <pcl/gpu/containers/kernel_containers.h>
-#include <pcl/gpu/kinfu/kinfu.h>
+//#include <pcl/gpu/kinfu/kinfu.h>
+#include "kinfu.h"
 
 
 /** \brief  class for  RGB-D SLAM Dataset and Benchmark

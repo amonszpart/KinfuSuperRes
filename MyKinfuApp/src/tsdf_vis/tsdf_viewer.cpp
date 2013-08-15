@@ -144,8 +144,12 @@ namespace am
         viewerScene_->setWindowTitle ("View3D from ray tracing");
         viewerScene_->setPosition (0, 0);
 
+
         if ( !raycaster_ptr_ )
-            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( 2*rows, 2*cols ) );
+        {
+            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
+            raycaster_ptr_->setIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 );
+        }
         //raycaster_ptr_->
     }
 
@@ -157,8 +161,12 @@ namespace am
         viewerDepth_->setWindowTitle ("Depth from ray tracing");
         viewerDepth_->setPosition (640, 0);
 
+
         if ( !raycaster_ptr_ )
-            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( 2*rows, 2*cols ) );
+        {
+            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
+            raycaster_ptr_->setIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 );
+        }
         //raycaster_ptr_->
     }
 

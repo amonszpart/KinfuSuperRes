@@ -169,6 +169,7 @@ SET( SRC_LIST
 SET(MYKINFU TRUE)
 
 IF(MYKINFU)
+    add_definitions(-DMYKINFU)
     SET( KINFU_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/include/" )
     #INCLUDE_DIRECTORIES( "../MyKinfuTracker/include/" )
 ELSE(MYKINFU)
