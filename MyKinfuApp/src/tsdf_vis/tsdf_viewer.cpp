@@ -4,6 +4,8 @@
 #include <pcl/PolygonMesh.h>
 #include <vector_types.h> // cuda-5.0
 
+#include <pcl/range_image/range_image.h>
+
 namespace am
 {
 
@@ -137,20 +139,20 @@ namespace am
     }
 
     void
+    TSDFViewer::initRayCaster( int rows, int cols )
+    {
+        raycaster_ptr_ = RayCaster::Ptr( new RayCaster( 2*rows, 2*cols ) );
+        raycaster_ptr_->setIntrinsics( 523.2480, 523.1627, 2*321.1510, 2*257.8468  );
+    }
+
+    void
     TSDFViewer::initRayViewer( int rows, int cols )
     {
         viewerScene_ = pcl::visualization::ImageViewer::Ptr(new pcl::visualization::ImageViewer);
 
         viewerScene_->setWindowTitle ("View3D from ray tracing");
         viewerScene_->setPosition (0, 0);
-
-
-        if ( !raycaster_ptr_ )
-        {
-            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
-            raycaster_ptr_->setIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 );
-        }
-        //raycaster_ptr_->
+        if ( !raycaster_ptr_ ) initRayCaster( rows, cols );
     }
 
     void
@@ -162,11 +164,7 @@ namespace am
         viewerDepth_->setPosition (640, 0);
 
 
-        if ( !raycaster_ptr_ )
-        {
-            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
-            raycaster_ptr_->setIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 );
-        }
+        if ( !raycaster_ptr_ ) initRayCaster( rows, cols );
         //raycaster_ptr_->
     }
 
@@ -212,6 +210,54 @@ namespace am
         viewerScene_->spinOnce();
 
     }
+
+    void
+    TSDFViewer::toCloud( Eigen::Affine3f const& pose )
+    {
+        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud( new pcl::PointCloud<pcl::PointXYZI>() );
+        std::cout << "converting to cloud";
+        tsdf_volume_.convertToTsdfCloud( cloud );
+        std::cout << "OK" << std::endl;
+
+        float angularResolution = (float) (  .05f * (M_PI/180.0f));  //   1.0 degree in radians
+        float maxAngleWidth     = (float) (180.0f * (M_PI/180.0f));  // 360.0 degree in radians
+        float maxAngleHeight    = (float) (180.0f * (M_PI/180.0f));  // 180.0 degree in radians
+        //Eigen::Affine3f sensorPose = (Eigen::Affine3f)Eigen::Translation3f(0.0f, 0.0f, -3.0f);
+        pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
+        float noiseLevel=0.00;
+        float minRange = 0.0f;
+        int borderSize = 1;
+
+        pcl::RangeImage rangeImage;
+        rangeImage.createFromPointCloud(*cloud, angularResolution, maxAngleWidth, maxAngleHeight,
+                                        pose, coordinate_frame, noiseLevel, minRange, borderSize);
+
+        std::cout << rangeImage << "\n";
+
+        saveRangeImagePlanarFilePNG( std::string("rangeImage.png"), rangeImage );
+                    }
+
+    // http://www.pcl-users.org/Writing-a-pcl-RangeImage-to-an-image-png-file-td3724081.html
+    void
+    TSDFViewer::saveRangeImagePlanarFilePNG ( std::string const& file_name, pcl::RangeImage const& range_image )
+    {
+        std::cout << "saving range image to " << file_name << "...";
+        cv::Mat mat( range_image.height, range_image.width, CV_32FC1 );
+        for (int y = 0; y < range_image.height; ++y)
+        {
+            for (int x = 0; x < range_image.width; ++x)
+            {
+                mat.at<float>(y,x) = range_image( /*col: */ x, /* row: */ y).range / 5000.f * 255.f;
+                //std::cout << mat.at<float>(y,x) << std::endl;
+            }
+        }
+        std::vector<int> params;
+        params.push_back( 16 );
+        params.push_back( 0 );
+        cv::imwrite( file_name.c_str(), mat, params );
+        std::cout << "OK" << std::endl;
+    }
+
 #if 0
     void
     TSDFViewer::showScene (KinfuTracker& kinfu, const PtrStepSz<const KinfuTracker::PixelRGB>& rgb24, bool registration, Eigen::Affine3f* pose_ptr )

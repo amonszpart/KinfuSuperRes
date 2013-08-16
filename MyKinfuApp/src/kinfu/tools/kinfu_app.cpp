@@ -92,7 +92,7 @@ namespace am
         kinfu_.setIcpCorespFilteringParams (0.1f/*meters*/, sin ( pcl::deg2rad(20.f) ));
         //kinfu_.setDepthTruncationForICP(5.f/*meters*/);
         kinfu_.setCameraMovementThreshold(0.001f);
-        kinfu_.setDepthIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 ); // aron
+        kinfu_.setDepthIntrinsics( 523.2480, 523.1627, 321.1510, 257.8468 ); // aron
 
         if (!icp)
             kinfu_.disableIcp();

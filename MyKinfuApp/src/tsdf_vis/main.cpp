@@ -257,6 +257,67 @@ int testCostVolume( std::string depPath, std::string imgPath, int iterations = 3
     return EXIT_SUCCESS;
 }
 
+struct MyPlayer
+{
+        MyPlayer()
+            : exit(false), changed(false) {}
+
+        bool exit;
+
+        bool changed;
+
+        Eigen::Affine3f& Pose() { changed = true; return pose; }
+        Eigen::Affine3f const& Pose() const { return pose; }
+    protected:
+        Eigen::Affine3f pose;
+
+} myPlayer;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void
+keyboard_callback( const pcl::visualization::KeyboardEvent &e, void *cookie )
+{
+    MyPlayer* pMyPlayer = reinterpret_cast<MyPlayer*>( cookie );
+
+    int key = e.getKeyCode ();
+
+    if ( e.keyUp () )
+    {
+        switch ( key )
+        {
+            case 27:
+                pMyPlayer->exit = true;
+                break;
+            case 82:
+            case 'a':
+                pMyPlayer->Pose().translation().x() -= 0.1f;
+                break;
+            case 'd':
+            case 83:
+                pMyPlayer->Pose().translation().x() += 0.1f;
+                break;
+            case 's':
+            case 84:
+                pMyPlayer->Pose().translation().y() -= 0.1f;
+                break;
+            case 'w':
+            case 81:
+                pMyPlayer->Pose().translation().y() += 0.1f;
+                break;
+            case 'e':
+                pMyPlayer->Pose().translation().z() += 0.1f;
+                break;
+            case 'c':
+                pMyPlayer->Pose().translation().z() -= 0.1f;
+                break;
+
+            default:
+                break;
+        }
+    }
+    std::cout << (int)key << std::endl;
+}
+
 
 void printUsage()
 {
@@ -279,7 +340,7 @@ int main( char argc, char** argv )
         if ( doYang )
         {
             if ( iterations <= 0 )
-                 iterations = 3;
+                iterations = 3;
             std::cout << "running for " << iterations << std::endl;
             testCostVolume( yangDir + "/" + depName, yangDir + "/" + imgName, iterations );
         }
@@ -306,28 +367,39 @@ int main( char argc, char** argv )
     // Load TSDF
     std::unique_ptr<am::TSDFViewer> tsdfViewer( new am::TSDFViewer() );
     tsdfViewer->loadTsdfFromFile( tsdfFilePath, true );
+    tsdfViewer->getRayViewer()->registerKeyboardCallback (keyboard_callback, (void*)&myPlayer);
+    tsdfViewer->getDepthViewer()->registerKeyboardCallback (keyboard_callback, (void*)&myPlayer);
 
     tsdfViewer->dumpMesh();
 #if 0
     Eigen::Affine3f pose;
-            pose.linear() <<  0.999154,  -0.0404336, -0.00822448,
-                             0.0344457,    0.927101,   -0.373241,
-                             0.0227151,    0.372638,    0.927706;
-            pose.translation() << 1.63002,
-                                  1.46289,
-                                  0.227635;
+    pose.linear() <<  0.999154,  -0.0404336, -0.00822448,
+            0.0344457,    0.927101,   -0.373241,
+            0.0227151,    0.372638,    0.927706;
+    pose.translation() << 1.63002,
+            1.46289,
+            0.227635;
 #endif
-            // 224
-           Eigen::Affine3f pose;
-           pose.translation() << 1.67395, 1.69805, -0.337846;
 
-           pose.linear() <<
-             0.954062,  0.102966, -0.281364,
-             -0.16198,  0.967283, -0.195268,
-             0.252052,  0.231873,  0.939525;
+    // 224
+    //Eigen::Affine3f pose;
+    myPlayer.Pose().translation() << 1.67395, 1.69805, 0.337846;
 
-    tsdfViewer->showGeneratedRayImage( tsdfViewer->kinfuVolume_ptr_, pose );
-    tsdfViewer->showGeneratedDepth   ( tsdfViewer->kinfuVolume_ptr_, pose );
+    myPlayer.Pose().linear() <<
+                     0.954062,  0.102966, -0.281364,
+                    -0.16198,  0.967283, -0.195268,
+                    0.252052,  0.231873,  0.939525;
+
+    while ( !myPlayer.exit )
+    {
+        if ( myPlayer.changed )
+        {
+            tsdfViewer->showGeneratedRayImage( tsdfViewer->kinfuVolume_ptr_, myPlayer.Pose() );
+            tsdfViewer->showGeneratedDepth   ( tsdfViewer->kinfuVolume_ptr_, myPlayer.Pose() );
+            myPlayer.changed = false;
+        }
+        tsdfViewer->spinOnce(30);
+    }
 
     // get depth
     auto vshort = tsdfViewer->getLatestDepth();
@@ -337,8 +409,8 @@ int main( char argc, char** argv )
     params.push_back(0);
     cv::imwrite("dep224.png", dep, params );
 
-
-    tsdfViewer->spin();
+    //tsdfViewer->spin();
+    //tsdfViewer->toCloud( myPlayer.Pose() );
 
     std::cout << "Hello Tsdf_vis" << std::endl;
 

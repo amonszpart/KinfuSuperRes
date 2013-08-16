@@ -72,23 +72,23 @@ typename PointCloud<MergedT>::Ptr merge(const PointCloud<PointT>& points, const 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename CloudPtr> void
-writeCloudFile (int format, const CloudPtr& cloud_prt, std::string fileName )
+writeCloudFile (int format, const CloudPtr& cloud_ptr, std::string fileName )
 {
     if (format == nsKinFuApp::PCD_BIN)
     {
         cout << "Saving point cloud to '" + fileName + "_bin.pcd' (binary)... " << flush;
-        pcl::io::savePCDFile (fileName + "_bin.pcd", *cloud_prt, true);
+        pcl::io::savePCDFile (fileName + "_bin.pcd", *cloud_ptr, true);
     }
     else
         if (format == nsKinFuApp::PCD_ASCII)
         {
             cout << "Saving point cloud to '" + fileName + ".pcd' (ASCII)... " << flush;
-            pcl::io::savePCDFile (fileName + ".pcd", *cloud_prt, false );
+            pcl::io::savePCDFile (fileName + ".pcd", *cloud_ptr, false );
         }
         else   /* if (format == KinFuApp::PLY) */
         {
             cout << "Saving point cloud to '" + fileName + ".ply' (ASCII)... " << flush;
-            pcl::io::savePLYFileASCII (fileName + ".ply", *cloud_prt );
+            pcl::io::savePLYFileASCII (fileName + ".ply", *cloud_ptr );
 
         }
     cout << "Done" << endl;

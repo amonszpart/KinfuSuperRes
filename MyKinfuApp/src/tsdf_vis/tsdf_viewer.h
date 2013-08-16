@@ -6,6 +6,7 @@
 #include "marching_cubes.h"
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/visualization/image_viewer.h>
+#include <pcl/range_image/range_image.h>
 
 #include "../kinfu/tools/tsdf_volume.h"
 #include "../kinfu/tools/tsdf_volume.hpp"
@@ -27,6 +28,7 @@ namespace am
 
             void
             loadTsdfFromFile( std::string path, bool binary );
+            void initRayCaster( int rows, int cols );
 
             void
             showGeneratedDepth (const pcl::gpu::TsdfVolume::Ptr &volume, const Eigen::Affine3f& pose );
@@ -34,15 +36,26 @@ namespace am
             showGeneratedRayImage ( pcl::gpu::TsdfVolume::Ptr const& volume, const Eigen::Affine3f& pose );
             void
             spin() { viewerScene_->spin(); };
+            void
+            spinOnce( int time = 1) { viewerScene_->spinOnce(time); };
 
             // mesh
             void
             extractMeshFromVolume( const pcl::gpu::TsdfVolume::Ptr volume, boost::shared_ptr<pcl::PolygonMesh>& mesh_ptr );
             void dumpMesh( std::string path = "" );
 
+            // cloude
+            void
+            toCloud(const Eigen::Affine3f &pose);
+            void
+            saveRangeImagePlanarFilePNG( const std::string &file_name,  pcl::RangeImage const& range_image );
+
             std::vector<unsigned short> const& getLatestDepth() const { return depth_view_host_; };
 
             std::vector<pcl::gpu::KinfuTracker::PixelRGB> const& getLatestRayCast() const { return ray_view_host_; }
+
+            pcl::visualization::ImageViewer::Ptr & getRayViewer() { return viewerScene_; }
+            pcl::visualization::ImageViewer::Ptr & getDepthViewer() { return viewerDepth_; }
 
         protected:
 
