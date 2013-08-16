@@ -27,7 +27,6 @@ namespace am
 
             void
             loadTsdfFromFile( std::string path, bool binary );
-
             void
             showGeneratedDepth (const pcl::gpu::TsdfVolume::Ptr &volume, const Eigen::Affine3f& pose );
             void
@@ -39,6 +38,9 @@ namespace am
             void
             extractMeshFromVolume( const pcl::gpu::TsdfVolume::Ptr volume, boost::shared_ptr<pcl::PolygonMesh>& mesh_ptr );
             void dumpMesh( std::string path = "" );
+
+            // cloud
+            void toCloud();
 
             std::vector<unsigned short> const& getLatestDepth() const { return depth_view_host_; };
 

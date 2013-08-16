@@ -212,6 +212,16 @@ namespace am
         viewerScene_->spinOnce();
 
     }
+
+    void
+    TSDFViewer::toCloud()
+    {
+        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
+        std::cout << "converting to cloud";
+        tsdf_volume_.convertToTsdfCloud( cloud );
+        std::cout << "OK" << std::endl;
+    }
+
 #if 0
     void
     TSDFViewer::showScene (KinfuTracker& kinfu, const PtrStepSz<const KinfuTracker::PixelRGB>& rgb24, bool registration, Eigen::Affine3f* pose_ptr )

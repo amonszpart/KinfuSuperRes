@@ -442,7 +442,7 @@ struct MyPlayer
                 }
 
                 // read IR
-                if ( irGenerator.IsGenerating() )
+                if ( irGenerator.IsValid() && irGenerator.IsGenerating() )
                 {
                     std::cout << "fetching ir..." << std::endl;
                     getIR( context, irGenerator, ir8 );
@@ -451,7 +451,7 @@ struct MyPlayer
 
 #if 1
                 // read IR and RGB
-                if ( showIrAndRgb && irGenerator.IsGenerating() )
+                if ( showIrAndRgb && irGenerator.IsValid() && irGenerator.IsGenerating() )
                 {
                     std::cout << "fetching ir...";
                     getIR( context, irGenerator, ir8 );
@@ -644,7 +644,7 @@ struct MyPlayer
                 }
 
                 // Key Input
-                if ( irGenerator.IsGenerating() )
+                if ( irGenerator.IsValid() && irGenerator.IsGenerating() )
                     c = cv::waitKey( 300 );
                 else
                     c = cv::waitKey( 10 );
@@ -1157,10 +1157,10 @@ int main( int argc, char* argv[] )
 
     // CONFIG
     enum PlayMode { RECORD, PLAY, KINECT };
-    PlayMode playMode = RECORD;
+    PlayMode playMode = PLAY;
 
     // INPUT
-    char* ONI_PATH = "recording_push.oni";
+    char* ONI_PATH = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/amonirecorded.oni";
     if ( argc > 1 )
     {
         ONI_PATH = argv[1];
@@ -1217,48 +1217,49 @@ int main( int argc, char* argv[] )
             }
     }
 
-#define RGB_WIDTH 1280
-#define RGB_HEIGHT 1024
-#define RGB_FPS 15
-#if 1
-    /// init NODES
-    XnMapOutputMode modeIR;
-    modeIR.nFPS = 30;
-    modeIR.nXRes = 640;
-    modeIR.nYRes = 480;
-    XnMapOutputMode modeVGA;
-    modeVGA.nFPS = RGB_FPS;
-    modeVGA.nXRes = RGB_WIDTH;
-    modeVGA.nYRes = RGB_HEIGHT;
+    if ( playMode == PlayMode::KINECT )
+    {
+        const int RGB_WIDTH = 1280;
+        const int RGB_HEIGHT = 1024;
+        const int RGB_FPS = 15;
 
-    //context inizialization
-    rc = g_context.Init();
-    CHECK_RC(rc, "Initialize context");
+        /// init NODES
+        XnMapOutputMode modeIR;
+        modeIR.nFPS = 30;
+        modeIR.nXRes = 640;
+        modeIR.nYRes = 480;
+        XnMapOutputMode modeVGA;
+        modeVGA.nFPS = RGB_FPS;
+        modeVGA.nXRes = RGB_WIDTH;
+        modeVGA.nYRes = RGB_HEIGHT;
 
-    //depth node creation
-    rc = g_depth.Create(g_context);
-    CHECK_RC(rc, "Create depth generator");
-    rc = g_depth.StartGenerating();
-    CHECK_RC(rc, "Start generating Depth");
+        //context inizialization
+        rc = g_context.Init();
+        CHECK_RC(rc, "Initialize context");
 
-    //RGB node creation
-    rc = g_image.Create(g_context);
-    CHECK_RC(rc, "Create rgb generator");
-    rc = g_image.SetMapOutputMode(modeVGA);
-    CHECK_RC(rc, "Depth SetMapOutputMode XRes for 1280, YRes for 1024 and FPS for 15");
-    rc = g_image.StartGenerating();
-    CHECK_RC(rc, "Start generating RGB");
+        //depth node creation
+        rc = g_depth.Create(g_context);
+        CHECK_RC(rc, "Create depth generator");
+        rc = g_depth.StartGenerating();
+        CHECK_RC(rc, "Start generating Depth");
 
-    //IR node creation
-    rc = g_ir.Create(g_context);
-    CHECK_RC(rc, "Create ir generator");
-    rc = g_ir.SetMapOutputMode(modeIR);
-    CHECK_RC(rc, "IR SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30");
-    //rc = g_ir.StartGenerating();
-    //CHECK_RC(rc, "Start generating IR");
-#else
+        //RGB node creation
+        rc = g_image.Create(g_context);
+        CHECK_RC(rc, "Create rgb generator");
+        rc = g_image.SetMapOutputMode(modeVGA);
+        CHECK_RC(rc, "Depth SetMapOutputMode XRes for 1280, YRes for 1024 and FPS for 15");
+        rc = g_image.StartGenerating();
+        CHECK_RC(rc, "Start generating RGB");
 
-    /// init NODES
+        //IR node creation
+        rc = g_ir.Create(g_context);
+        CHECK_RC(rc, "Create ir generator");
+        rc = g_ir.SetMapOutputMode(modeIR);
+        CHECK_RC(rc, "IR SetMapOutputMode XRes for 640, YRes for 480 and FPS for 30");
+        //rc = g_ir.StartGenerating();
+        //CHECK_RC(rc, "Start generating IR");
+    }
+    else
     {
         rc = g_context.FindExistingNode(XN_NODE_TYPE_DEPTH, g_depth);
         if (rc != XN_STATUS_OK)
@@ -1281,8 +1282,6 @@ int main( int argc, char* argv[] )
             //return 1;
         }
     }
-
-#endif
 
     /// INFO
     {

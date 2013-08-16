@@ -12,6 +12,7 @@ int main( int argc, char *argv[] )
     if ( XN_STATUS_OK == rtest.manualConfig(1280) )
     {
         rtest.setAltViewpoint( false );
+        fflush(stdout);
         rtest.run( false );
     }
 
