@@ -101,7 +101,7 @@ namespace am
         }
         catch (const pcl::PCLException& /*e*/) { return cout << "Can't open depth source" << endl, -1; }
 
-        float volume_size = 3.f;
+        float volume_size = 2.7f;
         pc::parse_argument ( argc, argv, "-volume_size", volume_size );
 
         int icp = 1, visualization = 0;

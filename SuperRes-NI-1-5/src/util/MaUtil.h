@@ -131,6 +131,8 @@ namespace util
         myfile.close();
         std::cout << "write2MFile( " << path << " ) finished" << std::endl;
     }
+
+    std::string outputDirectoryNameWithTimestamp( std::string path );
 }
 
 #endif // UTIL_H
