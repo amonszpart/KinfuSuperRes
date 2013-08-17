@@ -63,8 +63,6 @@ namespace am
             std::cout << "Node: " << (*it).GetInstanceName() << std::endl;
         }
 
-
-
         // create recorder
         nRetVal = recorder.Create(context);
         CHECK_RC(nRetVal, "Create recorder");
@@ -81,7 +79,7 @@ namespace am
         //ImageGenerator imageGenerator;
         nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator );
         CHECK_RC(nRetVal, "Find image generator");
-        nRetVal = recorder.AddNodeToRecording( imageGenerator );
+        nRetVal = recorder.AddNodeToRecordi ng( imageGenerator );
         CHECK_RC(nRetVal, "Add image node to recording");
 
         /*IRGenerator irGenerator;

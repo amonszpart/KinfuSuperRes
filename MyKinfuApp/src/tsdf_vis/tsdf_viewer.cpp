@@ -4,17 +4,34 @@
 #include <pcl/PolygonMesh.h>
 #include <vector_types.h> // cuda-5.0
 
+#include <pcl/range_image/range_image_planar.h>
+#include <pcl/visualization/range_image_visualizer.h>
+
+#include <vtkBMPWriter.h>
+#include <vtkWindow.h>
+#include <vtkWindowToImageFilter.h>
+#include <vtkImageShiftScale.h>
+#include <vtkCamera.h>
+
 namespace am
 {
 
     TSDFViewer::TSDFViewer()
     {
-        const int rows = 480;
-        const int cols = 640;
+        const int rows = 2*480;
+        const int cols = 2*640;
+
+        intr_ = MyIntr( 521.7401, 522.1379,
+                                   323.4402 * 2.f, 258.1387 * 2.f );
 
         //initCloudViewer( rows, cols );
         initRayViewer( rows, cols );
         initDepthViewer( rows, cols );
+        initCloudViewer( rows, cols );
+
+        //range_vis_ = pcl::visualization::RangeImageVisualizer::Ptr( new pcl::visualization::RangeImageVisualizer("range image"));
+        //range_vis_ = pcl::visualization::RangeImageVisualizer::getRangeImageWidget(
+        //range_vis_->setSize( cols, rows );
     }
 
     void
@@ -22,6 +39,7 @@ namespace am
     {
         tsdf_volume_.load( path, binary );
         std::cout << "initing kinfuvolume with resolution: " << tsdf_volume_.gridResolution().transpose() << std::endl;
+        //tsdf_volume_.header() = pc
         std::vector<short2> tsdf( tsdf_volume_.header().getVolumeSize() );
 
 #       pragma omp parallel for
@@ -95,13 +113,13 @@ namespace am
     {
 
         // extract mesh
-        boost::shared_ptr<pcl::PolygonMesh> mesh_ptr;
-        extractMeshFromVolume( kinfuVolume_ptr_, mesh_ptr );
+        //boost::shared_ptr<pcl::PolygonMesh> mesh_ptr;
+        extractMeshFromVolume( kinfuVolume_ptr_, mesh_ptr_ );
 
         // save mesh
-        if ( mesh_ptr.get() != NULL )
+        if ( mesh_ptr_.get() != NULL )
         {
-            pcl::io::savePLYFile( path + "_mesh.ply", *mesh_ptr );
+            pcl::io::savePLYFile( path + "_mesh.ply", *mesh_ptr_ );
             std::cout << "saved mesh in " << path + "_mesh.ply" << std::endl;
         }
     }
@@ -131,9 +149,33 @@ namespace am
         cloud_viewer_->initCameraParameters ();
         cloud_viewer_->setPosition (0, 500);
         cloud_viewer_->setSize (cols, rows);
-        cloud_viewer_->setCameraClipDistances (0.01, 10.01);
+        cloud_viewer_->setCameraClipDistances( 0.01, 10.01 );
+        //cloud_viewer_->setCameraParameters( 521.7401, 522.1379, 323.4402 * 2.f, 258.1387 *2.f);
 
-        cloud_viewer_->addText ("H: print help", 2, 15, 20, 34, 135, 246);
+        // Compute the vertical field of view based on the focal length and image heigh
+        double im_height = intr_.cy;
+        double fovy = 2.0 * atan (im_height / (intr_.fy)) * 180.0 / M_PI;
+        std::cout << "fovy: " << fovy << std::endl;
+
+        vtkSmartPointer<vtkRendererCollection> rens = cloud_viewer_->getRendererCollection();
+        rens->InitTraversal ();
+        vtkRenderer* renderer = NULL;
+        int i = 1;
+        while ((renderer = rens->GetNextItem ()) != NULL)
+        {
+            vtkSmartPointer<vtkCamera> cam = renderer->GetActiveCamera ();
+            cam->SetUseHorizontalViewAngle (0);
+            cam->SetViewAngle (fovy);
+        }
+
+        //cloud_viewer_->addText ("H: print help", 2, 15, 20, 34, 135, 246);
+    }
+
+    void
+    TSDFViewer::initRayCaster( int rows, int cols )
+    {
+        raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
+        raycaster_ptr_->setIntrinsics(  521.7401, 522.1379, 323.4402 * 2.f, 258.1387 *2.f );
     }
 
     void
@@ -143,14 +185,7 @@ namespace am
 
         viewerScene_->setWindowTitle ("View3D from ray tracing");
         viewerScene_->setPosition (0, 0);
-
-
-        if ( !raycaster_ptr_ )
-        {
-            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
-            raycaster_ptr_->setIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 );
-        }
-        //raycaster_ptr_->
+        if ( !raycaster_ptr_ ) initRayCaster( rows, cols );
     }
 
     void
@@ -162,11 +197,7 @@ namespace am
         viewerDepth_->setPosition (640, 0);
 
 
-        if ( !raycaster_ptr_ )
-        {
-            raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
-            raycaster_ptr_->setIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 );
-        }
+        if ( !raycaster_ptr_ ) initRayCaster( rows, cols );
         //raycaster_ptr_->
     }
 
@@ -214,11 +245,136 @@ namespace am
     }
 
     void
-    TSDFViewer::toCloud()
+    TSDFViewer::toCloud( Eigen::Affine3f const& pose, pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud_ptr )
     {
-        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
+        if ( !cloud_ptr.get() )
+            cloud_ptr = pcl::PointCloud<pcl::PointXYZI>::Ptr( new pcl::PointCloud<pcl::PointXYZI>() );
+
         std::cout << "converting to cloud";
-        tsdf_volume_.convertToTsdfCloud( cloud );
+        tsdf_volume_.convertToTsdfCloud( cloud_ptr );
+        std::cout << "OK" << std::endl;
+    }
+
+    void
+    TSDFViewer::showCloud( Eigen::Affine3f const& pose, pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr )
+    {
+        cloud_viewer_->removeAllPointClouds();
+        //cloud_viewer_->setCameraPosition();
+        //pcl::visualization::PointCloudColorHandler<PointXYZI> cld( cloud_ptr_ );
+        cloud_viewer_->addPointCloud<pcl::PointXYZI>( cloud_ptr, std::string("cloud") );
+        cloud_viewer_->spinOnce(1);
+    }
+
+    void
+    TSDFViewer::showMesh( Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr & mesh_ptr )
+    {
+        cloud_viewer_->removeAllPointClouds();
+        cloud_viewer_->addPolygonMesh( *mesh_ptr );
+        cloud_viewer_->spinOnce(1);
+    }
+
+    void
+    TSDFViewer::renderRangeImage( pcl::PointCloud<pcl::PointXYZI>::Ptr const& cloud, Eigen::Affine3f const& pose )
+    {
+        float angularResolution = (float) (  .05f * (M_PI/180.0f));  //   1.0 degree in radians
+        float maxAngleWidth     = (float) (180.0f * (M_PI/180.0f));  // 360.0 degree in radians
+        float maxAngleHeight    = (float) (180.0f * (M_PI/180.0f));  // 180.0 degree in radians
+        //Eigen::Affine3f sensorPose = (Eigen::Affine3f)Eigen::Translation3f(0.0f, 0.0f, -3.0f);
+        pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
+        float noiseLevel = 0.00;
+        float minRange = 0.0f;
+        int borderSize = 0;
+
+        pcl::RangeImage rangeImage;
+        rangeImage.createFromPointCloud(*cloud, angularResolution, maxAngleWidth, maxAngleHeight,
+                                        pose, coordinate_frame, noiseLevel, minRange, borderSize);
+
+        std::cout << rangeImage << "\n";
+
+        saveRangeImagePlanarFilePNG( std::string("rangeImage.png"), rangeImage );
+//        ((pcl::visualization::RangeImageVisualizer*)range_vis_.get())->showRangeImage( rangeImage );
+        if ( range_vis_ )
+            range_vis_.reset();
+        range_vis_ = pcl::visualization::RangeImageVisualizer::Ptr(
+                        pcl::visualization::RangeImageVisualizer::getRangeImageWidget( rangeImage,0.f, 5000.f, true ) );
+    }
+
+    // http://www.pcl-users.org/Writing-a-pcl-RangeImage-to-an-image-png-file-td3724081.html
+    void
+    TSDFViewer::saveRangeImagePlanarFilePNG ( std::string const& file_name, pcl::RangeImage const& range_image )
+    {
+        std::cout << "saving range image to " << file_name << "...";
+        cv::Mat mat( range_image.height, range_image.width, CV_32FC1 );
+        for (int y = 0; y < range_image.height; ++y)
+        {
+            for (int x = 0; x < range_image.width; ++x)
+            {
+                mat.at<float>(y,x) = range_image( /*col: */ x, /* row: */ y).range / 5000.f * 255.f;
+                //std::cout << mat.at<float>(y,x) << std::endl;
+            }
+        }
+        std::vector<int> params;
+        params.push_back( 16 );
+        params.push_back( 0 );
+        cv::imwrite( file_name.c_str(), mat, params );
+        std::cout << "OK" << std::endl;
+    }
+
+    void
+    TSDFViewer::setViewerPose (visualization::PCLVisualizer& viewer, const Eigen::Affine3f& viewer_pose)
+    {
+        Eigen::Vector3f pos_vector = viewer_pose * Eigen::Vector3f (0, 0, 0);
+        Eigen::Vector3f look_at_vector = viewer_pose.rotation () * Eigen::Vector3f (0, 0, 1) + pos_vector;
+        Eigen::Vector3f up_vector = viewer_pose.rotation () * Eigen::Vector3f (0, -1, 0);
+        viewer.setCameraPosition (pos_vector[0], pos_vector[1], pos_vector[2],
+                look_at_vector[0], look_at_vector[1], look_at_vector[2],
+                up_vector[0], up_vector[1], up_vector[2]);
+    }
+
+    Eigen::Affine3f
+    TSDFViewer::getViewerPose (visualization::PCLVisualizer& viewer)
+    {
+        Eigen::Affine3f pose = viewer.getViewerPose();
+        Eigen::Matrix3f rotation = pose.linear();
+
+        Matrix3f axis_reorder;
+        axis_reorder << 0,  0,  1,
+                -1,  0,  0,
+                0, -1,  0;
+
+        rotation = rotation * axis_reorder;
+        pose.linear() = rotation;
+        return pose;
+    }
+
+//#include <vtk/
+    void
+    TSDFViewer::vtkMagic()
+    {
+        std::cout << "saving vtkZBuffer...";
+        vtkSmartPointer<vtkWindowToImageFilter> filter =
+          vtkSmartPointer<vtkWindowToImageFilter>::New();
+        vtkSmartPointer<vtkBMPWriter> imageWriter =
+          vtkSmartPointer<vtkBMPWriter>::New();
+        vtkSmartPointer<vtkImageShiftScale> scale =
+          vtkSmartPointer<vtkImageShiftScale>::New();
+
+        vtkSmartPointer<vtkRenderWindow> renWin = cloud_viewer_->getRenderWindow();
+
+        // Create Depth Map
+        filter->SetInput( renWin );
+        filter->SetMagnification(1);
+        filter->SetInputBufferTypeToZBuffer();        //Extract z buffer value
+
+        scale->SetOutputScalarTypeToUnsignedChar();
+        scale->SetInputConnection(filter->GetOutputPort());
+        scale->SetShift(0);
+        scale->SetScale(-10001.f);
+
+        // Write depth map as a .bmp image
+        imageWriter->SetFileName("vtkzbuffer.bmp");
+        imageWriter->SetInputConnection(scale->GetOutputPort());
+        imageWriter->Write();
         std::cout << "OK" << std::endl;
     }
 

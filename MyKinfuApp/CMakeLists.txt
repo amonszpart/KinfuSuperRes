@@ -6,7 +6,8 @@ INCLUDE(../localcfg.cmake)
 
 # FLAGS
 SET( CMAKE_CXX_COMPILER /usr/bin/g++ )
-SET( CMAKE_CXX_FLAGS "-std=c++0x" )
+SET( CMAKE_CXX_FLAGS "-std=c++0x -O3 -Wno-deprecated" )
+SET( GNU_FLAGS ${GNU_FLAGS} "-O3 -Wno-deprecated")
 
 # PARAMS
 if(TROLL)
@@ -62,6 +63,8 @@ SET( MY_LIBRARIES
     vtkCommon
     vtkFiltering
     vtkRendering
+    vtkImaging
+    vtkIO
     ${CUDA_PATH}/lib64/libcudart.so
 )
 

@@ -35,8 +35,9 @@
  *
  */
 
-#ifndef PCL_KINFU_INTERNAL_HPP_
-#define PCL_KINFU_INTERNAL_HPP_
+#ifndef _PCL_KINFU_INTERNAL_HPP_
+#define _PCL_KINFU_INTERNAL_HPP_
+#pragma once
 
 #include <pcl/gpu/containers/device_array.h>
 //#include <pcl/gpu/utils/safe_call.hpp>
@@ -59,7 +60,6 @@ namespace pcl
 	//Should be multiple of 32
     enum { VOLUME_X = 512, VOLUME_Y = 512, VOLUME_Z = 512 };
 
-	
     const float VOLUME_SIZE = 3.f; // in meters
 
     /** \brief Camera intrinsics structure

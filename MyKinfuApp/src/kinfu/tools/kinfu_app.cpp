@@ -41,6 +41,7 @@
 
 //#include "../src/internal.h"
 #include "BilateralFilterCuda.hpp"
+#include "ViewPointMapperCuda.h"
 #include "../../util/MaUtil.h"
 #include <iostream>
 
@@ -92,7 +93,7 @@ namespace am
         kinfu_.setIcpCorespFilteringParams (0.1f/*meters*/, sin ( pcl::deg2rad(20.f) ));
         //kinfu_.setDepthTruncationForICP(5.f/*meters*/);
         kinfu_.setCameraMovementThreshold(0.001f);
-        kinfu_.setDepthIntrinsics( 587.97535, 587.81351, 314.51750, 240.80013 ); // aron
+        kinfu_.setDepthIntrinsics( 521.7401, 522.1379, 323.4402, 258.1387 ); // aron
 
         if (!icp)
             kinfu_.disableIcp();
@@ -444,6 +445,11 @@ namespace am
 
             if ( prefiltered )
             {
+                // viewpointmap
+                {
+                    //ViewPointMapperCuda::runViewpointMapping( )
+                }
+
                 // prefilter
                 {
                     // prepare data holder

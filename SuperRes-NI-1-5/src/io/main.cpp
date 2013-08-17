@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "Recorder.h"
+#include "../util/MaUtil.h"
 
 #define SAMPLE_XML_PATH "../KinectNodesConfig.xml"
 
@@ -8,7 +9,11 @@ int main( int argc, char *argv[] )
 {
     std::cout << "hello AMONI" << std::endl;
 
-    am::Recorder rtest( "./amonirecorded.oni", SAMPLE_XML_PATH );
+    std::string path = util::outputDirectoryNameWithTimestamp( "/home/amonszpart/rec/troll_recordings/prism_kinect");
+    xnOSCreateDirectory( path.c_str() );
+    path += "/amonirecorded.oni";
+    std::cout << "path: " << path << std::endl;
+    am::Recorder rtest( path, SAMPLE_XML_PATH );
     if ( XN_STATUS_OK == rtest.manualConfig(1280) )
     {
         rtest.setAltViewpoint( false );
@@ -18,5 +23,3 @@ int main( int argc, char *argv[] )
 
     return 0;
 }
-
-

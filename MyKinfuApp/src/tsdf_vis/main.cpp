@@ -55,7 +55,7 @@ int testCostVolume( std::string depPath, std::string imgPath, int iterations = 3
     cv::Mat fDep; dep.convertTo( fDep, CV_32FC1  );
 
     BilateralFilterCuda<float> bfc;
-    bfc.setIterations( 5 );
+    bfc.setIterations( 2 );
     bfc.setFillMode( FILL_ONLY_ZEROS );
     cv::Mat bilfiltered;
     bfc.runBilateralFiltering( fDep, rgb8, bilfiltered,
@@ -257,14 +257,85 @@ int testCostVolume( std::string depPath, std::string imgPath, int iterations = 3
     return EXIT_SUCCESS;
 }
 
+struct MyPlayer
+{
+        MyPlayer()
+            : exit(false), changed(false) {}
+
+        bool exit;
+        bool changed;
+
+        void* weak_cloud_viewer_ptr;
+
+        Eigen::Affine3f& Pose() { changed = true; return pose; }
+        Eigen::Affine3f const& Pose() const { return pose; }
+    protected:
+        Eigen::Affine3f pose;
+
+} myPlayer;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void
+keyboard_callback( const pcl::visualization::KeyboardEvent &e, void *cookie )
+{
+    MyPlayer* pMyPlayer = reinterpret_cast<MyPlayer*>( cookie );
+
+    int key = e.getKeyCode ();
+
+    if ( e.keyUp () )
+    {
+        switch ( key )
+        {
+            case 27:
+                pMyPlayer->exit = true;
+                break;
+            case 82:
+            case 'a':
+                pMyPlayer->Pose().translation().x() -= 0.1f;
+                break;
+            case 'd':
+            case 83:
+                pMyPlayer->Pose().translation().x() += 0.1f;
+                break;
+            case 's':
+            case 84:
+                pMyPlayer->Pose().translation().y() -= 0.1f;
+                break;
+            case 'w':
+            case 81:
+                pMyPlayer->Pose().translation().y() += 0.1f;
+                break;
+            case 'e':
+                pMyPlayer->Pose().translation().z() += 0.1f;
+                break;
+            case 'c':
+                pMyPlayer->Pose().translation().z() -= 0.1f;
+                break;
+
+            default:
+                break;
+        }
+    }
+    std::cout << (int)key << std::endl;
+}
+
+void mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* cookie)
+   {
+     MyPlayer* pMyPlayer = reinterpret_cast<MyPlayer*>( cookie );
+     if (mouse_event.getType() == pcl::visualization::MouseEvent::MouseButtonRelease &&
+         mouse_event.getButton() == pcl::visualization::MouseEvent::LeftButton )
+     {
+         myPlayer.Pose() = reinterpret_cast<pcl::visualization::PCLVisualizer*>(pMyPlayer->weak_cloud_viewer_ptr)->getViewerPose();
+     }
+   }
 
 void printUsage()
 {
     std::cout << "Usage:\n\tTSDFVis --in cloud.dat\n" << std::endl;
 }
 
-// --in /home/amonszpart/rec/testing/keyboard_cross_nomap_20130811_1828/cloud_tsdf_volume.dat
-int main( char argc, char** argv )
+// --in ~/rec/troll_recordings/short_prism_kinect_20130816_1206/short_20130816_1327_nomap
+int main( int argc, char** argv )
 {
     std::string yangDir;
     bool doYang = pcl::console::parse_argument (argc, argv, "--yangd", yangDir) >= 0;
@@ -279,7 +350,7 @@ int main( char argc, char** argv )
         if ( doYang )
         {
             if ( iterations <= 0 )
-                 iterations = 3;
+                iterations = 3;
             std::cout << "running for " << iterations << std::endl;
             testCostVolume( yangDir + "/" + depName, yangDir + "/" + imgName, iterations );
         }
@@ -306,28 +377,49 @@ int main( char argc, char** argv )
     // Load TSDF
     std::unique_ptr<am::TSDFViewer> tsdfViewer( new am::TSDFViewer() );
     tsdfViewer->loadTsdfFromFile( tsdfFilePath, true );
+    tsdfViewer->getRayViewer()->registerKeyboardCallback (keyboard_callback, (void*)&myPlayer);
+    tsdfViewer->getDepthViewer()->registerKeyboardCallback (keyboard_callback, (void*)&myPlayer);
+    tsdfViewer->getCloudViewer()->registerMouseCallback( mouse_callback, (void*)&myPlayer );
+
+    myPlayer.weak_cloud_viewer_ptr = tsdfViewer->getCloudViewer().get();
 
     tsdfViewer->dumpMesh();
 #if 0
     Eigen::Affine3f pose;
-            pose.linear() <<  0.999154,  -0.0404336, -0.00822448,
-                             0.0344457,    0.927101,   -0.373241,
-                             0.0227151,    0.372638,    0.927706;
-            pose.translation() << 1.63002,
-                                  1.46289,
-                                  0.227635;
+    pose.linear() <<  0.999154,  -0.0404336, -0.00822448,
+            0.0344457,    0.927101,   -0.373241,
+            0.0227151,    0.372638,    0.927706;
+    pose.translation() << 1.63002,
+            1.46289,
+            0.227635;
 #endif
-            // 224
-           Eigen::Affine3f pose;
-           pose.translation() << 1.67395, 1.69805, -0.337846;
 
-           pose.linear() <<
-             0.954062,  0.102966, -0.281364,
-             -0.16198,  0.967283, -0.195268,
-             0.252052,  0.231873,  0.939525;
+    // 224
+    //Eigen::Affine3f pose;
+    myPlayer.Pose().translation() << 1.67395, 1.69805, -0.337846;
 
-    tsdfViewer->showGeneratedRayImage( tsdfViewer->kinfuVolume_ptr_, pose );
-    tsdfViewer->showGeneratedDepth   ( tsdfViewer->kinfuVolume_ptr_, pose );
+    myPlayer.Pose().linear() <<
+                     0.954062,  0.102966, -0.281364,
+                    -0.16198,  0.967283, -0.195268,
+                    0.252052,  0.231873,  0.939525;
+
+
+    while ( !myPlayer.exit && !tsdfViewer->getCloudViewer()->wasStopped() )
+    {
+        if ( myPlayer.changed )
+        {
+            tsdfViewer->showGeneratedRayImage( tsdfViewer->kinfuVolume_ptr_, myPlayer.Pose() );
+            tsdfViewer->showGeneratedDepth   ( tsdfViewer->kinfuVolume_ptr_, myPlayer.Pose() );
+            tsdfViewer->toCloud( myPlayer.Pose(), tsdfViewer->CloudPtr() );
+            //tsdfViewer->showCloud(  myPlayer.Pose(), tsdfViewer->CloudPtr() );
+            tsdfViewer->showMesh(  myPlayer.Pose(), tsdfViewer->MeshPtr() );
+            tsdfViewer->setViewerPose( *tsdfViewer->getCloudViewer(), myPlayer.Pose() );
+            //tsdfViewer->renderRangeImage( tsdfViewer->CloudPtr(), myPlayer.Pose() );
+            tsdfViewer->vtkMagic();
+            myPlayer.changed = false;
+        }
+        tsdfViewer->spinOnce(10);
+    }
 
     // get depth
     auto vshort = tsdfViewer->getLatestDepth();
@@ -337,8 +429,8 @@ int main( char argc, char** argv )
     params.push_back(0);
     cv::imwrite("dep224.png", dep, params );
 
+    //tsdfViewer->spin();
 
-    tsdfViewer->spin();
 
     std::cout << "Hello Tsdf_vis" << std::endl;
 

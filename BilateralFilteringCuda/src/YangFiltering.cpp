@@ -31,9 +31,9 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     const float ETA_L_2 = ETA*L*ETA*L;
     const float MAXRES  = 10001.f;
 
-    const float spatial_sigma = 1.5f;
+    const float spatial_sigma = 1.1f;
     const float range_sigma   = .03f;
-    const int   kernel_range  = 3;
+    const int   kernel_range  = 4;
     const int   cross_iterations    = 1;
     const char  fill_mode     = FILL_ALL;
     StopWatchInterface* kernel_timer = NULL;
@@ -99,13 +99,17 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         int len = d_fDep.GetWidth() * d_fDep.GetHeight();
         float *tmp = new float[ len ];
         d_fDep.CopyDataOut( tmp );
-        float mx = 0.f;
+        float mx = 0.f, mn = FLT_MAX;
         for ( int i = 0; i < len; ++i )
+        {
             if ( tmp[i] > mx )
                 mx = tmp[i];
+            if ( tmp[i] < mn )
+                mn = tmp[i];
+        }
         SAFE_DELETE_ARRAY( tmp );
 
-        for ( int d = 0; d < std::min(mx + L + 1, MAXRES); d+=1 )
+        for ( int d = std::max(0.f,mn-L*ETA); d < std::min(mx + L*ETA + 1, MAXRES); d+=1 )
         {
             // debug
             std::cout << "d: " << d << "/" << mx + L + 1<< " of it(" << it << ")" << std::endl;
@@ -145,7 +149,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         fDep.convertTo( dep_out, CV_16UC1 );
 
         // show
-        cv::imshow( title, fDep / 10001.f );
+        //cv::imshow( title, fDep / 10001.f );
 
         // write
         std::vector<int> imwrite_params;
@@ -156,19 +160,28 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         // float(in)
         cv::Mat ftmp;
         dep16.convertTo( ftmp, CV_32FC1 );
+        cv::Mat dep16U16;
+        dep16.convertTo( dep16U16, CV_16UC1 );
 
         // diff
         cv::Mat diff;
-        cv::absdiff( ftmp, fDep, diff );
+        std::cout << "dep16U16.type(): " << dep16U16.type() << std::endl;
+        std::cout << "dep_out.type(): " << dep_out.type() << std::endl;
+        double minv, maxv;
+        cv::minMaxLoc( dep16, &minv, &maxv );
+        std::cout << "dep16minmax: " << minv << " " << maxv << std::endl;
+        cv::minMaxLoc( dep_out, &minv, &maxv );
+        std::cout << "dep_outminmax: " << minv << " " << maxv << std::endl;
+        cv::absdiff( dep16U16, dep_out, diff );
         // show
-        cv::imshow( "diff", diff/10001.f );
+        //cv::imshow( "diff", diff/10001.f );
         // write
         sprintf( title, "diff_iteration%d.png", it );
         cv::Mat diffUC16;
         diff.convertTo( diffUC16, CV_16UC1 );
         cv::imwrite( title, diffUC16, imwrite_params );
 
-        cv::waitKey(20);
+        //cv::waitKey(20);
     }
 
     // copy out
