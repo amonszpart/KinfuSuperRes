@@ -117,7 +117,7 @@ __global__ void mapViewpointKernel( const T* in,
     if (x >= w || y >= h)
         return;
 
-    const float d = in[ y * w + x ] * 10001.f;
+    const float d = in[ y * w + x ]; // * 10001.f
 
     //out[ y * w + x ] = px;
 
@@ -155,7 +155,7 @@ __global__ void mapViewpointKernel( const T* in,
                                    K1_RGB, K2_RGB, K3_RGB, K4_RGB, K5_RGB, ALPHA_RGB );
 
     // map to 0.f..1.f
-    P_world_right.z /= 10001.f;
+    //P_world_right.z /= 10001.f;
     // create int pointer
     int *pZ = (int*) &(P_world_right.z);
 

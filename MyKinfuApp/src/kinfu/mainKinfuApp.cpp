@@ -57,6 +57,9 @@ namespace am
 
         bool triggered_capture = false;
 
+        float volume_size = 3.f;
+        pc::parse_argument ( argc, argv, "-volume_size", volume_size );
+
         std::string eval_folder, match_file, openni_device, oni_file, pcd_dir;
         try
         {
@@ -101,8 +104,7 @@ namespace am
         }
         catch (const pcl::PCLException& /*e*/) { return cout << "Can't open depth source" << endl, -1; }
 
-        float volume_size = 2.7f;
-        pc::parse_argument ( argc, argv, "-volume_size", volume_size );
+
 
         int icp = 1, visualization = 0;
         pc::parse_argument ( argc, argv, "--icp", icp );
@@ -138,6 +140,11 @@ namespace am
         app.scan_ = true;
         app.scan_volume_ = true;
 
+        // output files' path
+        std::string path = util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
+        xnOSCreateDirectory( path.c_str() );
+        app.screenshot_manager_.setPath( path + "/poses/" );
+
         // executing
         try { app.startMainLoop (triggered_capture); }
         catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
@@ -147,8 +154,8 @@ namespace am
 # if 1
         // save computations to files
         {
-            std::string path = util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
-            xnOSCreateDirectory( path.c_str() );
+            //std::string path = util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
+            //xnOSCreateDirectory( path.c_str() );
             std::cout << "writing to " << path << "..." << std::endl;
             app.writeCloud    ( nsKinFuApp::PLY     , path+"cloud" );
             app.writeMesh     ( nsKinFuApp::MESH_PLY, path+"cloud" );

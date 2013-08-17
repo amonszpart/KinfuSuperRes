@@ -41,14 +41,14 @@
 
 #include "my_screenshot_manager.h"
 #include <pcl/io/png_io.h>
+#include <fstream>
 
 namespace am
 {
 
     MyScreenshotManager::MyScreenshotManager()
     {
-        boost::filesystem::path p ("KinFuSnapshots");
-        boost::filesystem::create_directory (p);
+        path_ = "KinFuSnapshots";
         screenshot_counter = 0;
         setCameraIntrinsics();
     }
@@ -59,25 +59,26 @@ namespace am
     MyScreenshotManager::saveImage( const Eigen::Affine3f &camPose, const pcl::gpu::PtrStepSz<const PixelRGB> &rgb24, const pcl::gpu::PtrStepSz<const unsigned short> &depth16 )
     {
 
+        if ( !boost::filesystem::exists(path_) )
+             boost::filesystem::create_directory( path_ );
+
         PCL_WARN ("[o] [o] [o] [o] Saving screenshot [o] [o] [o] [o]\n");
 
+        std::string filename_image = path_ + "/";
+        std::string filename_depth = path_ + "/d";
         std::string file_extension_image = ".png";
+
+        std::string filename_pose  = path_ + "/";
         std::string file_extension_pose = ".txt";
-        std::string filename_image = "KinFuSnapshots/";
-        std::string filename_depth = "KinFuSnapshots/d";
-        std::string filename_pose = "KinFuSnapshots/";
 
         // Get Pose
         Eigen::Matrix<float, 3, 3, Eigen::RowMajor> erreMats = camPose.linear ();
         Eigen::Vector3f teVecs = camPose.translation ();
 
         // Create filenames
-        filename_pose = filename_pose + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_pose;
+        filename_pose  = filename_pose  + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_pose;
         filename_image = filename_image + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_image;
-        filename_depth= filename_depth + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_image;
-
-        // Write files
-        writePose (filename_pose, teVecs, erreMats);
+        filename_depth = filename_depth + boost::lexical_cast<std::string> (screenshot_counter) + file_extension_image;
 
         // Save Image
         if ( (rgb24.cols > 0) && (rgb24.rows > 0) )
@@ -97,32 +98,88 @@ namespace am
             std::cerr << "depth16 has no data...not dumping..." << std::endl;
         }
 
+        // Write pose
+        //writePose ( filename_pose, teVecs, erreMats );
+        writePose ( filename_pose, camPose );
+        writePose ( path_ + "/poses.txt", camPose, std::ios_base::out | std::ios_base::app );
+
         ++screenshot_counter;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     void
-    MyScreenshotManager::setCameraIntrinsics (float focal, float height, float width)
+    MyScreenshotManager::setCameraIntrinsics (float fx, float fy, float cx, float cy )
     {
-        focal_ = focal;
-        height_ = height;
-        width_ = width;
+        fx_ = fx;
+        fy_ = fy;
+        cx_ = cx;
+        cy_ = cy;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void MyScreenshotManager::writePoseHeader( std::ofstream &poseFile )
+    {
+        if ( poseFile.is_open() )
+        {
+            poseFile << "R00, R01, R02, T0, R10, R11, R12, T1, R20, R21, R22, T2, fx, fy, cx, cy, imgID" << std::endl;
+        }
+        else
+        {
+            std::cerr << "MyScreenshotManager::writePoseHeader(): posefile not open..." << std::endl;
+        }
+    }
+
+    void
+    MyScreenshotManager::writePose( std::string const& filename_pose, Eigen::Affine3f const& pose, std::ios_base::openmode mode )
+    {
+        std::ofstream poseFile;
+        poseFile.open ( filename_pose.c_str(), mode );
+
+        if ( !poseFile.is_open() )
+        {
+            PCL_WARN ("Unable to open/create output file for camera pose!\n");
+            return;
+        }
+
+        // header
+        if ( mode & std::ios_base::trunc )
+            writePoseHeader( poseFile );
+
+        // content
+        for ( int y = 0; y < 4; ++y )
+        {
+            for ( int x = 0; x < 4; ++x )
+            {
+                poseFile << pose( y, x ) << ",";
+            }
+        }
+
+        // intrinsics
+        poseFile << fx_ << ","
+                 << fy_ << ","
+                 << cx_ << ","
+                 << cy_ << ",";
+
+        // imgID
+        poseFile << screenshot_counter << std::endl;
+
+        // cleanup
+        poseFile.close ();
+    }
 
     void
     MyScreenshotManager::writePose(const std::string &filename_pose, const Eigen::Vector3f &teVecs, const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> &erreMats)
     {
         std::ofstream poseFile;
-        poseFile.open (filename_pose.c_str());
+        poseFile.open ( filename_pose.c_str() );
 
-        if (poseFile.is_open())
+        if ( poseFile.is_open() )
         {
             poseFile << "TVector" << std::endl << teVecs << std::endl << std::endl
                      << "RMatrix" << std::endl << erreMats << std::endl << std::endl
-                     << "Camera Intrinsics: focal height width" << std::endl << focal_ << " " << height_ << " " << width_ << std::endl << std::endl;
+                     << "Camera Intrinsics: focal height width" << std::endl << fx_ << " " << cy_ << " " << cx_ << std::endl << std::endl;
             poseFile.close ();
         }
         else

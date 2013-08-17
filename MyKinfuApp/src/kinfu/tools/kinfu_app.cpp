@@ -115,7 +115,8 @@ namespace am
         // init dumping
         if ( dump_poses_ )
         {
-            screenshot_manager_.setCameraIntrinsics( focal_length_, 640, 480 );
+            std::vector<float> intr = kinfu_.getDepthIntrincs();
+            screenshot_manager_.setCameraIntrinsics( intr[0], intr[1], intr[2], intr[3] );
         }
     }
 
@@ -400,8 +401,9 @@ namespace am
     {
         bool has_image = false;
 
-        std::vector<ushort> cFilteredDepth;                // owner
-        PtrStepSz<const unsigned short> cFilteredDepthPtr; // pointer
+        std::vector<ushort> mapped_depth;                   // owner
+        std::vector<ushort> crFilteredDepth;                // owner
+        PtrStepSz<const unsigned short> crFilteredDepthPtr; // pointer
 
         cv::Mat rgbMat640;
         std::vector<uchar> rgb640;                         // owner
@@ -410,95 +412,123 @@ namespace am
         if ( has_data )
         {
             const int prefiltered = false;
+            const int mapped      = true;
 
-            // resize rgb
+            // resize rgb to the same size as the depth
             if ( rgb24.cols > depth_arg.cols )
             {
                 // apply CV header
                 const cv::Mat rgbMat1280( rgb24.rows, rgb24.cols, CV_8UC3, const_cast<uchar*>(reinterpret_cast<const uchar*>(&rgb24[0])) );
                 // resize
                 cv::resize( rgbMat1280, rgbMat640, cv::Size(depth_arg.cols,depth_arg.rows), 0, 0, CV_INTER_LANCZOS4 );
-                // prepare output
 
+                // prepare output
                 rgb640.resize( rgbMat640.cols * rgbMat640.rows * rgbMat640.channels() );
+
+                // copy output
                 int offset = 0;
                 for ( int y = 0; y < rgbMat640.rows; ++y, offset += rgbMat640.cols * rgbMat640.channels() * sizeof(uchar) )
                 {
                     memcpy( &rgb640[offset], rgbMat640.ptr<cv::Vec3b>(y,0), rgbMat640.cols * rgbMat640.channels() * sizeof(uchar) );
                 }
 
+                // create pcl wrapper
                 rgb640Ptr = PtrStepSz<const KinfuTracker::PixelRGB>(
                                 rgbMat640.rows, rgbMat640.cols,
                                 reinterpret_cast<KinfuTracker::PixelRGB*>(&rgb640[0]),
                                 rgbMat640.cols * 3 * sizeof(uchar) );
-
-                //rgbMat640.copyTo( rgb640 );
-                //rgb640 = cv::Mat_<uchar>( rgbMat640.reshape(1, rgbMat640.cols * rgbMat640.rows) );
-                //unsigned* rgb640 = reinterpret_cast<unsigned*>(.data);
-                //cv::cvtColor (cv::Mat (480, 640, CV_8UC3, (void*)&view_host_[0]), views_.back (), CV_RGB2GRAY);
             }
             else
             {
+                // no resize needed
                 rgb640Ptr = rgb24;
             }
 
+            // map viewpoint
+            {
+                mapped_depth.resize( depth_arg.cols * depth_arg.rows );
+                ViewPointMapperCuda::runViewpointMapping( /*  in_data: */ depth_arg.data,
+                                                          /* out_data: */ mapped_depth.data(),
+                                                          /*    width: */ depth_arg.cols,
+                                                          /*   height: */ depth_arg.rows );
 
+                // create new depth pointer
+                crFilteredDepthPtr.cols = depth_arg.cols;
+                crFilteredDepthPtr.rows = depth_arg.rows;
+                crFilteredDepthPtr.step = depth_arg.step;
+                crFilteredDepthPtr.data = &mapped_depth[0];
+            }
+
+            // prefilter with crossfilter (depth_arg -> cFilteredDepthPtr)
             if ( prefiltered )
             {
-                // viewpointmap
-                {
-                    //ViewPointMapperCuda::runViewpointMapping( )
-                }
+                // prepare data holder
+                crFilteredDepth.resize( depth_arg.cols * depth_arg.rows );
+                unsigned short* pFilteredDepthData = crFilteredDepth.data();
 
-                // prefilter
-                {
-                    // prepare data holder
-                    cFilteredDepth.resize( depth_arg.cols * depth_arg.rows );
+                // run filter
+                static BilateralFilterCuda<float> bilateralFilterCuda;
+                bilateralFilterCuda.runBilateralFilteringWithUShort( /*       in_depth: */ mapped ? &mapped_depth[0] : depth_arg.data,
+                                                                     /*       in_guide: */ reinterpret_cast<const unsigned*>( rgb640Ptr.ptr() ),
+                                                                     /* guide_channels: */ 3,
+                                                                     /*      out_depth: */ pFilteredDepthData,
+                                                                     /*          width: */ depth_arg.cols,
+                                                                     /*         height: */ depth_arg.rows,
+                                                                     /*  spatial_sigma: */ .38f,
+                                                                     /*    range_sigma: */ .21f,
+                                                                     /*  filter_radius: */ 4 );
+                // create new depth pointer
+                crFilteredDepthPtr.cols = depth_arg.cols;
+                crFilteredDepthPtr.rows = depth_arg.rows;
+                crFilteredDepthPtr.step = depth_arg.step;
+                crFilteredDepthPtr.data = &crFilteredDepth[0];
 
-                    // run filter
-                    static BilateralFilterCuda<float> bilateralFilterCuda;
-                    unsigned short* tmp = cFilteredDepth.data();
-                    bilateralFilterCuda.runBilateralFilteringWithUShort( depth_arg.data,
-                                                                         reinterpret_cast<const unsigned*>( rgb640Ptr.ptr() ), // TODO: miSALLIGNED, C3 instead of C4
-                            /*reinterpret_cast<ushort*>(&cFilteredDepth[0])*/ tmp,
-                            depth_arg.cols, depth_arg.rows,
-                            .38f, .21f, 4 );
-                    // create new depth pointer
-                    cFilteredDepthPtr.cols = depth_arg.cols;
-                    cFilteredDepthPtr.rows = depth_arg.rows;
-                    cFilteredDepthPtr.step = depth_arg.step;
-                    cFilteredDepthPtr.data = &cFilteredDepth[0];
-                }
             }
-            const PtrStepSz<const unsigned short> *pPreparedDepth = prefiltered ? &cFilteredDepthPtr : &depth_arg;
+            // select depth version for later
+            const PtrStepSz<const unsigned short> *pPreparedDepth = ( prefiltered || mapped ) ? &crFilteredDepthPtr
+                                                                                              : &depth_arg;
+
+            // show depth
+            {
+                image_view_.showDepth ( *pPreparedDepth );
+            }
 
             // upload depth
-            depth_device_.upload ( pPreparedDepth->data, pPreparedDepth->step, pPreparedDepth->rows, pPreparedDepth->cols );
+            {
+                depth_device_.upload ( pPreparedDepth->data, pPreparedDepth->step, pPreparedDepth->rows, pPreparedDepth->cols );
+            }
+
             // upload rgb
             if ( integrate_colors_ )
+            {
                 image_view_.colors_device_.upload( rgb640Ptr.ptr(), rgb640Ptr.step, rgb640Ptr.rows, rgb640Ptr.cols);
+            }
 
             // run Kinfu
             {
                 SampledScopeTime fps(time_ms_);
 
                 //run kinfu algorithm
-                if (integrate_colors_)
+                if ( integrate_colors_ )
+                {
                     has_image = kinfu_ ( depth_device_, image_view_.colors_device_ );
+                }
                 else
-#if MYKINFU
-                    has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ prefiltered );
-#else
-                    has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL );
-#endif
-            }
+                {
+#                   if MYKINFU
+                    /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ prefiltered );
+#                   else
+                    /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL );
+#                   endif
+                }
+            } // run Kinfu
 
-            image_view_.showDepth ( *pPreparedDepth );
             //if (viz_)
             //    image_view_.viewerScene_->showRGBImage (reinterpret_cast<const unsigned char*> (rgb24.data), rgb24.cols, rgb24.rows );
             //image_view_.showGeneratedDepth(kinfu_, kinfu_.getCameraPose());
             //rgb_view_.viewerScene_->showRGBImage( reinterpret_cast<const unsigned char*>(rgb640Ptr.ptr()), rgb640Ptr.cols, rgb640Ptr.rows );
-        }
+
+        } // if ( has_data )
 
         if (scan_)
         {
@@ -543,7 +573,7 @@ namespace am
         // save screenshots and poses
         if ( has_data && dump_poses_ )
         {
-            screenshot_manager_.saveImage( kinfu_.getCameraPose(), rgb24, cFilteredDepthPtr );
+            screenshot_manager_.saveImage( kinfu_.getCameraPose(), rgb24, crFilteredDepthPtr );
         }
     }
 

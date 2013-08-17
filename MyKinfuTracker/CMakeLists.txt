@@ -28,6 +28,7 @@ if(TROLL)
     SET( CUDA_HOST_COMPILER "/usr/bin/gcc-4.4" )
 else(TROLL) # Ubul
     SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
+    SET( PCL_SOURCE_DIR ~/workspace/3rdparty/pcl-trunk )
     SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     SET(OPENNI_INCLUDE /usr/include/ni)
@@ -37,14 +38,14 @@ else(TROLL) # Ubul
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
     #SET(OPENNI_INCLUDE /usr/include/ni)
 
-    SET( CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
-    SET( CUDA_HOST_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" )
+    SET( CMAKE_CXX_COMPILER "/usr/bin/gcc-4.4" )
+    SET( CUDA_HOST_COMPILER "/usr/bin/gcc-4.4" )
 endif(TROLL)
 
 # PACKAGES
 FIND_PACKAGE( OpenCV REQUIRED )
 #find_package( CUDA REQUIRED )
-include(${PCL_SOURCE_DIR}/cmake/pcl_find_cuda.cmake)
+INCLUDE( ${PCL_SOURCE_DIR}/cmake/pcl_find_cuda.cmake )
 MESSAGE(STATUS ${CUDA_NVCC_FLAGS})
 
 #FIND_PACKAGE( PCL 1.3 REQUIRED COMPONENTS common io )

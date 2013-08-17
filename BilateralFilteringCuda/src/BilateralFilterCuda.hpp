@@ -97,7 +97,7 @@ class BilateralFilterCuda
 
         void runBilateralFiltering(cv::Mat const& in, cv::Mat const &guide, cv::Mat &out,
                                     float gaussian_delta = -1.f, float euclidian_delta = -.1f, int filter_radius = -2 , float max = 10001.f );
-        void runBilateralFilteringWithUShort( unsigned short const* const& in, unsigned const* const& guide, short unsigned int* & out,
+        void runBilateralFilteringWithUShort(unsigned short const* const& in, unsigned const* const& guide, uchar guide_channels, short unsigned int* & out,
                                               unsigned width, unsigned height,
                                               float gaussian_delta, float eucledian_delta, int filter_radius );
         void runBilateralFiltering( T* const& in, unsigned const* const& guide, T*& out,
@@ -204,9 +204,13 @@ void BilateralFilterCuda<T>::runBilateralFiltering( cv::Mat const& in, cv::Mat c
     SAFE_FREE( guideData );
 }
 
-// ushort* -> float -> run -> float -> ushort*
+//
+/* \brief transforms: ushort* -> float -> run -> float -> ushort*
+ * \param guide is 4-channel rgbx image
+ */
 template <typename T>
-void BilateralFilterCuda<T>::runBilateralFilteringWithUShort( short unsigned int const* const& in, unsigned const* const& guide,
+void BilateralFilterCuda<T>::runBilateralFilteringWithUShort( short unsigned int const* const& in,
+                                                              unsigned const* const& guide, uchar guide_channels,
                                                               short unsigned int* & out,
                                                               unsigned width, unsigned height,
                                                               float gaussian_delta, float eucledian_delta, int filter_radius )
@@ -220,10 +224,31 @@ void BilateralFilterCuda<T>::runBilateralFilteringWithUShort( short unsigned int
         tmpIn[i] = (float)in[i] / 10001.f;
     }
 
+    // guide
+    uchar* tmpGuide = NULL;
+    if ( guide_channels == 3 )
+    {
+        tmpGuide = new uchar[ size ];
+        for ( int i = 0; i < size; ++i )
+        {
+            tmpGuide[ i * 4 + 0 ] = reinterpret_cast<uchar const*>(guide)[ i * 3 + 0 ];
+            tmpGuide[ i * 4 + 1 ] = reinterpret_cast<uchar const*>(guide)[ i * 3 + 1 ];
+            tmpGuide[ i * 4 + 2 ] = reinterpret_cast<uchar const*>(guide)[ i * 3 + 2 ];
+            tmpGuide[ i * 4 + 3 ] = 0;
+        }
+    }
+    else if ( guide_channels != 4 )
+    {
+        std::cerr << "BilateralFilterCuda<T>::runBilateralFilteringWithUShort: guide_channels must be 3 or 4, and not " << guide_channels << std::endl;
+        SAFE_DELETE_ARRAY( tmpIn );
+        SAFE_DELETE_ARRAY( tmpGuide );
+        return;
+    }
+
     // out
     T* tmpOut = new T[ size ];
 
-    runBilateralFiltering( tmpIn, guide, tmpOut, width, height, gaussian_delta, eucledian_delta, filter_radius );
+    runBilateralFiltering( tmpIn, (guide_channels == 4) ? guide : reinterpret_cast<unsigned const*>(tmpGuide), tmpOut, width, height, gaussian_delta, eucledian_delta, filter_radius );
 
     for ( int i = 0; i < size; ++i )
     {
@@ -232,6 +257,7 @@ void BilateralFilterCuda<T>::runBilateralFilteringWithUShort( short unsigned int
 
     SAFE_DELETE_ARRAY( tmpIn  );
     SAFE_DELETE_ARRAY( tmpOut );
+    SAFE_DELETE_ARRAY( tmpGuide );
 }
 
 /*
@@ -265,8 +291,6 @@ void BilateralFilterCuda<T>::runBilateralFiltering( T* const& in, unsigned const
     if ( guide )
     {
         m_dGuide.Create( IMAGE_TYPE_XRGB32, width, height);
-
-
         m_dGuide.CopyDataIn( guide );
     }
 

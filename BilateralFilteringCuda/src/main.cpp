@@ -14,7 +14,6 @@
  **/
 int testViewpointMapping( cv::Mat const& img16, cv::Mat const& guide )
 {
-
     cv::imshow( "img", img16 );
     cv::Mat mapped16( cv::Mat::eye(img16.size(), CV_32FC1 ) );
     ViewPointMapperCuda::runViewpointMapping( img16, mapped16 );
@@ -48,7 +47,38 @@ int testViewpointMapping( cv::Mat const& img16, cv::Mat const& guide )
     cv::imshow( "fBlended", fBlended );
     cv::imwrite( "blended.bmp", fBlended * 255.0 );
 
-    cv::waitKey();
+    // test ushort version
+    {
+        ushort* data = new ushort[ img16.cols * img16.rows ];
+        for ( int y = 0; y < img16.rows; ++y )
+        {
+            for ( int x = 0; x < img16.cols; ++x )
+            {
+                data[ y * img16.cols + x ] = img16.at<ushort>( y, x );
+            }
+        }
+
+        ViewPointMapperCuda::runViewpointMapping( data, img16.cols, img16.rows );
+
+        cv::Mat outMat( img16.size(), img16.type() );
+        for ( int y = 0; y < img16.rows; ++y )
+        {
+            for ( int x = 0; x < img16.cols; ++x )
+            {
+                outMat.at<ushort>( y, x ) = data[ y * outMat.cols + x ];
+            }
+        }
+
+        cv::imshow( "ushortMapping", outMat );
+
+        SAFE_DELETE_ARRAY( data );
+    }
+
+
+    char c = 0;
+    while ( (c = cv::waitKey()) != 27 ) ;
+
+
     return EXIT_SUCCESS;
 }
 
@@ -156,6 +186,7 @@ float testEqual( cv::Mat const& C1, cv::Mat const& C2 )
     return float(ok) / (float)C1.cols / (float)C1.rows * 100.f;
 }
 
+#if 0
 int testThrust( cv::Mat const& img16, cv::Mat const& guide )
 {
     cv::Mat fImg16;
@@ -241,10 +272,8 @@ int testThrust( cv::Mat const& img16, cv::Mat const& guide )
         cv::subtract( minDs_cpu, a3, minDs_cpu, cv::Mat(), CV_32FC1 );
     }
     std::cout << "subpixelRefine: " << testEqual( minDs_gpu, minDs_cpu ) << "%" << std::endl;
-
-
-
 }
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -284,11 +313,9 @@ int main(int argc, char **argv)
         exit( EXIT_FAILURE );
     }
 
-    return testThrust(img16,guide);
+    //return testThrust(img16,guide);
 
-
-
-#if 0 // VIEWPOINTMAPPING
+#if 1 // VIEWPOINTMAPPING
     return testViewpointMapping( img16, guide );
 #elif 1 // BilateralFiltering
     return testBilateralFiltering( img16, guide );

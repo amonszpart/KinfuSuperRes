@@ -55,6 +55,7 @@
 #include <pcl/gpu/containers/kernel_containers.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp> 
+#include <boost/filesystem/path.hpp>
 //#include <boost/graph/buffer_concepts.hpp>
 #include <pcl/console/print.h>
 
@@ -84,23 +85,33 @@ namespace am
             * \param[in] cy principal point y
             */
             void
-            setCameraIntrinsics (float focal = 575.816f, float height = 480.0f, float width = 640.0f);
+            setCameraIntrinsics (float fx = 575.816f, float fy = 575.816f, float cx = 640.0f, float cy = 480.0f );
+
+            void
+            setPath( std::string const& path ) { path_ = path; }
 
             /**Save Screenshot*/
             void
-            saveImage(const Eigen::Affine3f &camPose, const pcl::gpu::PtrStepSz<const pcl::gpu::PixelRGB> &rgb24, const pcl::gpu::PtrStepSz<const unsigned short>& depth16 );
+            saveImage( const Eigen::Affine3f &camPose, const pcl::gpu::PtrStepSz<const pcl::gpu::PixelRGB> &rgb24, const pcl::gpu::PtrStepSz<const unsigned short>& depth16 );
 
-        private:
+        protected:
+            std::string path_;
 
-            /**Write camera pose to file*/
+            /** Write camera pose to file */
+            void
+            writePose( std::string const& filename_pose, Eigen::Affine3f const& pose, std::ios_base::openmode mode = std::ios_base::out | std::ios_base::trunc );
+            void
+            writePoseHeader( std::ofstream &poseFile );
+
             void
             writePose(const std::string &filename_pose, const Eigen::Vector3f &teVecs, const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> &erreMats);
+
 
             /**Counter of the number of screenshots taken*/
             int screenshot_counter;
 
             /** \brief Intrinsic parameters of depth camera. */
-            float focal_, height_, width_;
+            float fx_, fy_, cy_, cx_;
     };
 
 }

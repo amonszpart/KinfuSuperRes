@@ -114,6 +114,17 @@ pcl::gpu::KinfuTracker::setDepthIntrinsics (float fx, float fy, float cx, float 
   cy_ = (cy == -1) ? rows_/2-0.5f : cy;  
 }
 
+std::vector<float>
+pcl::gpu::KinfuTracker::getDepthIntrinsics()
+{
+    std::vector<float> ret(4);
+    ret[0] = fx_;
+    ret[1] = fy_;
+    ret[2] = cx_;
+    ret[3] = cy_;
+    return ret;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void
 pcl::gpu::KinfuTracker::setInitalCameraPose (const Eigen::Affine3f& pose)
