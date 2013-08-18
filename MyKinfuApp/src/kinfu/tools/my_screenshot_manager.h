@@ -49,7 +49,8 @@
 //#include <boost/filesystem.hpp>
 //#include <pcl/gpu/kinfu/kinfu.h>
 
-#include <pcl/gpu/kinfu/kinfu.h>
+//#include <pcl/gpu/kinfu/kinfu.h>
+#include "kinfu.h"
 #include <pcl/pcl_exports.h>
 #include <pcl/gpu/containers/device_array.h>
 #include <pcl/gpu/containers/kernel_containers.h>

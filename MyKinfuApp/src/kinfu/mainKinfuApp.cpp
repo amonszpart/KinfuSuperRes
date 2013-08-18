@@ -37,6 +37,7 @@ namespace am
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // -oni ~/rec/troll_recordings/keyboard_imgs_20130701_1440/recording_push.oni -out ~/rec/testing/keyboard_cross_nomap -ic --viz 1 -r
+    // -oni /home/amonszpart/rec/troll_recordings/short_prism_kinect_20130816_1206/amonirecorded.oni -out ~/rec/testing/short --viz 1 -r --dump-poses
     // optionally: --dump-poses
     int
     mainKinfuApp (int argc, char* argv[])
@@ -137,6 +138,10 @@ namespace am
         if (pc::find_switch (argc, argv, "--dump-poses") || pc::find_switch (argc, argv, "-dp"))
             app.dump_poses_ = true;
 
+        int limit_frames = -1;
+        pc::parse_argument(argc, argv, "-lf", limit_frames);
+        std::cout << "limit_frames: " << limit_frames << std::endl;
+
         app.scan_ = true;
         app.scan_volume_ = true;
 
@@ -146,7 +151,7 @@ namespace am
         app.screenshot_manager_.setPath( path + "/poses/" );
 
         // executing
-        try { app.startMainLoop (triggered_capture); }
+        try { app.startMainLoop (triggered_capture, limit_frames); }
         catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
         catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
         catch (const std::exception& /*e*/) { cout << "Exception" << endl; }

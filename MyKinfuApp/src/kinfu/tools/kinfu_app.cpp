@@ -115,9 +115,10 @@ namespace am
         // init dumping
         if ( dump_poses_ )
         {
-            std::vector<float> intr = kinfu_.getDepthIntrincs();
-            screenshot_manager_.setCameraIntrinsics( intr[0], intr[1], intr[2], intr[3] );
+            // std::vector<float> intr = kinfu_.getDepthIntrincs();
+            // screenshot_manager_.setCameraIntrinsics( intr[0], intr[1], intr[2], intr[3] );
         }
+        screenshot_manager_.setCameraIntrinsics( 521.7401, 522.1379, 323.4402, 258.1387 );
     }
 
     KinFuApp::~KinFuApp()
@@ -325,6 +326,7 @@ namespace am
         this->tsdf_volume_.save ( fileName + "_tsdf_volume.dat", true );
         cout << "done [" << (int)this->tsdf_volume_.size () << " voxels]" << endl;
 
+        tsdf_volume_.convertToTsdfCloud (tsdf_cloud_ptr_);
         cout << "Saving TSDF volume cloud to " + fileName + "_tsdf_cloud.pcd ... " << flush;
         pcl::io::savePCDFile<pcl::PointXYZI> (fileName+"_tsdf_cloud.pcd", *this->tsdf_cloud_ptr_, true);
         cout << "done [" << (int)this->tsdf_cloud_ptr_->size () << " points]" << endl;
@@ -579,7 +581,7 @@ namespace am
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void
-    KinFuApp::startMainLoop (bool triggered_capture)
+    KinFuApp::startMainLoop (bool triggered_capture, int limit_frames )
     {
         using namespace openni_wrapper;
         typedef boost::shared_ptr<DepthImage> DepthImagePtr;
@@ -630,6 +632,10 @@ namespace am
                     scan_ = true;
                 }
                 if ( frame_count - latest_has_data_frame > 10 )
+                {
+                    exit_ = true;
+                }
+                if ( limit_frames > 0 && frame_count > limit_frames )
                 {
                     exit_ = true;
                 }
