@@ -1,6 +1,6 @@
 #include "YangFiltering.h"
 
-#include "BilateralFilterCuda.hpp"
+
 #include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
 
@@ -24,105 +24,102 @@ extern void subpixelRefine( GpuDepthMap<float> const& minC  ,
 template <typename T>
 extern T getMax( GpuDepthMap<T> const& img );
 
-int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep, int yang_iterations )
+int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep, const YangFilteringRunParams params )
 {
-    const int   L       = 10; // depth search range
-    const float ETA     = .5f;
-    const float ETA_L_2 = ETA*L*ETA*L;
-    const float MAXRES  = 10001.f;
-
-    const float spatial_sigma = 1.1f;
-    const float range_sigma   = .03f;
-    const int   kernel_range  = 4;
-    const int   cross_iterations    = 1;
-    const char  fill_mode     = FILL_ALL;
+    const float ETA_L_2 = params.ETA * params.L * params.ETA * params.L;
     StopWatchInterface* kernel_timer = NULL;
     sdkCreateTimer( &kernel_timer );
-    updateGaussian( spatial_sigma, kernel_range );
+    updateGaussian( params.spatial_sigma, params.kernel_range );
 
-    float maxVal = MAXRES;
+    float maxVal = params.MAXRES;
 
     /// parse input
     // fDep
-    if ( dep16.type() == CV_16UC1 )
-    {
-        dep16.convertTo( fDep, CV_32FC1 );
-    }
-    else
-    {
-        dep16.copyTo( fDep );
-    }
+    if ( dep16.type() == CV_16UC1 ) dep16.convertTo( fDep, CV_32FC1 );
+    else                            dep16.copyTo   ( fDep );
 
     float *fDepArr = NULL;
     toContinuousFloat( fDep, fDepArr );
     // move to device
-    GpuDepthMap<float> d_fDep;
+    //GpuDepthMap<float> d_fDep;
     d_fDep.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
     d_fDep.CopyDataIn( fDepArr );
 
     // guide
     unsigned *guideArr = NULL;
     cv2Continuous8UC4( img8, guideArr, img8.cols, img8.rows, 1.f );
-    GpuImage d_guide;
+    //GpuImage d_guide;
     d_guide.Create( IMAGE_TYPE_XRGB32, img8.cols, img8.rows );
     d_guide.CopyDataIn( guideArr );
 
     // device temporary memory
-    GpuDepthMap<float> d_truncC2;
+    //GpuDepthMap<float> d_truncC2;
     d_truncC2.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
-    GpuDepthMap<float> d_filteredTruncC2s[2];
+    //GpuDepthMap<float> d_filteredTruncC2s[2];
     d_filteredTruncC2s[0].Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
     d_filteredTruncC2s[1].Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
     uchar fc2_id = 0;
 
-    GpuDepthMap<float> d_crossFilterTemp;
+    //GpuDepthMap<float> d_crossFilterTemp;
     d_crossFilterTemp.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
 
-    GpuDepthMap<float> d_minDs;
+    //GpuDepthMap<float> d_minDs;
     d_minDs.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
-    GpuDepthMap<float> d_minC;
+    //GpuDepthMap<float> d_minC;
     d_minC.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
-    GpuDepthMap<float> d_minCm1;
+    //GpuDepthMap<float> d_minCm1;
     d_minCm1.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
-    GpuDepthMap<float> d_minCp1;
+    //GpuDepthMap<float> d_minCp1;
     d_minCp1.Create( DEPTH_MAP_TYPE_FLOAT, fDep.cols, fDep.rows );
 
     // filter cost slice
     const cudaExtent imageSizeCudaExtent = make_cudaExtent( d_truncC2.GetWidth(), d_truncC2.GetHeight(), 1 );
 
-    for ( int it = 0; it < yang_iterations; ++it )
+    // size
+    int len        = d_fDep.GetWidth() * d_fDep.GetHeight();
+    // allocate
+    float *tmpFDep = new float[ len ];
+
+    for ( int it = 0; it < params.yang_iterations; ++it )
     {
-        runSetKernel2D<float>( d_minC.Get(), maxVal*maxVal, d_minC.GetWidth(), d_minC.GetHeight() );
+        // set costs to zero
+        runSetKernel2D<float>( d_minC.Get()  , maxVal*maxVal, d_minC.GetWidth(), d_minC.GetHeight() );
         runSetKernel2D<float>( d_minCm1.Get(), maxVal*maxVal, d_minCm1.GetWidth(), d_minCm1.GetHeight() );
         runSetKernel2D<float>( d_minCp1.Get(), maxVal*maxVal, d_minCp1.GetWidth(), d_minCp1.GetHeight() );
 
-        int len = d_fDep.GetWidth() * d_fDep.GetHeight();
-        float *tmp = new float[ len ];
-        d_fDep.CopyDataOut( tmp );
+        // minmax
         float mx = 0.f, mn = FLT_MAX;
-        for ( int i = 0; i < len; ++i )
         {
-            if ( tmp[i] > mx )
-                mx = tmp[i];
-            if ( tmp[i] < mn )
-                mn = tmp[i];
+            // device to host
+            d_fDep.CopyDataOut( tmpFDep );
+            // select minmax
+            for ( int i = 0; i < len; ++i )
+            {
+                // max
+                if ( tmpFDep[i] > mx ) mx = tmpFDep[i];
+                // min
+                if ( tmpFDep[i] < mn ) mn = tmpFDep[i];
+            }
         }
-        SAFE_DELETE_ARRAY( tmp );
 
-        for ( int d = std::max(0.f,mn-L*ETA); d < std::min(mx + L*ETA + 1, MAXRES); d+=1 )
+        const float loop_stop = std::min( mx + params.L * params.ETA + 1.f, params.MAXRES );
+        for ( float d = std::max( 0.f, mn - params.L * params.ETA); d < loop_stop; d += 1.f )
         {
             // debug
-            std::cout << "d: " << d << "/" << mx + L + 1<< " of it(" << it << ")" << std::endl;
+            std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
 
             // calculate truncated cost
-            squareDiff( /* in: */ d_fDep, /* curr depth: */ d, /* out: */ d_truncC2, /* truncAt: */ ETA_L_2 );
+            squareDiff( /*         in: */ d_fDep,
+                        /* curr depth: */ d,
+                        /*        out: */ d_truncC2,
+                        /*    truncAt: */ ETA_L_2 );
 
 
             crossBilateralFilterF<float>( /* out: */ d_filteredTruncC2s[fc2_id].Get(), d_filteredTruncC2s[fc2_id].GetPitch(),
                                           /* in:  */ d_truncC2.Get(), d_crossFilterTemp.Get(), d_truncC2.GetPitch(),
                                           d_guide.Get(), d_guide.GetPitch(),
                                           imageSizeCudaExtent,
-                                          range_sigma, kernel_range, cross_iterations, fill_mode,
+                                          params.range_sigma, params.kernel_range, params.cross_iterations, params.fill_mode,
                                           kernel_timer );
 
             // track minimums
@@ -137,34 +134,34 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         // refine minDs based on C(d_min), C(d_min-1), C(d_min+1)
         subpixelRefine( d_minC, d_minCm1, d_minCp1, d_minDs, d_fDep );
 
-        // debug - copy out
+        // copy out
         d_fDep.CopyDataOut( fDepArr );
         fromContinuousFloat( fDepArr, fDep );
-
-        char title[255];
-        sprintf( title, "iteration%d.png", it );
 
         // out
         cv::Mat dep_out;
         fDep.convertTo( dep_out, CV_16UC1 );
+        char title[255];
+        sprintf( title, "iteration%d.png", it );
 
-        // show
-        //cv::imshow( title, fDep / 10001.f );
-
-        // write
+        // write "iteration"
         std::vector<int> imwrite_params;
         imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
         imwrite_params.push_back( 0 );
         cv::imwrite( title, dep_out, imwrite_params );
 
+
+        // show
+        //cv::imshow( title, fDep / 10001.f );
+
         // float(in)
-        cv::Mat ftmp;
-        dep16.convertTo( ftmp, CV_32FC1 );
-        cv::Mat dep16U16;
-        dep16.convertTo( dep16U16, CV_16UC1 );
+        //cv::Mat ftmp;
+        //dep16.convertTo( ftmp, CV_32FC1 );
+        //cv::Mat dep16U16;
+        //dep16.convertTo( dep16U16, CV_16UC1 );
 
         // diff
-        cv::Mat diff;
+        /*cv::Mat diff;
         std::cout << "dep16U16.type(): " << dep16U16.type() << std::endl;
         std::cout << "dep_out.type(): " << dep_out.type() << std::endl;
         double minv, maxv;
@@ -172,16 +169,19 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         std::cout << "dep16minmax: " << minv << " " << maxv << std::endl;
         cv::minMaxLoc( dep_out, &minv, &maxv );
         std::cout << "dep_outminmax: " << minv << " " << maxv << std::endl;
-        cv::absdiff( dep16U16, dep_out, diff );
+        cv::absdiff( dep16U16, dep_out, diff );*/
         // show
         //cv::imshow( "diff", diff/10001.f );
+
         // write
-        sprintf( title, "diff_iteration%d.png", it );
-        cv::Mat diffUC16;
-        diff.convertTo( diffUC16, CV_16UC1 );
-        cv::imwrite( title, diffUC16, imwrite_params );
+        //sprintf( title, "diff_iteration%d.png", it );
+        //cv::Mat diffUC16;
+        //diff.convertTo( diffUC16, CV_16UC1 );
+        //cv::imwrite( title, diffUC16, imwrite_params );
 
         //cv::waitKey(20);
+
+        SAFE_DELETE_ARRAY( tmpFDep );
     }
 
     // copy out

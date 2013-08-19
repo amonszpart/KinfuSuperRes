@@ -77,9 +77,9 @@ __global__ void minMaskedCopyKernel(
         const float c_prev = tex2D( tex_Cprev, x, y );
 
         // store current C(d)
-        minC[ y * minC_pitch + x ]     = c;        // minC[i] = C[i]
+        minC  [ y * minC_pitch   + x ] = c;        // minC[i] = C[i]
         // store current d
-        minDs[ y * minDs_pitch + x ]   = d;        // minDs[i] = d
+        minDs [ y * minDs_pitch  + x ] = d;        // minDs[i] = d
         // copy previous d's cost to (d-1)'s cost
         minCm1[ y * minCm1_pitch + x ] = c_prev;   // minCm1[i] = Cprev[i]
     }

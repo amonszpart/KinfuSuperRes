@@ -2,7 +2,9 @@
 #define YANGFILTERINGWRAPPER_H
 
 #include <string>
+#include "YangFiltering.h"
 
-int runYang( std::string depPath, std::string imgPath, int iterations = 3 );
+int bruteRun( std::string depPath, std::string imgPath );
+int runYang(std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams = YangFilteringRunParams() );
 
 #endif // YANGFILTERINGWRAPPER_H

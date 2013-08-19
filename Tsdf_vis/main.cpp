@@ -176,7 +176,13 @@ void mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* co
 void printUsage()
 {
     std::cout << "Usage:\n\tTSDFVis --in cloud.dat\n" << std::endl;
-    std::cout << "\tYang usage: --yangd dir --dep depName --img imgName --iter yangIterationCount" << std::endl;
+    std::cout << "\tYang usage: --yangd dir --dep depName --img imgName"
+              << " [--spatial_sigma x]"
+              << " [--range_sigma x]"
+              << " [--kernel_range x]"
+              << " [--cross_iterations x]"
+              << " [--iter yangIterationCount]"
+              << std::endl;
 }
 
 void octtreeMesh( pcl::PolygonMesh &mesh )
@@ -250,21 +256,36 @@ int main( int argc, char** argv )
             std::string imgName;
             canDoYang &= pcl::console::parse_argument (argc, argv, "--img", imgName) >= 0;
 
-            // iterations
-            int iterations = 3;
-            canDoYang &= pcl::console::parse_argument (argc, argv, "--iter", iterations);
-            if ( iterations <= 0 ) iterations = 3;
-            std::cout << "Running for " << iterations << std::endl;
+            if ( canDoYang )
+            {
+                if ( pcl::console::find_switch( argc, argv, "--brute-force") > 0 )
+                {
+                    bruteRun( yangDir + "/" + depName, yangDir + "/" + imgName );
+                    return EXIT_SUCCESS;
+                }
+            }
+
+            YangFilteringRunParams runParams;
+
+            pcl::console::parse_argument( argc, argv, "--spatial_sigma"   , runParams.spatial_sigma    );
+            pcl::console::parse_argument( argc, argv, "--range_sigma"     , runParams.range_sigma      );
+            pcl::console::parse_argument( argc, argv, "--kernel_range"    , runParams.kernel_range     );
+            pcl::console::parse_argument( argc, argv, "--cross_iterations", runParams.cross_iterations );
+            pcl::console::parse_argument( argc, argv, "--iter"            , runParams.yang_iterations  );
+            if ( runParams.yang_iterations <= 0 ) runParams.yang_iterations = 3;
+            std::cout << "Running for " << runParams.yang_iterations << std::endl;
+
 
             // error check
             if ( !canDoYang )
             {
-                std::cerr << "yang usage: --yangd dir --dep depName --img imgName" << std::endl;
+                printUsage();
                 return EXIT_FAILURE;
             }
 
             // run
-            runYang( yangDir + "/" + depName, yangDir + "/" + imgName, iterations );
+            //runYang( yangDir + "/" + depName, yangDir + "/" + imgName, runParams );
+            return EXIT_SUCCESS;
         }
         // else TSDF or PLY
     }

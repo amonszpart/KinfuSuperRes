@@ -237,7 +237,10 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
             sum += factor;
         }
     }
-    dOut[y * outPitch + x] = t / sum;
+    if ( sum > 0.f )
+        dOut[y * outPitch + x] = t / sum;
+    else
+        dOut[y * outPitch + x] = centerPix;
 }
 
 /*
@@ -288,6 +291,11 @@ double crossBilateralFilterF( T *dDest, uint destPitch,
 {
     // var for kernel computation timing
     double dKernelTime;
+
+    depthTex_16UC1.addressMode[0] = cudaAddressModeMirror;
+    depthTex_16UC1.addressMode[1] = cudaAddressModeMirror;
+    depthTex_32FC1.addressMode[0] = cudaAddressModeMirror;
+    depthTex_32FC1.addressMode[1] = cudaAddressModeMirror;
 
     // bind input image texture
     textureReference const* texRefPtr;

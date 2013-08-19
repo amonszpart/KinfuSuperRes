@@ -5,9 +5,49 @@
 
 #include "BilateralFilterCuda.hpp"
 
+#include <boost/filesystem.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-int runYang( std::string depPath, std::string imgPath, int iterations )
+
+// run in a clean directory: ~/KinfuSuperRes/Tsdf_vis/bruteYang.sh ".." "d" "png"
+int bruteRun( std::string depPath, std::string imgPath )
+{
+    std::cout << "C++BruteYang depPath: " << depPath << " imgPath: " << imgPath << std::endl;
+
+    YangFilteringRunParams params;
+
+    params.yang_iterations = 50;
+    for ( float spatial_sigma = 1.0f; spatial_sigma < 1.9f; spatial_sigma += .1f )
+    {
+        params.spatial_sigma = spatial_sigma;
+        for ( float range_sigma = .01f; range_sigma < .15f; range_sigma += .02f )
+        {
+           params.range_sigma = range_sigma;
+           for ( int kernel_range = 1; kernel_range < 5; ++kernel_range )
+           {
+               params.kernel_range = kernel_range;
+               std::cout << "params.kernel_range: " << params.kernel_range << std::endl;
+               std::cout << "params.range_sigma: " << params.range_sigma << std::endl;
+               std::cout << "params.spatial_sigma: " << params.spatial_sigma << std::endl;
+
+               runYang( depPath, imgPath, params );
+
+               char command[1024];
+               sprintf( command, "tar -zcvf ../safe/bruteYang_img_%s_ss_%2.3f_rs_%2.3f_kr_%d.tar.gz ./*.png --remove-files",
+                        boost::filesystem::path(depPath).stem().string().c_str(),
+                        params.spatial_sigma,
+                        params.range_sigma,
+                        params.kernel_range );
+               std::cout << "running..." << command << (system(command) ? "\tOK" : "\tfailed...") << std::endl;
+           }
+        }
+    }
+    //spatial_sigma( 1.1f ),
+    //range_sigma( .03f ),
+    //kernel_range( 4 ),
+}
+
+int runYang( std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams )
 {
     const int   L       = 20; // depth search range
     const float ETA     = .5f;
@@ -15,20 +55,21 @@ int runYang( std::string depPath, std::string imgPath, int iterations )
     const float MAXRES  = 255.0f;
 
     // read
-    //std::string path    = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130809_1415/";
-    //std::string path    = "/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130809_1438/";
-    //cv::Mat dep16       = cv::imread( path + "mapped16_00000001.png", -1 );
-    //cv::Mat rgb8        = cv::imread( path + "img8_1280_00000001.png", -1 );
     cv::Mat dep16       = cv::imread( depPath, -1 );
     cv::Mat rgb8        = cv::imread( imgPath, -1 );
+    if ( dep16.empty() || rgb8.empty() )
+    {
+        std::cerr << "YangFilteringWrapper::runYang(): dep16 or rgb8 empty...exiting..." << std::endl;
+        return EXIT_FAILURE;
+    }
 
     cv::Mat dep8;         dep16.convertTo( dep8, CV_8UC1, 255.f / 10001.f );
     cv::Mat dep8_large;
 
     // show
-    cv::imshow( "dep16", dep16 );
-    cv::imshow( "dep8", dep8 );
-    cv::imshow( "img8" , rgb8  );
+    //cv::imshow( "dep16", dep16 );
+    //cv::imshow( "dep8", dep8 );
+    //cv::imshow( "img8" , rgb8  );
 
     char key_pressed = 0;
 
@@ -56,11 +97,12 @@ int runYang( std::string depPath, std::string imgPath, int iterations )
     cv::Mat bilfiltered;
     bfc.runBilateralFiltering( fDep, rgb8, bilfiltered,
                                5.f, .1f, 10, 1.f );
-    cv::imshow( "bilf", bilfiltered / depMax );
+    //cv::imshow( "bilf", bilfiltered / depMax );
     bilfiltered.copyTo( fDep );
 
 #if 1
-    YangFiltering::run( fDep, rgb8, fDep, iterations );
+    YangFiltering yf;
+    yf.run( fDep, rgb8, fDep, yangFilteringRunParams );
 #elif 0
     // input: fDep(CV_32FC1,0..10001.f), rgb8(CV_8UC3)
 
