@@ -295,7 +295,7 @@ double crossBilateralFilterF( T *dDest, uint destPitch,
 
     // Bind inpput image to the texture
     cudaChannelFormatDesc descT = cudaCreateChannelDesc<T>();
-    size_t offset = -1;
+    size_t offset = 0;
     checkCudaErrors( cudaBindTexture2D(&offset, texRefPtr, dImage, &descT, volumeSize.width, volumeSize.height, imagePitch) );
     if ( offset > 0 ) std::cerr << "cudaBindTexture2D returned non-zero offset!!!" << std::endl;
 
@@ -491,7 +491,7 @@ double bilateralFilterRGBA(uint *dDest,
 
     // Bind the array to the texture
     cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar4>();
-    size_t offset = -1;
+    size_t offset = 0;
     checkCudaErrors( cudaBindTexture2D(&offset, rgbaTex, dImage, desc, width, height, pitch) );
     if ( offset > 0 )
     {
@@ -578,7 +578,7 @@ double bilateralFilterF( float *dDest,
 
     // Bind the array to the texture
     cudaChannelFormatDesc desc = cudaCreateChannelDesc<float>();
-    size_t offset = -1;
+    size_t offset = 0;
     checkCudaErrors( cudaBindTexture2D(&offset, depthTex_32FC1, dImage, desc, width, height, pitch) );
     if ( offset > 0 )
     {
@@ -664,7 +664,7 @@ double crossBilateralFilterRGBA( uint *dDest,
 
     // Bind the array to the texture
     cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar4>();
-    size_t offset = -1;
+    size_t offset = 0;
     checkCudaErrors( cudaBindTexture2D(&offset, rgbaTex, dImage, desc, width, height, pitch) );
     if ( offset > 0 )
     {
