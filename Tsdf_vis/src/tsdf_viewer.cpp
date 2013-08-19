@@ -7,26 +7,30 @@
 #include <pcl/range_image/range_image_planar.h>
 #include <pcl/visualization/range_image_visualizer.h>
 
-#include <vtkBMPWriter.h>
+#include <vtkPNGWriter.h>
 #include <vtkWindow.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkImageShiftScale.h>
 #include <vtkCamera.h>
+#include <vtkImageData.h>
 
 namespace am
 {
 
-    TSDFViewer::TSDFViewer()
+    TSDFViewer::TSDFViewer( bool no_tsdf )
     {
         const int rows = 2*480;
         const int cols = 2*640;
 
         intr_ = MyIntr( 521.7401, 522.1379,
-                                   323.4402 * 2.f, 258.1387 * 2.f );
+                        323.4402 * 2.f, 258.1387 * 2.f );
 
         //initCloudViewer( rows, cols );
-        initRayViewer( rows, cols );
-        initDepthViewer( rows, cols );
+        if ( !no_tsdf )
+        {
+            initRayViewer( rows, cols );
+            initDepthViewer( rows, cols );
+        }
         initCloudViewer( rows, cols );
 
         //range_vis_ = pcl::visualization::RangeImageVisualizer::Ptr( new pcl::visualization::RangeImageVisualizer("range image"));
@@ -145,15 +149,16 @@ namespace am
         cloud_viewer_ = pcl::visualization::PCLVisualizer::Ptr( new pcl::visualization::PCLVisualizer("Scene Cloud Viewer") );
 
         cloud_viewer_->setBackgroundColor (0, 0, 0);
-        cloud_viewer_->addCoordinateSystem (1.0);
+        //cloud_viewer_->addCoordinateSystem (1.0);
         cloud_viewer_->initCameraParameters ();
         cloud_viewer_->setPosition (0, 500);
         cloud_viewer_->setSize (cols, rows);
         cloud_viewer_->setCameraClipDistances( 0.01, 10.01 );
+        cloud_viewer_->setShowFPS( false );
         //cloud_viewer_->setCameraParameters( 521.7401, 522.1379, 323.4402 * 2.f, 258.1387 *2.f);
 
-        // Compute the vertical field of view based on the focal length and image heigh
-        double im_height = intr_.cy;
+        // Compute the vertical field of view based on the focal length and image height
+        double im_height = intr_.cy / 2.f;
         double fovy = 2.0 * atan (im_height / (intr_.fy)) * 180.0 / M_PI;
         std::cout << "fovy: " << fovy << std::endl;
 
@@ -165,10 +170,30 @@ namespace am
         {
             vtkSmartPointer<vtkCamera> cam = renderer->GetActiveCamera ();
             cam->SetUseHorizontalViewAngle (0);
-            cam->SetViewAngle (fovy);
+            cam->SetViewAngle(fovy);
         }
 
         //cloud_viewer_->addText ("H: print help", 2, 15, 20, 34, 135, 246);
+    }
+
+    void
+    TSDFViewer::setViewerFovy( pcl::visualization::PCLVisualizer &viewer, Eigen::Matrix3f const& intr )
+    {
+        // Compute the vertical field of view based on the focal length and image height
+        double im_height = intr(1,2) / 2.f;
+        double fovy = 2.0 * atan( im_height / intr(1,1) ) * 180.0 / M_PI;
+        std::cout << "fovy: " << fovy << std::endl;
+
+        vtkSmartPointer<vtkRendererCollection> rens = viewer.getRendererCollection();
+        rens->InitTraversal ();
+        vtkRenderer* renderer = NULL;
+        int i = 1;
+        while ( (renderer = rens->GetNextItem()) != NULL )
+        {
+            vtkSmartPointer<vtkCamera> cam = renderer->GetActiveCamera ();
+            cam->SetUseHorizontalViewAngle (0);
+            cam->SetViewAngle(fovy);
+        }
     }
 
     void
@@ -292,11 +317,11 @@ namespace am
         std::cout << rangeImage << "\n";
 
         saveRangeImagePlanarFilePNG( std::string("rangeImage.png"), rangeImage );
-//        ((pcl::visualization::RangeImageVisualizer*)range_vis_.get())->showRangeImage( rangeImage );
+        //        ((pcl::visualization::RangeImageVisualizer*)range_vis_.get())->showRangeImage( rangeImage );
         if ( range_vis_ )
             range_vis_.reset();
         range_vis_ = pcl::visualization::RangeImageVisualizer::Ptr(
-                        pcl::visualization::RangeImageVisualizer::getRangeImageWidget( rangeImage,0.f, 5000.f, true ) );
+                         pcl::visualization::RangeImageVisualizer::getRangeImageWidget( rangeImage,0.f, 5000.f, true ) );
     }
 
     // http://www.pcl-users.org/Writing-a-pcl-RangeImage-to-an-image-png-file-td3724081.html
@@ -323,16 +348,17 @@ namespace am
     void
     TSDFViewer::setViewerPose (visualization::PCLVisualizer& viewer, const Eigen::Affine3f& viewer_pose)
     {
-        Eigen::Vector3f pos_vector = viewer_pose * Eigen::Vector3f (0, 0, 0);
+        Eigen::Vector3f pos_vector     = viewer_pose * Eigen::Vector3f (0, 0, 0);
         Eigen::Vector3f look_at_vector = viewer_pose.rotation () * Eigen::Vector3f (0, 0, 1) + pos_vector;
-        Eigen::Vector3f up_vector = viewer_pose.rotation () * Eigen::Vector3f (0, -1, 0);
-        viewer.setCameraPosition (pos_vector[0], pos_vector[1], pos_vector[2],
-                look_at_vector[0], look_at_vector[1], look_at_vector[2],
-                up_vector[0], up_vector[1], up_vector[2]);
+        Eigen::Vector3f up_vector      = viewer_pose.rotation () * Eigen::Vector3f (0, -1, 0);
+        viewer.setCameraPosition(
+                    pos_vector[0], pos_vector[1], pos_vector[2],
+                    look_at_vector[0], look_at_vector[1], look_at_vector[2],
+                    up_vector[0], up_vector[1], up_vector[2] );
     }
 
     Eigen::Affine3f
-    TSDFViewer::getViewerPose (visualization::PCLVisualizer& viewer)
+    TSDFViewer::getViewerPose ( visualization::PCLVisualizer& viewer )
     {
         Eigen::Affine3f pose = viewer.getViewerPose();
         Eigen::Matrix3f rotation = pose.linear();
@@ -347,17 +373,29 @@ namespace am
         return pose;
     }
 
-//#include <vtk/
+    Eigen::Vector3f
+    TSDFViewer::getViewerCameraUp( pcl::visualization::PCLVisualizer& viewer )
+    {
+        std::vector<pcl::visualization::Camera> cameras;
+        viewer.getCameras( cameras );
+        if ( cameras.size() > 0 )
+        {
+            return Eigen::Vector3f( cameras[0].view[0], cameras[0].view[1], cameras[0].view[2] );
+        }
+        return Eigen::Vector3f::Zero();
+    }
+
+    //#include <vtk/
     void
-    TSDFViewer::vtkMagic()
+    TSDFViewer::vtkMagic( std::vector<float> &data, int &w, int &h )
     {
         std::cout << "saving vtkZBuffer...";
         vtkSmartPointer<vtkWindowToImageFilter> filter =
-          vtkSmartPointer<vtkWindowToImageFilter>::New();
-        vtkSmartPointer<vtkBMPWriter> imageWriter =
-          vtkSmartPointer<vtkBMPWriter>::New();
+                vtkSmartPointer<vtkWindowToImageFilter>::New();
+        vtkSmartPointer<vtkPNGWriter> imageWriter =
+                vtkSmartPointer<vtkPNGWriter>::New();
         vtkSmartPointer<vtkImageShiftScale> scale =
-          vtkSmartPointer<vtkImageShiftScale>::New();
+                vtkSmartPointer<vtkImageShiftScale>::New();
 
         vtkSmartPointer<vtkRenderWindow> renWin = cloud_viewer_->getRenderWindow();
 
@@ -366,16 +404,49 @@ namespace am
         filter->SetMagnification(1);
         filter->SetInputBufferTypeToZBuffer();        //Extract z buffer value
 
-        scale->SetOutputScalarTypeToUnsignedChar();
+        scale->SetOutputScalarTypeToFloat();
         scale->SetInputConnection(filter->GetOutputPort());
-        scale->SetShift(0);
-        scale->SetScale(-10001.f);
+        scale->SetShift(0.f);
+        //scale->SetScale(-65535.f);
+        scale->SetScale(1.f);
+        scale->Update();
+
+        vtkSmartPointer<vtkImageData> imageData = scale->GetOutput();
+        int* dims = imageData->GetDimensions();
+        // int dims[3]; // can't do this
+
+        std::cout << "Dims: " << " x: " << dims[0] << " y: " << dims[1] << " z: " << dims[2] << std::endl;
+
+        std::cout << "Number of points: " << imageData->GetNumberOfPoints() << std::endl;
+        std::cout << "Number of cells: " << imageData->GetNumberOfCells() << std::endl;
+
+        data.resize( dims[0] * dims[1] * dims[2] );
+        // Retrieve the entries from the image data and print them to the screen
+        for (int z = 0; z < dims[2]; z++)
+        {
+            for (int y = 0; y < dims[1]; ++y)
+            {
+                for (int x = 0; x < dims[0]; x++)
+                {
+                    float* pixel = static_cast<float*>( imageData->GetScalarPointer(x,y,z) );
+                    // do something with v
+                    //std::cout << pixel[0] << " ";
+                    data[ z * dims[1] * dims[0] + (dims[1] - y - 1) * dims[0] + x ] = pixel[0];//(pixel[0] == 10001) ? 0 : pixel[0];
+                }
+                //std::cout << std::endl;
+            }
+            //std::cout << std::endl;
+        }
+        w = dims[0];
+        h = dims[1];
 
         // Write depth map as a .bmp image
-        imageWriter->SetFileName("vtkzbuffer.bmp");
+        imageWriter->SetFileName( "vtkzbuffer.png" );
         imageWriter->SetInputConnection(scale->GetOutputPort());
         imageWriter->Write();
         std::cout << "OK" << std::endl;
+
+        //if ( dims ) delete [] dims;
     }
 
 #if 0

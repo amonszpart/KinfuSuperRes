@@ -59,6 +59,7 @@
 #include <boost/filesystem/path.hpp>
 //#include <boost/graph/buffer_concepts.hpp>
 #include <pcl/console/print.h>
+#include <map>
 
 using namespace pcl::gpu;
 
@@ -95,6 +96,9 @@ namespace am
             void
             saveImage( const Eigen::Affine3f &camPose, const pcl::gpu::PtrStepSz<const pcl::gpu::PixelRGB> &rgb24, const pcl::gpu::PtrStepSz<const unsigned short>& depth16 );
 
+            static void
+            readPoses( std::string path, std::map<int,Eigen::Affine3f> &poses );
+
         protected:
             std::string path_;
 
@@ -106,6 +110,8 @@ namespace am
 
             void
             writePose(const std::string &filename_pose, const Eigen::Vector3f &teVecs, const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> &erreMats);
+
+
 
 
             /**Counter of the number of screenshots taken*/

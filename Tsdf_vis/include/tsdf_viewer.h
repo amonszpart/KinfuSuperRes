@@ -88,29 +88,44 @@ namespace am
             void
             renderRangeImage( pcl::PointCloud<pcl::PointXYZI>::Ptr const& cloud, Eigen::Affine3f const& pose );
             void
-            saveRangeImagePlanarFilePNG( const std::string &file_name,  pcl::RangeImage const& range_image );
+            saveRangeImagePlanarFilePNG( const std::string &file_name, pcl::RangeImage const& range_image );
 
-            std::vector<unsigned short> const& getLatestDepth() const { return depth_view_host_; };
+            void
+            vtkMagic( std::vector<float> &data, int &w, int &h );
 
-            std::vector<pcl::gpu::KinfuTracker::PixelRGB> const& getLatestRayCast() const { return ray_view_host_; }
+            std::vector<unsigned short> const&
+            getLatestDepth() const { return depth_view_host_; };
 
-            pcl::visualization::ImageViewer::Ptr & getRayViewer() { return viewerScene_; }
-            pcl::visualization::ImageViewer::Ptr & getDepthViewer() { return viewerDepth_; }
-            pcl::visualization::PCLVisualizer::Ptr & getCloudViewer() { return cloud_viewer_; }
+            std::vector<pcl::gpu::KinfuTracker::PixelRGB> const&
+            getLatestRayCast() const { return ray_view_host_; }
 
-            pcl::PointCloud<pcl::PointXYZI>::Ptr      & CloudPtr()       { return cloud_ptr_; }
-            pcl::PointCloud<pcl::PointXYZI>::Ptr const& CloudPtr() const { return cloud_ptr_; }
+            pcl::visualization::ImageViewer::Ptr &
+            getRayViewer() { return viewerScene_; }
+            pcl::visualization::ImageViewer::Ptr &
+            getDepthViewer() { return viewerDepth_; }
+            pcl::visualization::PCLVisualizer::Ptr &
+            getCloudViewer() { return cloud_viewer_; }
 
-            pcl::PolygonMesh::Ptr      & MeshPtr()       { return mesh_ptr_; }
-            pcl::PolygonMesh::Ptr const& MeshPtr() const { return mesh_ptr_; }
+            pcl::PointCloud<pcl::PointXYZI>::Ptr      &
+            CloudPtr()       { return cloud_ptr_; }
+            pcl::PointCloud<pcl::PointXYZI>::Ptr const&
+            CloudPtr() const { return cloud_ptr_; }
+
+            pcl::PolygonMesh::Ptr      &
+            MeshPtr()       { return mesh_ptr_; }
+            pcl::PolygonMesh::Ptr const&
+            MeshPtr() const { return mesh_ptr_; }
 
             static void
             setViewerPose (pcl::visualization::PCLVisualizer& viewer, const Eigen::Affine3f& viewer_pose);
             static Eigen::Affine3f
             getViewerPose (pcl::visualization::PCLVisualizer& viewer);
+            static void
+            setViewerFovy( pcl::visualization::PCLVisualizer& viewer, Eigen::Matrix3f const& intr );
+            static Eigen::Vector3f
+            getViewerCameraUp( pcl::visualization::PCLVisualizer& viewer );
 
-            void
-            vtkMagic(std::vector<float> &data, int &w, int &h );
+
         protected:
 
 

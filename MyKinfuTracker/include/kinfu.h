@@ -88,8 +88,7 @@ namespace pcl
         void
         setDepthIntrinsics (float fx, float fy, float cx = -1, float cy = -1);
 
-        std::vector<float>
-        getDepthIntrinsics();
+        std::vector<float> getDepthIntrinsics();
 
         /** \brief Sets initial camera pose relative to volume coordiante space
           * \param[in] pose Initial camera pose

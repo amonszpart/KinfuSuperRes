@@ -294,6 +294,8 @@ namespace util
         outputPath = path + std::string( buffer );
         return outputPath;
     }
+
+    void writePNG( std::string const& name, cv::Mat const& img );
 }
 
 #if 0

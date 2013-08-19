@@ -42,6 +42,7 @@
 #include "my_screenshot_manager.h"
 #include <pcl/io/png_io.h>
 #include <fstream>
+#include <map>
 
 namespace am
 {
@@ -188,6 +189,56 @@ namespace am
         }
     }
 
+    void
+    MyScreenshotManager::readPoses( std::string path, std::map<int,Eigen::Affine3f> &poses )
+    {
+        std::fstream file;
+        file.open( path );
+        if ( !file.is_open() )
+        {
+            std::cerr << "MyScreenshotManager::readPoses: could not open file at path " << path << std::endl;
+            return;
+        }
+        poses.clear();
+
+        std::string line;
+        std::vector<std::string> words;
+        while ( file )
+        {
+            std::getline( file, line );
+
+            words.clear(); words.reserve(21);
+            char *c_line = strdup( line.c_str() );
+            char *token = strtok( c_line, "," );
+            while ( token != NULL )
+            {
+                words.push_back( token );
+                token = strtok( NULL, "," );
+            }
+
+            //for ( auto word : words )
+            //    std::cout << word << std::endl;
+
+            if ( words.size() > 20 )
+            {
+                Eigen::Affine3f pose;
+                for ( int y = 0; y < 4; ++y )
+                {
+                    for ( int x = 0; x < 4; ++x )
+                    {
+                        pose(y,x) = atof( words[y*4+x].c_str() );
+                    }
+                }
+
+                //std::vector<float> intrinsics( words.begin() + 16, words.begin() + 20 );
+                poses[ atoi(words[20].c_str()) ] = pose;
+            }
+
+            if ( c_line ) { free (c_line ); c_line = NULL; }
+        }
+
+        file.close();
+    }
 }
 
 #endif // PCL_SCREENSHOT_MANAGER_CPP_

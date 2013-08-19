@@ -1,5 +1,7 @@
 #include "tsdf_viewer.h"
 
+#include "DepthViewer3D.h"
+
 #include "BilateralFilterCuda.hpp"
 #include "YangFilteringWrapper.h"
 
@@ -7,10 +9,16 @@
 
 #include "MaUtil.h"
 
+#include <pcl/ros/conversions.h>
+#include <pcl/octree/octree.h>
+#include <pcl/surface/vtk_smoothing/vtk_mesh_subdivision.h>
 #include <pcl/io/vtk_lib_io.h>
 #include <pcl/console/parse.h>
+
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+
 #include <eigen3/Eigen/Dense>
 #include <boost/filesystem.hpp>
 
@@ -171,6 +179,57 @@ void printUsage()
     std::cout << "\tYang usage: --yangd dir --dep depName --img imgName --iter yangIterationCount" << std::endl;
 }
 
+void octtreeMesh( pcl::PolygonMesh &mesh )
+{
+    float resolution = .05f;
+
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree( resolution );
+
+    //Declaration and instantiation of a cloud pointer to be used for output
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_pcl(new pcl::PointCloud<pcl::PointXYZ>);
+
+    //Input of the above cloud and the corresponding output of cloud_pcl
+    pcl::fromPCLPointCloud2( mesh.cloud, *cloud_pcl );
+    //pcl::fromROSMsg( mesh.cloud, *cloud_pcl );
+    octree.setInputCloud( cloud_pcl );
+    octree.addPointsFromInputCloud();
+
+    // Neighbors within voxel search
+    pcl::PointXYZ searchPoint;
+    searchPoint.x = 0;
+    searchPoint.y = 3;
+    searchPoint.z = 1;
+
+    std::vector<int> pointIdxVec;
+
+    if ( octree.voxelSearch(searchPoint, pointIdxVec) )
+    {
+        std::cout << "Neighbors within voxel search at (" << searchPoint.x
+                  << " " << searchPoint.y
+                  << " " << searchPoint.z
+                  << ")" << std::endl;
+
+
+        for ( size_t i = 0; i < pointIdxVec.size (); ++i )
+            std::cout << "    " << cloud_pcl->points[pointIdxVec[i]].x
+                      << " " << cloud_pcl->points[pointIdxVec[i]].y
+                      << " " << cloud_pcl->points[pointIdxVec[i]].z << std::endl;
+    }
+
+    std::cout << "PointIdxVec size:" << pointIdxVec.size() << std::endl;
+
+    std::cout << "Octree Leaf Count Operation: " << octree.getLeafCount() << std::endl;
+    std::cout << "Octree Branch Count Operation: " << octree.getBranchCount() << std::endl;
+}
+
+void subdivideMesh( pcl::PolygonMesh::ConstPtr mesh, pcl::PolygonMesh &output )
+{
+    pcl::MeshSubdivisionVTK msvtk;
+    msvtk.setInputMesh( mesh );
+    msvtk.setFilterType( pcl::MeshSubdivisionVTK::LINEAR );
+    msvtk.process( output );
+}
+
 // main
 int main( int argc, char** argv )
 {
@@ -232,24 +291,32 @@ int main( int argc, char** argv )
 
     const int img_id = 50;
 
-    // read RGB
-    boost::filesystem::path rgb8_path = boost::filesystem::path(inputFilePath).parent_path()
-                                        / std::string("poses")
-                                        / (boost::lexical_cast<std::string> (img_id) + std::string(".png"));
-    cv::Mat rgb8 = cv::imread( rgb8_path.c_str(), -1 );
-
     // read DEPTH
-    boost::filesystem::path dep_path = boost::filesystem::path(inputFilePath).parent_path()
-                                       / std::string("poses")
-                                       / (std::string("d") + boost::lexical_cast<std::string> (img_id) + std::string(".png"));
-    cv::Mat dep16 = cv::imread( dep_path.c_str(), -1 );
-    cv::Mat large_dep16;
-    cv::resize( dep16, large_dep16, dep16.size() * 2 );
+    cv::Mat dep16, large_dep16;
+    {
+        boost::filesystem::path dep_path = boost::filesystem::path(inputFilePath).parent_path()
+                                           / std::string("poses")
+                                           / (std::string("d") + boost::lexical_cast<std::string> (img_id) + std::string(".png"));
+        dep16 = cv::imread( dep_path.c_str(), -1 );
+        cv::resize( dep16, large_dep16, dep16.size() * 2 );
+    }
+
+    // read RGB
+    cv::Mat rgb8, rgb8_960;
+    {
+        boost::filesystem::path rgb8_path = boost::filesystem::path(inputFilePath).parent_path()
+                                            / std::string("poses")
+                                            / (boost::lexical_cast<std::string> (img_id) + std::string(".png"));
+        rgb8 = cv::imread( rgb8_path.c_str(), -1 );
+        cv::resize( rgb8, rgb8_960, large_dep16.size() );
+    }
 
     // debug
-    cv::imshow( "rgb8", rgb8 );
-    cv::imshow( "large_dep16", large_dep16 );
-    cv::waitKey( 100 );
+    {
+        cv::imshow( "rgb8_960"   , rgb8_960    );
+        cv::imshow( "large_dep16", large_dep16 );
+        cv::waitKey( 100 );
+    }
 
     // read poses
     std::map<int,Eigen::Affine3f> poses;
@@ -261,39 +328,96 @@ int main( int argc, char** argv )
         am::MyScreenshotManager::readPoses( poses_path.string(), poses );
     }
 
+    // apply pose
+    Eigen::Matrix3f intr_m3f;
+    {
+        g_myPlayer.Pose() = poses[ img_id ];
+
+        // test intrinsics
+        intr_m3f << 521.7401, 0       , 323.4402 * 2.f,
+                    0       , 522.1379, 258.1387 * 2.f,
+                    0       , 0       , 1             ;
+    }
+
     // Load TSDF
     am::TSDFViewer *tsdfViewer = new am::TSDFViewer( ply_no_tsdf );
-    if ( ply_no_tsdf )
     {
-        // init pointer
-        tsdfViewer->MeshPtr() = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
-        // load mesh
-        pcl::io::loadPolygonFile( inputFilePath, *tsdfViewer->MeshPtr() );
+        // mouse callback, prepare myplayer global state
+        tsdfViewer->getCloudViewer()->registerMouseCallback( mouse_callback, (void*)&g_myPlayer );
+        g_myPlayer.weak_cloud_viewer_ptr = tsdfViewer->getCloudViewer().get();
+
+        if ( ply_no_tsdf )
+        {
+            // init pointer
+            tsdfViewer->MeshPtr() = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
+            // load mesh
+            pcl::io::loadPolygonFile( inputFilePath, *tsdfViewer->MeshPtr() );
+        }
+        else
+        {
+            // load tsdf
+            tsdfViewer->loadTsdfFromFile( inputFilePath, true );
+            // register keyboard callbacks
+            tsdfViewer->getRayViewer()->registerKeyboardCallback (keyboard_callback, (void*)&g_myPlayer);
+            tsdfViewer->getDepthViewer()->registerKeyboardCallback (keyboard_callback, (void*)&g_myPlayer);
+            // check, if mesh is valid
+            tsdfViewer->dumpMesh();
+        }
     }
-    else
+
+    // octree
     {
-        // load tsdf
-        tsdfViewer->loadTsdfFromFile( inputFilePath, true );
-        // register keyboard callbacks
-        tsdfViewer->getRayViewer()->registerKeyboardCallback (keyboard_callback, (void*)&g_myPlayer);
-        tsdfViewer->getDepthViewer()->registerKeyboardCallback (keyboard_callback, (void*)&g_myPlayer);
-        // check, if mesh is valid
-        tsdfViewer->dumpMesh();
+        //if ( tsdfViewer->MeshPtr() ) octtreeMesh( *tsdfViewer->MeshPtr() );
     }
 
-    // mouse callback, prepare myplayer global state
-    tsdfViewer->getCloudViewer()->registerMouseCallback( mouse_callback, (void*)&g_myPlayer );
-    g_myPlayer.weak_cloud_viewer_ptr = tsdfViewer->getCloudViewer().get();
+    // subdivision
+    {
+        pcl::PolygonMesh::Ptr subdividedMeshPtr = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
+        std::cout << "Subdividing mesh...";
+        if ( tsdfViewer->MeshPtr() ) subdivideMesh( tsdfViewer->MeshPtr(), *subdividedMeshPtr );
+        std::cout << "OK" << std::endl;
 
-    // apply pose
-    g_myPlayer.Pose() = poses[ img_id ];
+        std::cout << "Copying subdivided mesh...";
+        tsdfViewer->MeshPtr() = subdividedMeshPtr;
+        std::cout << "OK" << std::endl;
+    }
 
-    // test intrinsics
-    Eigen::Matrix3f intr_m3f;
-    intr_m3f << 521.7401, 0       , 323.4402 * 2.f,
-                0       , 522.1379, 258.1387 * 2.f,
-                0       , 0       , 1             ;
+    // mats to 3D
+    {
+        DepthViewer3D depthViewer;
+        depthViewer.showMats( large_dep16, rgb8_960, img_id, poses, intr_m3f );
+#if 0
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr colorCloudPtr;
+        matsTo3D<ushort>( large_dep16, rgb8_960, colorCloudPtr, intr_m3f );
 
+        pcl::visualization::PCLVisualizer::Ptr pColorCloudViewer;
+        pColorCloudViewer = pcl::visualization::PCLVisualizer::Ptr( new pcl::visualization::PCLVisualizer("Color Cloud Viewer") );
+
+        pColorCloudViewer->setBackgroundColor( 0, 0, 0 );
+        pColorCloudViewer->addCoordinateSystem( 1.0 );
+        pColorCloudViewer->initCameraParameters();
+        pColorCloudViewer->setPosition( 0, 500 );
+        pColorCloudViewer->setSize( 1280, 960 );
+        pColorCloudViewer->setCameraClipDistances( 0.01, 10.01 );
+        pColorCloudViewer->setShowFPS( false );
+
+        Eigen::Vector4f centroid;
+        pcl::compute3DCentroid( *colorCloudPtr, centroid );
+        std::cout << "centroid: " << centroid << " " << centroid.cols() << " " << centroid.rows()
+                  << centroid.block<3,1>(0,0).transpose() << std::endl;
+
+        Eigen::Vector3f up = am::TSDFViewer::getViewerCameraUp( *pColorCloudViewer );
+        //Eigen::Matrix3f r = Eigen::AngleAxisf( 0.25 * M_PI, up).toRotationMatrix();
+        Eigen::Affine3f pose = poses[ img_id ] * Eigen::AngleAxisf( 0.5 * M_PI, (centroid.block<3,1>(0,0) + up).normalized() );
+        //pose.linear() *= r;
+        am::TSDFViewer::setViewerPose( *pColorCloudViewer, pose     );
+        //am::TSDFViewer::setViewerFovy( *pColorCloudViewer, intr_m3f );
+        pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( colorCloudPtr );
+        pColorCloudViewer->addPointCloud<pcl::PointXYZRGB>( colorCloudPtr, rgb, "colorCloud" );
+
+        pColorCloudViewer->spin();
+#endif
+    }
 
     std::vector<float> zBuffer;
     int w, h;
@@ -333,9 +457,11 @@ int main( int argc, char** argv )
     }
 
     // process Z buffer
-    mats["large_dep16"] = large_dep16;
-    mats["rgb8"] = rgb8;
-    processZBuffer( zBuffer, w, h, mats );
+    {
+        mats["large_dep16"] = large_dep16;
+        mats["rgb8"]        = rgb8;
+        processZBuffer( zBuffer, w, h, mats );
+    }
 
     // wait for exit
     char c = 0;

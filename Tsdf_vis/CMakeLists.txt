@@ -3,6 +3,7 @@ project(Tsdf_vis)
 
 INCLUDE( ../commonLibLocations.cmake )
 
+MESSAGE(STATUS "PCL_LOC: " ${PCL_LOC})
 MESSAGE(STATUS "MYINCLUDES: " ${MY_INCLUDES})
 MESSAGE(STATUS "MYLIBS: " ${MY_LIBRARIES})
 MESSAGE(STATUS "CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
@@ -40,20 +41,22 @@ SET( TSDF_VIS_HEADER_LIST
     ../MyKinfuApp/src/kinfu/tools/tsdf_volume.hpp
     ../MyKinfuApp/src/kinfu/tools/kinfu_util.h
     ../MyKinfuApp/src/kinfu/tools/my_screenshot_manager.h
-    YangFilteringWrapper.h
-    tsdf_viewer.h
+    include/YangFilteringWrapper.h
+    include/DepthViewer3D.h
+    include/tsdf_viewer.h
 )
 
 SET( TSDF_VIS_SRC_LIST
     ../MyKinfuApp/src/kinfu/tools/kinfu_util.cpp
     ../MyKinfuApp/src/kinfu/tools/my_screenshot_manager.cpp
-    YangFilteringWrapper.cpp
-    tsdf_viewer.cpp
+    src/YangFilteringWrapper.cpp
+    src/DepthViewer3D.cpp
+    src/tsdf_viewer.cpp
     main.cpp
 )
 
 # INCLUDES
-INCLUDE_DIRECTORIES( ${KINFU_INCLUDE} ${MY_INCLUDES} )
+INCLUDE_DIRECTORIES( ${KINFU_INCLUDE} ${MY_INCLUDES} include )
 
 # EXECUTABLE
 ADD_EXECUTABLE( ${TSDF_VIS_NAME} ${TSDF_VIS_SRC_LIST} ${TSDF_VIS_HEADER_LIST} )
@@ -63,4 +66,6 @@ TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME}
     imp_bilFilCuda
     ${KINFU_LIB}
     ${MY_LIBRARIES}
+    ${PCL_LOC}/lib/libpcl_octree.so
+    ${PCL_LOC}/lib/libpcl_surface.so
 )

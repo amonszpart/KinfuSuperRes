@@ -725,7 +725,7 @@ struct MyPlayer
                 }
             }
         }
-} myPlayer;
+} g_myPlayer;
 
 //---------------------------------------------------------------------------
 // CB
@@ -733,32 +733,32 @@ struct MyPlayer
 
 void on_contrast_alpha_trackbar( int, void* )
 {
-    myPlayer.alpha = (double) myPlayer.alpha_slider / myPlayer.alpha_slider_max ;
+    g_myPlayer.alpha = (double) g_myPlayer.alpha_slider / g_myPlayer.alpha_slider_max ;
 }
 
 void on_contrast_beta_trackbar( int, void* )
 {
-    myPlayer.beta = (double) myPlayer.beta_slider;// / myPlayer.beta_slider_max ;
+    g_myPlayer.beta = (double) g_myPlayer.beta_slider;// / myPlayer.beta_slider_max ;
 }
 
 void on_cross_gaussian_delta_trackbar( int, void* )
 {
-    myPlayer.cross_gaussian_delta.value = (double) myPlayer.cross_gaussian_delta.slider / myPlayer.cross_gaussian_delta.slider_max * 5.;
+    g_myPlayer.cross_gaussian_delta.value = (double) g_myPlayer.cross_gaussian_delta.slider / g_myPlayer.cross_gaussian_delta.slider_max * 5.;
 }
 
 void on_cross_eucledian_delta_trackbar( int, void* )
 {
-    myPlayer.cross_eucledian_delta.value = (double) myPlayer.cross_eucledian_delta.slider / myPlayer.cross_eucledian_delta.slider_max ;
+    g_myPlayer.cross_eucledian_delta.value = (double) g_myPlayer.cross_eucledian_delta.slider / g_myPlayer.cross_eucledian_delta.slider_max ;
 }
 
 void on_cross_filter_range_trackbar( int, void* )
 {
-    myPlayer.cross_filter_range.value = myPlayer.cross_filter_range.slider;
+    g_myPlayer.cross_filter_range.value = g_myPlayer.cross_filter_range.slider;
 }
 
 void on_cross_filter_iterations_trackbar( int, void* )
 {
-    myPlayer.cross_filter_iterations.value = myPlayer.cross_filter_iterations.slider;
+    g_myPlayer.cross_filter_iterations.value = g_myPlayer.cross_filter_iterations.slider;
 }
 
 #define Yang 0
@@ -1295,7 +1295,7 @@ int main( int argc, char* argv[] )
     //MyPlayer myPlayer;
     //myPlayer.toggleAltViewpoint();
 
-    myPlayer.playGenerators( g_context, g_depth, g_image, g_ir );
+    g_myPlayer.playGenerators( g_context, g_depth, g_image, g_ir );
 
     return EXIT_SUCCESS;
 }
