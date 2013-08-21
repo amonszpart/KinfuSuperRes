@@ -157,9 +157,10 @@ namespace am
         cloud_viewer_->setShowFPS( false );
         //cloud_viewer_->setCameraParameters( 521.7401, 522.1379, 323.4402 * 2.f, 258.1387 *2.f);
 
+
+
         // Compute the vertical field of view based on the focal length and image height
-        double im_height = intr_.cy / 2.f;
-        double fovy = 2.0 * atan (im_height / (intr_.fy)) * 180.0 / M_PI;
+        double fovy = 2.0 * atan(intr_.cy / 2.f / intr_.fy) * 180.0 / M_PI;
         std::cout << "fovy: " << fovy << std::endl;
 
         vtkSmartPointer<vtkRendererCollection> rens = cloud_viewer_->getRendererCollection();
@@ -170,6 +171,14 @@ namespace am
         {
             vtkSmartPointer<vtkCamera> cam = renderer->GetActiveCamera ();
             cam->SetUseHorizontalViewAngle (0);
+            // Description:
+            // Set/Get the camera view angle, which is the angular height of the
+            // camera view measured in degrees.  The default angle is 30 degrees.
+            // This method has no effect in parallel projection mode.
+            // The formula for setting the angle up for perfect perspective viewing
+            // is: angle = 2*atan((h/2)/d) where h is the height of the RenderWindow
+            // (measured by holding a ruler up to your screen) and d is the
+            // distance from your eyes to the screen.
             cam->SetViewAngle(fovy);
         }
 
@@ -387,7 +396,7 @@ namespace am
 
     //#include <vtk/
     void
-    TSDFViewer::vtkMagic( std::vector<float> &data, int &w, int &h )
+    TSDFViewer::fetchVtkZBuffer( std::vector<float> &data, int &w, int &h )
     {
         std::cout << "saving vtkZBuffer...";
         vtkSmartPointer<vtkWindowToImageFilter> filter =

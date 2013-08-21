@@ -1,6 +1,7 @@
 #include "tsdf_viewer.h"
 
 #include "DepthViewer3D.h"
+#include "MeshRayCaster.h"
 
 #include "BilateralFilterCuda.hpp"
 #include "YangFilteringWrapper.h"
@@ -9,12 +10,8 @@
 
 #include "MaUtil.h"
 
-#include <pcl/ros/conversions.h>
-#include <pcl/octree/octree.h>
-#include <pcl/surface/vtk_smoothing/vtk_mesh_subdivision.h>
 #include <pcl/io/vtk_lib_io.h>
 #include <pcl/console/parse.h>
-
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -32,18 +29,26 @@
 
 // try to get ZBuffer image to the right scale
 template <typename T>
-void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,cv::Mat> mats )
+void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,cv::Mat> mats, cv::Mat & zBufMat )
 {
+    std::cout << "processZBuffer..." << std::endl;
+    const float zNear = 0.01;
+    const float zFar = 10.01;
     // zBuf to Mat
-    cv::Mat zBufMat( h, w, CV_32FC1 );
+    zBufMat.create( h, w, CV_16UC1 );
     for ( int y = 0; y < zBufMat.rows; ++y )
     {
         for ( int x = 0; x < zBufMat.cols; ++x )
         {
-            zBufMat.at<float>(y,x) = 1.f - zBuffer[ y * zBufMat.cols + x ];
+            float z_n = zBuffer[ y * zBufMat.cols + x ];
+            ushort d = round(2.0 * zNear * zFar / (zFar + zNear - z_n * (zFar - zNear)) * 1000.f);
+            zBufMat.at<ushort>(y,x) = (d == 10010) ? 0 : d;
+
+            //http://stackoverflow.com/questions/6652253/getting-the-true-z-value-from-the-depth-buffer
         }
     }
-
+    return;
+#if 0
     // minmax zBufMat
     double minv, maxv;
     cv::minMaxLoc( zBufMat, &minv, &maxv );
@@ -56,20 +61,22 @@ void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,
         std::cout << "minVal(large_dep16): " << minVal << ", "
                   << "maxVal(large_dep16): " << maxVal << std::endl;
     }
+#endif
 
     // upscale
-    cv::Mat tmp;
-    cv::subtract( zBufMat, minv, tmp, cv::Mat(), CV_32FC1 );
-    cv::divide( tmp, (maxv - minv) / 10001.f, zBufMat, CV_32FC1 );
+    //cv::Mat tmp;
+    //cv::subtract( zBufMat, minv, tmp, cv::Mat(), CV_32FC1 );
+    //cv::divide( tmp, (maxv - minv) / 10001.f, zBufMat, CV_32FC1 );
 
     // show
-    cv::imshow( "zBufMat", zBufMat / 10001.f );
+    cv::imshow( "zBufMat", zBufMat );
     cv::imwrite( "zBufMat.png", zBufMat );
 
     cv::Mat rgb8_960;
     cv::resize( mats["rgb8"], rgb8_960, mats["large_dep16"].size() );
     cv::Mat zBuf8;
-    zBufMat.convertTo( zBuf8, CV_8UC1, 1.f / 10001.f );
+    zBufMat.convertTo( zBuf8, CV_8UC1, 255.f / 10001.f );
+    cv::imshow( "zBuf8", zBuf8 );
 
     std::vector<cv::Mat> zBuf8Vec = { zBuf8, zBuf8, zBuf8 };
     cv::Mat zBuf8C3;
@@ -185,60 +192,15 @@ void printUsage()
               << std::endl;
 }
 
-void octtreeMesh( pcl::PolygonMesh &mesh )
-{
-    float resolution = .05f;
-
-    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree( resolution );
-
-    //Declaration and instantiation of a cloud pointer to be used for output
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_pcl(new pcl::PointCloud<pcl::PointXYZ>);
-
-    //Input of the above cloud and the corresponding output of cloud_pcl
-    pcl::fromPCLPointCloud2( mesh.cloud, *cloud_pcl );
-    //pcl::fromROSMsg( mesh.cloud, *cloud_pcl );
-    octree.setInputCloud( cloud_pcl );
-    octree.addPointsFromInputCloud();
-
-    // Neighbors within voxel search
-    pcl::PointXYZ searchPoint;
-    searchPoint.x = 0;
-    searchPoint.y = 3;
-    searchPoint.z = 1;
-
-    std::vector<int> pointIdxVec;
-
-    if ( octree.voxelSearch(searchPoint, pointIdxVec) )
-    {
-        std::cout << "Neighbors within voxel search at (" << searchPoint.x
-                  << " " << searchPoint.y
-                  << " " << searchPoint.z
-                  << ")" << std::endl;
-
-
-        for ( size_t i = 0; i < pointIdxVec.size (); ++i )
-            std::cout << "    " << cloud_pcl->points[pointIdxVec[i]].x
-                      << " " << cloud_pcl->points[pointIdxVec[i]].y
-                      << " " << cloud_pcl->points[pointIdxVec[i]].z << std::endl;
-    }
-
-    std::cout << "PointIdxVec size:" << pointIdxVec.size() << std::endl;
-
-    std::cout << "Octree Leaf Count Operation: " << octree.getLeafCount() << std::endl;
-    std::cout << "Octree Branch Count Operation: " << octree.getBranchCount() << std::endl;
-}
-
-void subdivideMesh( pcl::PolygonMesh::ConstPtr mesh, pcl::PolygonMesh &output )
-{
-    pcl::MeshSubdivisionVTK msvtk;
-    msvtk.setInputMesh( mesh );
-    msvtk.setFilterType( pcl::MeshSubdivisionVTK::LINEAR );
-    msvtk.process( output );
-}
-
 // main
 int main( int argc, char** argv )
 {
+    // test intrinsics
+    Eigen::Matrix3f intrinsics;
+    intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
+                  0       , 522.1379 * 2.f, 258.1387 * 2.f,
+                  0       , 0       , 1             ;
+
     //// YANG /////////////////////////////////////////////////////////////////////////////////////////////////////////
     {
         bool canDoYang = true;
@@ -310,7 +272,7 @@ int main( int argc, char** argv )
         ply_no_tsdf = true;
     }
 
-    const int img_id = 50;
+    const int img_id = 60;
 
     // read DEPTH
     cv::Mat dep16, large_dep16;
@@ -322,6 +284,13 @@ int main( int argc, char** argv )
         cv::resize( dep16, large_dep16, dep16.size() * 2 );
     }
 
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( dep16, &minVal, &maxVal );
+        std::cout << "minVal(dep16): " << minVal << ", "
+                  << "maxVal(dep16): " << maxVal << std::endl;
+    }
+
     // read RGB
     cv::Mat rgb8, rgb8_960;
     {
@@ -330,13 +299,6 @@ int main( int argc, char** argv )
                                             / (boost::lexical_cast<std::string> (img_id) + std::string(".png"));
         rgb8 = cv::imread( rgb8_path.c_str(), -1 );
         cv::resize( rgb8, rgb8_960, large_dep16.size() );
-    }
-
-    // debug
-    {
-        cv::imshow( "rgb8_960"   , rgb8_960    );
-        cv::imshow( "large_dep16", large_dep16 );
-        cv::waitKey( 100 );
     }
 
     // read poses
@@ -350,17 +312,19 @@ int main( int argc, char** argv )
     }
 
     // apply pose
-    Eigen::Matrix3f intr_m3f;
     {
         g_myPlayer.Pose() = poses[ img_id ];
-
-        // test intrinsics
-        intr_m3f << 521.7401, 0       , 323.4402 * 2.f,
-                    0       , 522.1379, 258.1387 * 2.f,
-                    0       , 0       , 1             ;
     }
 
-    // Load TSDF
+    // mats to 3D
+    if ( 0 )
+    {
+        am::DepthViewer3D depthViewer;
+        depthViewer.showMats( large_dep16, rgb8_960, img_id, poses, intrinsics );
+        //return 0;
+    }
+
+    // Load TSDF or MESH
     am::TSDFViewer *tsdfViewer = new am::TSDFViewer( ply_no_tsdf );
     {
         // mouse callback, prepare myplayer global state
@@ -373,6 +337,7 @@ int main( int argc, char** argv )
             tsdfViewer->MeshPtr() = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
             // load mesh
             pcl::io::loadPolygonFile( inputFilePath, *tsdfViewer->MeshPtr() );
+            tsdfViewer->setViewerPose( *tsdfViewer->getCloudViewer(), poses[img_id] );
         }
         else
         {
@@ -386,59 +351,35 @@ int main( int argc, char** argv )
         }
     }
 
-    // octree
+    // process mesh
+    cv::Mat rcDepth16;
+    if ( 1 )
     {
-        //if ( tsdfViewer->MeshPtr() ) octtreeMesh( *tsdfViewer->MeshPtr() );
+
+        am::MeshRayCaster mrc( intrinsics );
+        mrc.run( tsdfViewer->MeshPtr(), poses[img_id], rcDepth16 );
+        cv::imshow( "rcDepth16", rcDepth16 );
+        cv::Mat rcDepth8;
+        rcDepth16.convertTo( rcDepth8, CV_8UC1, 255.f / 10001.f );
+        cv::imshow( "rcDepth8", rcDepth8 );
+
+        std::vector<cv::Mat> rc8Vec = { rcDepth8, rcDepth8, rcDepth8 };
+        cv::Mat rc8C3;
+        cv::merge( rc8Vec, rc8C3 );
+        std::cout << "merge ok" << std::endl;
+
+        cv::Mat overlay;
+        cv::addWeighted( rc8C3, 0.95f, rgb8_960, 0.2f, 1.0, overlay );
+        cv::imshow( "overlay", overlay );
+        //return 0;
     }
+    am::DepthViewer3D depthViewer;
+    depthViewer.showMats( rcDepth16, rgb8_960, img_id, poses, intrinsics );
 
-    // subdivision
-    {
-        pcl::PolygonMesh::Ptr subdividedMeshPtr = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
-        std::cout << "Subdividing mesh...";
-        if ( tsdfViewer->MeshPtr() ) subdivideMesh( tsdfViewer->MeshPtr(), *subdividedMeshPtr );
-        std::cout << "OK" << std::endl;
+    cv::waitKey();
+    return 0;
 
-        std::cout << "Copying subdivided mesh...";
-        tsdfViewer->MeshPtr() = subdividedMeshPtr;
-        std::cout << "OK" << std::endl;
-    }
 
-    // mats to 3D
-    {
-        DepthViewer3D depthViewer;
-        depthViewer.showMats( large_dep16, rgb8_960, img_id, poses, intr_m3f );
-#if 0
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr colorCloudPtr;
-        matsTo3D<ushort>( large_dep16, rgb8_960, colorCloudPtr, intr_m3f );
-
-        pcl::visualization::PCLVisualizer::Ptr pColorCloudViewer;
-        pColorCloudViewer = pcl::visualization::PCLVisualizer::Ptr( new pcl::visualization::PCLVisualizer("Color Cloud Viewer") );
-
-        pColorCloudViewer->setBackgroundColor( 0, 0, 0 );
-        pColorCloudViewer->addCoordinateSystem( 1.0 );
-        pColorCloudViewer->initCameraParameters();
-        pColorCloudViewer->setPosition( 0, 500 );
-        pColorCloudViewer->setSize( 1280, 960 );
-        pColorCloudViewer->setCameraClipDistances( 0.01, 10.01 );
-        pColorCloudViewer->setShowFPS( false );
-
-        Eigen::Vector4f centroid;
-        pcl::compute3DCentroid( *colorCloudPtr, centroid );
-        std::cout << "centroid: " << centroid << " " << centroid.cols() << " " << centroid.rows()
-                  << centroid.block<3,1>(0,0).transpose() << std::endl;
-
-        Eigen::Vector3f up = am::TSDFViewer::getViewerCameraUp( *pColorCloudViewer );
-        //Eigen::Matrix3f r = Eigen::AngleAxisf( 0.25 * M_PI, up).toRotationMatrix();
-        Eigen::Affine3f pose = poses[ img_id ] * Eigen::AngleAxisf( 0.5 * M_PI, (centroid.block<3,1>(0,0) + up).normalized() );
-        //pose.linear() *= r;
-        am::TSDFViewer::setViewerPose( *pColorCloudViewer, pose     );
-        //am::TSDFViewer::setViewerFovy( *pColorCloudViewer, intr_m3f );
-        pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( colorCloudPtr );
-        pColorCloudViewer->addPointCloud<pcl::PointXYZRGB>( colorCloudPtr, rgb, "colorCloud" );
-
-        pColorCloudViewer->spin();
-#endif
-    }
 
     std::vector<float> zBuffer;
     int w, h;
@@ -463,30 +404,40 @@ int main( int argc, char** argv )
             // show mesh
             tsdfViewer->showMesh(  g_myPlayer.Pose(), tsdfViewer->MeshPtr() );
             // set pose
-            tsdfViewer->setViewerPose( *tsdfViewer->getCloudViewer(), g_myPlayer.Pose() );
+            //tsdfViewer->setViewerPose( *tsdfViewer->getCloudViewer(), g_myPlayer.Pose() );
             //tsdfViewer->getCloudViewer()->setCameraParameters( intr_m3f, myPlayer.Pose().matrix() );
             // dump zbuffer
-            tsdfViewer->vtkMagic( zBuffer, w, h );
+            tsdfViewer->fetchVtkZBuffer( zBuffer, w, h );
 
             g_myPlayer.changed = false;
         }
         // update
-        tsdfViewer->spinOnce(10);
+        //tsdfViewer->spinOnce(10);
 
         // exit after one iteration
-        //myPlayer.exit = true;
+        g_myPlayer.exit = true;
     }
+    cv::imshow( "large_dep16", large_dep16 );
+    std::cout << "waitkey..." << std::endl;
+    cv::waitKey();
+    return 0;
 
     // process Z buffer
     {
-        mats["large_dep16"] = large_dep16;
-        mats["rgb8"]        = rgb8;
-        processZBuffer( zBuffer, w, h, mats );
+        //mats["large_dep16"] = large_dep16;
+        //mats["rgb8"]        = rgb8;
+        cv::Mat zBufMat;
+        processZBuffer( zBuffer, w, h, mats, zBufMat );
+        std::string dirPath = boost::filesystem::path(inputFilePath).parent_path().string();
+        //util::writePNG( dirPath + )
     }
 
+
     // wait for exit
-    char c = 0;
-    while ( (c = cv::waitKey()) != 27 ) ;
+    {
+        char c = 0;
+        while ( (c = cv::waitKey()) != 27 ) ;
+    }
 
     // dump latest tsdf depth
     if ( !ply_no_tsdf )

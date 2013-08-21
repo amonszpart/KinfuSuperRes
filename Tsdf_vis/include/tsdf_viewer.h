@@ -91,7 +91,7 @@ namespace am
             saveRangeImagePlanarFilePNG( const std::string &file_name, pcl::RangeImage const& range_image );
 
             void
-            vtkMagic( std::vector<float> &data, int &w, int &h );
+            fetchVtkZBuffer( std::vector<float> &data, int &w, int &h );
 
             std::vector<unsigned short> const&
             getLatestDepth() const { return depth_view_host_; };
