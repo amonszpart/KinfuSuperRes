@@ -98,6 +98,9 @@ namespace am
         viewer_ptr_->registerMouseCallback   ( depth_viewer3d_mouse_callback   , (void*)&viewer_ptr_ );
     }
 
+    /*
+     * \brief Depth image (and registered colour) to point cloud
+     */
     void
     DepthViewer3D::showMats( cv::Mat const& large_dep16, cv::Mat const& rgb8_960, int img_id, std::map<int,Eigen::Affine3f> const& poses,  Eigen::Matrix3f const& intrinsics )
     {

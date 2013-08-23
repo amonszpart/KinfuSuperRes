@@ -48,6 +48,8 @@ SET( TSDF_VIS_HEADER_LIST
     include/YangFilteringWrapper.h
     include/AmPclUtil.h
     include/ProcessorWithIntrinsics.h
+    include/PolyMeshViewer.h
+    include/UpScaling
 )
 
 SET( TSDF_VIS_SRC_LIST
@@ -58,6 +60,8 @@ SET( TSDF_VIS_SRC_LIST
     src/tsdf_viewer.cpp
     src/YangFilteringWrapper.cpp
     src/AmPclUtil.cpp
+    src/PolyMeshViewer.cpp
+    src/UpScaling
     main.cpp
 )
 

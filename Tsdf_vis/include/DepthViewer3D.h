@@ -40,7 +40,7 @@ namespace am
     DepthViewer3D::matsTo3D( cv::Mat const& dep, cv::Mat const& img,
                              pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                              Eigen::Matrix3f const& intrinsics,
-                             float alpha )
+                             /* depth scale: */ float alpha )
     {
         // check input
         if ( dep.size() != img.size() )

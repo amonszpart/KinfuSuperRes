@@ -14,9 +14,10 @@
 
 namespace am
 {
-    void MeshRayCaster::run( pcl::PolygonMesh::Ptr &meshPtr, Eigen::Affine3f const& pose, cv::Mat &depth )
+    void
+    MeshRayCaster::run( /* out: */ cv::Mat &depth,
+                        /*  in: */ pcl::PolygonMesh::Ptr &meshPtr, Eigen::Affine3f const& p_pose, int subdivideIterations )
     {
-        const int subdivIterations = 2;
         // check input
         if ( !meshPtr.get() )
         {
@@ -26,25 +27,125 @@ namespace am
 
         // subdivision
         {
-            pcl::PolygonMesh::Ptr subdividedMeshPtr = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
             std::cout << "Subdividing mesh...";
-            subdivideMesh( meshPtr, *subdividedMeshPtr, subdivIterations );
-            std::cout << "OK" << std::endl;
 
-            std::cout << "Copying subdivided mesh...";
+            pcl::PolygonMesh::Ptr subdividedMeshPtr = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
+            subdivideMesh( *subdividedMeshPtr, meshPtr, subdivideIterations );
             meshPtr = subdividedMeshPtr;
+
             std::cout << "OK" << std::endl;
         }
 
         // octree
         {
-            mesh2Octree( *meshPtr, octree_ptr_, cloud_ptr_, /* resolution: */ 3.f/512.f/(float)subdivIterations /*.0005f*/ );
-            std::vector<int> hits;
-            rayCast( octree_ptr_, cloud_ptr_, pose, hits, &depth );
+            mesh2Octree( /*  outOctree: */ octree_ptr_,
+                         /*   outCloud: */ cloud_ptr_,
+                         /*     inMesh: */ meshPtr,
+                         /* resolution: */ 3.f / 512.f / (float)subdivideIterations ); // .0005f
+        }
+
+        // rayCast
+        {
+            std::vector<int> hits; //unused
+            rayCast( hits, &depth, octree_ptr_, cloud_ptr_, p_pose );
         }
     }
 
-    inline Eigen::Vector3f get_next_ray( int x, int y, Eigen::Matrix3f intrinsics )
+    void
+    MeshRayCaster::enhanceMesh( /* out: */ pcl::PolygonMesh::Ptr &outMeshPtr,
+                                /*  in: */ cv::Mat const& dep16, pcl::PolygonMesh::ConstPtr const& inMeshPtr, Eigen::Affine3f const& p_pose,
+                                const float resolution )
+    {
+        // start
+        std::cout << "MeshRayCaster::enhanceMesh() starting..." << std::endl;
+
+        // check input
+        if ( !inMeshPtr.get() )
+        {
+            std::cerr << "MeshRayCaster::enhanceMesh(): inMeshPtr empty!" << std::endl;
+            return;
+        }
+
+        // init output
+        outMeshPtr  = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh );
+        *outMeshPtr = *inMeshPtr;
+        const int point_step = outMeshPtr->cloud.point_step;
+        const int x_offs     = outMeshPtr->cloud.fields[0].offset;
+        const int y_offs     = outMeshPtr->cloud.fields[1].offset;
+        const int z_offs     = outMeshPtr->cloud.fields[2].offset;
+
+        // octree
+        Octree::Ptr octreePtr;
+        pcl::PointCloud<PointT>::Ptr cloudPtr;
+        {
+            mesh2Octree( /* out    Octree: */ octreePtr,
+                         /* out     Cloud: */ cloudPtr,
+                         /* in       Mesh: */ inMeshPtr,
+                         /* in resolution: */ resolution ); // .0005f
+        }
+
+        // work
+        Eigen::Matrix3f rotation    = p_pose.rotation();
+        Eigen::Vector3f translation = p_pose.translation();
+        Eigen::Vector3f pnt3D;
+
+        const int HIST_SIZE = 100;
+        std::vector<int> hist( HIST_SIZE );
+        for ( int y = 0; y < dep16.rows; ++y )
+        {
+            for ( int x = 0; x < dep16.cols; ++x )
+            {
+                pnt3D = rotation *
+                        ( am::util::pcl::point2To3D((Eigen::Vector2f){x,y}, intrinsics_) *
+                          (float)dep16.at<ushort>(y,x) / 1000.f )
+                        + translation;
+                PointT pclPnt( pnt3D(0), pnt3D(1), pnt3D(2) );
+
+                std::vector<int>   k_indices;
+                std::vector<float> k_sqr_distances;
+                int max_nn = 0;
+                octreePtr->radiusSearch( pclPnt, resolution/2.f, k_indices, k_sqr_distances, max_nn );
+
+                if ( k_indices.size() > 0 )
+                {
+                    for ( int k = 0; k < std::min(2,(int)k_indices.size()); ++k )
+                    {
+                        int pnt_idx = k_indices[k];
+                        float *p_x = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + x_offs]) );
+                        float *p_y = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + y_offs]) );
+                        float *p_z = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + z_offs]) );
+
+                        /*std::cout << "substituting: "
+                                  << *p_x << "," << *p_y << "," << *p_z
+                                  << " to "
+                                  << pclPnt.x << "," << pclPnt.y << "," << pclPnt.z << std::endl;*/
+                        *p_x = pclPnt.x;
+                        *p_y = pclPnt.y;
+                        *p_z = pclPnt.z;
+                    }
+                }
+
+                // update histogram
+                ++hist[ std::min((int)k_indices.size(),HIST_SIZE-1) ];
+            }
+        }
+
+        // plot hist
+        std::cout << "hist: ";
+        for ( int i = 0; i < hist.size(); ++i )
+        {
+            if ( hist[i] > 0 ) std::cout << i << ": " << hist[i] << "; ";
+        }
+        std::cout << std::endl;
+
+
+        // finish
+        std::cout << "MeshRayCaster::enhanceMesh() finished..." << std::endl;
+    }
+
+
+    inline
+    Eigen::Vector3f get_next_ray( int x, int y, Eigen::Matrix3f intrinsics )
     {
         Eigen::Vector2f pnt2;
         pnt2 << (float)x, (float)y;
@@ -52,8 +153,9 @@ namespace am
         return am::util::pcl::point2To3D( pnt2, intrinsics );
     }
 
-    void MeshRayCaster::rayCast( /*  in: */ OctreePtr const& octreePtr, pcl::PointCloud<PointT>::Ptr const& cloudPtr, Eigen::Affine3f const& pose,
-                                 /* out: */ std::vector<int> &p_indices, cv::Mat *p_depth )
+    void
+    MeshRayCaster::rayCast( /* out: */ std::vector<int> &p_indices, cv::Mat *p_depth,
+                            /*  in: */ OctreePtr const& octreePtr, pcl::PointCloud<PointT>::Ptr const& cloudPtr, Eigen::Affine3f const& pose )
     {
         std::cout << "Raycasting...";
 
@@ -76,9 +178,9 @@ namespace am
             {
                 ray_start = translation;
                 ray_next = get_next_ray( x, y, intrinsics_ );
-                std::cout << ray_next.transpose() << " ";
-                ray_next = (Eigen::Vector3f) { mappedCoords[mappedCoordsIndex], mappedCoords[mappedCoordsIndex+1], 1.f };
-                std::cout << ray_next.transpose() << std::endl;
+                //std::cout << ray_next.transpose() << " ";
+                //ray_next = (Eigen::Vector3f) { mappedCoords[mappedCoordsIndex], mappedCoords[mappedCoordsIndex+1], 1.f }; (TODO: recalibrate for larger resolution)
+                //std::cout << ray_next.transpose() << std::endl;
                 ray_next = rotation * ray_next + ray_start;
                 ray_dir   = static_cast<Eigen::Vector3f>(ray_next - ray_start).normalized();
 
@@ -104,9 +206,8 @@ namespace am
 
         // cleanup
 
-        if ( mappedCoords ) { delete [] mappedCoords; mappedCoords = NULL; }
+        //if ( mappedCoords ) { delete [] mappedCoords; mappedCoords = NULL; }
         return;
-
 
         {
             double minVal, maxVal;
@@ -130,27 +231,30 @@ namespace am
 
     }
 
-    void MeshRayCaster::mesh2Octree( pcl::PolygonMesh &mesh, Octree::Ptr &octreePtr, pcl::PointCloud<PointT>::Ptr &cloudPtr, float resolution )
+    void
+    MeshRayCaster::mesh2Octree(Octree::Ptr &octreePtr, pcl::PointCloud<PointT>::Ptr &cloudPtr, pcl::PolygonMesh::ConstPtr mesh, float resolution )
     {
         std::cout << "mesh2Octree...";
 
         cloudPtr = pcl::PointCloud<PointT>::Ptr( new pcl::PointCloud<PointT> );
 
         //Input of the above cloud and the corresponding output of cloud_pcl
-        pcl::fromPCLPointCloud2( mesh.cloud, *cloudPtr ); //pcl::fromROSMsg( mesh.cloud, *cloud_pcl );
+        pcl::fromPCLPointCloud2( mesh->cloud, *cloudPtr ); //pcl::fromROSMsg( mesh.cloud, *cloud_pcl );
 
         octreePtr = OctreePtr( new Octree(resolution) );
         octreePtr->setInputCloud( cloudPtr );
         octreePtr->defineBoundingBox();
         octreePtr->addPointsFromInputCloud();
 
-        std::cout << "Octree Leaf Count Operation: " << octreePtr->getLeafCount() << std::endl;
-        std::cout << "Octree Branch Count Operation: " << octreePtr->getBranchCount() << std::endl;
+        //std::cout << "Octree Leaf Count Operation: " << octreePtr->getLeafCount() << std::endl;
+        //std::cout << "Octree Branch Count Operation: " << octreePtr->getBranchCount() << std::endl;
 
         std::cout << "OK" << std::endl;
     }
 
-    void MeshRayCaster::subdivideMesh( pcl::PolygonMesh::ConstPtr input_mesh, pcl::PolygonMesh &output_mesh, int iterations )
+    void
+
+    MeshRayCaster::subdivideMesh( pcl::PolygonMesh &output_mesh, pcl::PolygonMesh::ConstPtr input_mesh, int iterations )
     {
         // initialize
         pcl::MeshSubdivisionVTK msvtk;
@@ -175,6 +279,46 @@ namespace am
         // last iteration
         msvtk.setInputMesh( (iterations > 1) ? tmp[mesh_id] : input_mesh );
         msvtk.process( output_mesh );
+    }
+
+    void
+    MeshRayCaster::calculatePointDiffs( /* out: */
+                                        /*  in: */
+                                        OctreePtr const& octreePtr,
+                                        pcl::PointCloud<PointT>::Ptr const& cloudPtr,
+                                        Eigen::Affine3f const& pose,
+                                        cv::Mat const& depth )
+    {
+        std::cout << "CalculatingDiffs...";
+#if 0
+        Eigen::Matrix3f rotation    = pose.rotation();
+        Eigen::Vector3f translation = pose.translation();
+        Eigen::Vector3f ray_next;
+
+        for ( int y = 0; y < depthFC1.rows; ++y )
+        {
+            for ( int x = 0; x < depthFC1.cols; ++x)
+            {
+                ray_next = rotation * (get_next_ray( x, y, intrinsics_ ) * (float)depth.at<ushort>(y,x)) + translation;
+
+                std::vector<int> pnt_indices;
+                octreePtr->radiusSearch( const PointT &p_q, const double radius, std::vector<int> &k_indices,
+                                         std::vector<float> &k_sqr_distances, unsigned int max_nn = 0) const;
+                //( ray_start, ray_dir, pnt_indices, /* max_voxel_count: */ 1 );
+
+                if ( pnt_indices.size() > 0 )
+                {
+                    p_indices.push_back( pnt_indices[0] );
+
+                    PointT cloud_pnt3 = cloudPtr->at( pnt_indices[0] );
+                    Eigen::Vector3f pnt3;
+                    pnt3 << cloud_pnt3.x, cloud_pnt3.y, cloud_pnt3.z;
+                    //depthFC1.at<float>(y,x) = static_cast<Eigen::Vector3f>(ray_start - pnt3).norm();
+                }
+            }
+        }
+#endif
+
     }
 
 } // end ns am

@@ -2,6 +2,8 @@
 
 #include "DepthViewer3D.h"
 #include "MeshRayCaster.h"
+#include "PolyMeshViewer.h"
+#include "UpScaling.h"
 
 #include "BilateralFilterCuda.hpp"
 #include "YangFilteringWrapper.h"
@@ -32,7 +34,7 @@ template <typename T>
 void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,cv::Mat> mats, cv::Mat & zBufMat )
 {
     std::cout << "processZBuffer..." << std::endl;
-    const float zNear = 0.01;
+    const float zNear = 0.001;
     const float zFar = 10.01;
     // zBuf to Mat
     zBufMat.create( h, w, CV_16UC1 );
@@ -42,13 +44,13 @@ void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,
         {
             float z_n = zBuffer[ y * zBufMat.cols + x ];
             ushort d = round(2.0 * zNear * zFar / (zFar + zNear - z_n * (zFar - zNear)) * 1000.f);
-            zBufMat.at<ushort>(y,x) = (d == 10010) ? 0 : d;
+            zBufMat.at<ushort>(y,x) = (d > 10001) ? 0 : d;
 
             //http://stackoverflow.com/questions/6652253/getting-the-true-z-value-from-the-depth-buffer
         }
     }
-    return;
-#if 0
+
+#if 1
     // minmax zBufMat
     double minv, maxv;
     cv::minMaxLoc( zBufMat, &minv, &maxv );
@@ -85,7 +87,14 @@ void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,
 
     cv::Mat overlay;
     cv::addWeighted( zBuf8C3, 0.9f, rgb8_960, 0.1f, 1.0, overlay );
-    cv::imshow( "overlay", overlay );
+    cv::imshow( "overlay1", overlay );
+
+    cv::Mat overlay2, ldep8, ldep8C3;
+    mats["large_dep16"].convertTo( ldep8, CV_8UC1, 255.f / 10001.f );
+    cv::merge( std::vector<cv::Mat>{ ldep8, ldep8, ldep8 }, ldep8C3 );
+    cv::addWeighted( ldep8C3, 0.9f, rgb8_960, 0.1f, 1.0, overlay2 );
+    cv::imshow( "overlay2", overlay2 );
+    return;
 }
 
 // global state
@@ -197,9 +206,9 @@ int main( int argc, char** argv )
 {
     // test intrinsics
     Eigen::Matrix3f intrinsics;
-    intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
-                  0       , 522.1379 * 2.f, 258.1387 * 2.f,
-                  0       , 0       , 1             ;
+    intrinsics << 521.7401 * 2.f, 0             , 323.4402 * 2.f,
+                  0             , 522.1379 * 2.f, 258.1387 * 2.f,
+                  0             , 0             , 1             ;
 
     //// YANG /////////////////////////////////////////////////////////////////////////////////////////////////////////
     {
@@ -222,7 +231,7 @@ int main( int argc, char** argv )
             {
                 if ( pcl::console::find_switch( argc, argv, "--brute-force") > 0 )
                 {
-                    bruteRun( yangDir + "/" + depName, yangDir + "/" + imgName );
+                    am::bruteRun( yangDir + "/" + depName, yangDir + "/" + imgName );
                     return EXIT_SUCCESS;
                 }
             }
@@ -284,13 +293,6 @@ int main( int argc, char** argv )
         cv::resize( dep16, large_dep16, dep16.size() * 2 );
     }
 
-    {
-        double minVal, maxVal;
-        cv::minMaxIdx( dep16, &minVal, &maxVal );
-        std::cout << "minVal(dep16): " << minVal << ", "
-                  << "maxVal(dep16): " << maxVal << std::endl;
-    }
-
     // read RGB
     cv::Mat rgb8, rgb8_960;
     {
@@ -310,6 +312,10 @@ int main( int argc, char** argv )
 
         am::MyScreenshotManager::readPoses( poses_path.string(), poses );
     }
+
+    am::UpScaling upScaling( intrinsics );
+    upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id );
+    return 0;
 
     // apply pose
     {
@@ -353,32 +359,37 @@ int main( int argc, char** argv )
 
     // process mesh
     cv::Mat rcDepth16;
-    if ( 1 )
+    pcl::PolygonMesh::Ptr enhancedMeshPtr;
+    am::MeshRayCaster mrc( intrinsics );
+    if ( 0 )
     {
-
         am::MeshRayCaster mrc( intrinsics );
-        mrc.run( tsdfViewer->MeshPtr(), poses[img_id], rcDepth16 );
+        mrc.run( rcDepth16, tsdfViewer->MeshPtr(), poses[img_id] );
+
+        // show output
         cv::imshow( "rcDepth16", rcDepth16 );
         cv::Mat rcDepth8;
         rcDepth16.convertTo( rcDepth8, CV_8UC1, 255.f / 10001.f );
         cv::imshow( "rcDepth8", rcDepth8 );
 
-        std::vector<cv::Mat> rc8Vec = { rcDepth8, rcDepth8, rcDepth8 };
-        cv::Mat rc8C3;
-        cv::merge( rc8Vec, rc8C3 );
-        std::cout << "merge ok" << std::endl;
+        // show overlay
+        {
+            std::vector<cv::Mat> rc8Vec = { rcDepth8, rcDepth8, rcDepth8 };
+            cv::Mat rc8C3;
+            cv::merge( rc8Vec, rc8C3 );
+            std::cout << "merge ok" << std::endl;
 
-        cv::Mat overlay;
-        cv::addWeighted( rc8C3, 0.95f, rgb8_960, 0.2f, 1.0, overlay );
-        cv::imshow( "overlay", overlay );
-        //return 0;
+            cv::Mat overlay;
+            cv::addWeighted( rc8C3, 0.95f, rgb8_960, 0.2f, 1.0, overlay );
+            cv::imshow( "overlay", overlay );
+        }
+
+        // show 3D
+        {
+            //am::DepthViewer3D depthViewer;
+            //depthViewer.showMats( rcDepth16, rgb8_960, img_id, poses, intrinsics );
+        }
     }
-    am::DepthViewer3D depthViewer;
-    depthViewer.showMats( rcDepth16, rgb8_960, img_id, poses, intrinsics );
-
-    cv::waitKey();
-    return 0;
-
 
 
     std::vector<float> zBuffer;
@@ -402,36 +413,44 @@ int main( int argc, char** argv )
             }
 
             // show mesh
-            tsdfViewer->showMesh(  g_myPlayer.Pose(), tsdfViewer->MeshPtr() );
+            tsdfViewer->showMesh( g_myPlayer.Pose(), tsdfViewer->MeshPtr() );
             // set pose
             //tsdfViewer->setViewerPose( *tsdfViewer->getCloudViewer(), g_myPlayer.Pose() );
             //tsdfViewer->getCloudViewer()->setCameraParameters( intr_m3f, myPlayer.Pose().matrix() );
+
             // dump zbuffer
             tsdfViewer->fetchVtkZBuffer( zBuffer, w, h );
+
+            mrc.enhanceMesh( enhancedMeshPtr, large_dep16, tsdfViewer->MeshPtr(), poses[img_id] );
+            tsdfViewer->MeshPtr() = enhancedMeshPtr;
+
+            tsdfViewer->showMesh( g_myPlayer.Pose(), tsdfViewer->MeshPtr() );
+
+            /*mats["large_dep16"] = large_dep16;
+            mats["rgb8"]        = rgb8;
+            cv::Mat zBufMat;
+            processZBuffer( zBuffer, w, h, mats, zBufMat );*/
 
             g_myPlayer.changed = false;
         }
         // update
-        //tsdfViewer->spinOnce(10);
+        tsdfViewer->spinOnce(10);
 
         // exit after one iteration
-        g_myPlayer.exit = true;
+        //g_myPlayer.exit = true;
     }
-    cv::imshow( "large_dep16", large_dep16 );
-    std::cout << "waitkey..." << std::endl;
-    cv::waitKey();
-    return 0;
 
     // process Z buffer
     {
-        //mats["large_dep16"] = large_dep16;
-        //mats["rgb8"]        = rgb8;
+        mats["large_dep16"] = large_dep16;
+        mats["rgb8"]        = rgb8;
         cv::Mat zBufMat;
         processZBuffer( zBuffer, w, h, mats, zBufMat );
         std::string dirPath = boost::filesystem::path(inputFilePath).parent_path().string();
         //util::writePNG( dirPath + )
     }
 
+    cv::imshow( "large_dep16", large_dep16 );
 
     // wait for exit
     {

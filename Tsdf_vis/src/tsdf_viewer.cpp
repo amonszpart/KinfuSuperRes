@@ -22,7 +22,7 @@ namespace am
         const int rows = 2*480;
         const int cols = 2*640;
 
-        intr_ = MyIntr( 521.7401, 522.1379,
+        intr_ = MyIntr( 521.7401 * 2.f, 522.1379 * 2.f,
                         323.4402 * 2.f, 258.1387 * 2.f );
 
         //initCloudViewer( rows, cols );
@@ -153,7 +153,7 @@ namespace am
         cloud_viewer_->initCameraParameters ();
         cloud_viewer_->setPosition (0, 500);
         cloud_viewer_->setSize (cols, rows);
-        cloud_viewer_->setCameraClipDistances( 0.01, 10.01 );
+        cloud_viewer_->setCameraClipDistances( 0.001, 10.01 );
         cloud_viewer_->setShowFPS( false );
         //cloud_viewer_->setCameraParameters( 521.7401, 522.1379, 323.4402 * 2.f, 258.1387 *2.f);
 
@@ -179,7 +179,38 @@ namespace am
             // is: angle = 2*atan((h/2)/d) where h is the height of the RenderWindow
             // (measured by holding a ruler up to your screen) and d is the
             // distance from your eyes to the screen.
+            int *renderwindowsize = renderer->GetRenderWindow()->GetSize();
+            std::cout << "renderwindow.size: " << renderwindowsize[0] << " " << renderwindowsize[1] << std::endl;
+            std::cout << "pixelaspect: " << *renderer->GetPixelAspect() << std::endl;
+            double *aspect = renderer->GetAspect();
+            std::cout << "aspect: " << aspect[0] << aspect[1] << std::endl;
+            std::cout << "fovy before: " << cam->GetViewAngle() << std::endl;
+
             cam->SetViewAngle(fovy);
+
+            double real_fovy = cam->GetViewAngle();
+            std::cout << "fovy after: " << real_fovy << std::endl;
+            aspect = renderer->GetAspect();
+            std::cout << "aspect: " << aspect[0] << "," << aspect[1] << std::endl;
+            std::cout << "pixelaspect: " << renderer->GetPixelAspect()[0] << "," << renderer->GetPixelAspect()[1] << std::endl;
+            std::cout << "renderwindow.size: " << renderer->GetRenderWindow()->GetSize()[0] <<
+                         " " << renderer->GetRenderWindow()->GetSize()[1] << std::endl;
+
+
+            // THIS IS SETTING THE PROJ MATRIX USING the already set VIEWANGLE
+            vtkMatrix4x4 *projmat = cam->GetProjectionTransformMatrix( /* aspect (w/h): */ intr_.cx/intr_.cy, 0.001, 10.01 );
+
+            //vtkMatrix4x4 *projmat = cam->GetProjectionTransformMatrix( 4./3., 0.01, 10.01 );
+            //cam->SetParallelProjection();
+            std::cout << "projmat: " << *projmat << std::endl;
+            real_fovy = cam->GetViewAngle();
+            std::cout << "fovy after: " << real_fovy << std::endl;
+            aspect = renderer->GetAspect();
+            std::cout << "aspect: " << aspect[0] << "," << aspect[1] << std::endl;
+            std::cout << "pixelaspect: " << renderer->GetPixelAspect()[0] << "," << renderer->GetPixelAspect()[1] << std::endl;
+            std::cout << "renderwindow.size: " << renderer->GetRenderWindow()->GetSize()[0] <<
+                         " " << renderer->GetRenderWindow()->GetSize()[1] << std::endl;
+
         }
 
         //cloud_viewer_->addText ("H: print help", 2, 15, 20, 34, 135, 246);
@@ -209,7 +240,7 @@ namespace am
     TSDFViewer::initRayCaster( int rows, int cols )
     {
         raycaster_ptr_ = RayCaster::Ptr( new RayCaster( rows, cols ) );
-        raycaster_ptr_->setIntrinsics(  521.7401, 522.1379, 323.4402 * 2.f, 258.1387 *2.f );
+        raycaster_ptr_->setIntrinsics(  521.7401 * 2.f, 522.1379 * 2.f, 323.4402 * 2.f, 258.1387 *2.f );
     }
 
     void

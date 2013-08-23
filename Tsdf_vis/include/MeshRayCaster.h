@@ -26,20 +26,36 @@ namespace am
                 : ProcessorWithIntrinsics( p_intrinsics ) {}
 
             void
-            run( pcl::PolygonMesh::Ptr &meshPtr, Eigen::Affine3f const& pose, cv::Mat &depth );
+            run( /* out: */ cv::Mat &depth,
+                 /*  in: */ pcl::PolygonMesh::Ptr &meshPtr, Eigen::Affine3f const& pose, int subdivIterations = 2 );
 
             void
-            rayCast(OctreePtr const& octree, pcl::PointCloud<PointT>::Ptr const& cloudPtr, Eigen::Affine3f const& pose,
-                     std::vector<int> &p_indices, cv::Mat *p_depth );
+            enhanceMesh( /* out: */ pcl::PolygonMesh::Ptr &outMeshPtr,
+                         /*  in: */ cv::Mat const& dep16, pcl::PolygonMesh::ConstPtr const& inMeshPtr, Eigen::Affine3f const& p_pose,
+                         const float resolution = 3.f / 512.f );
+
+            void
+            rayCast( /* out: */ std::vector<int> &p_indices, cv::Mat *p_depth,
+                     /*  in: */ Octree::Ptr const& octree, pcl::PointCloud<PointT>::Ptr const& cloudPtr, Eigen::Affine3f const& pose );
+
+            void
+            calculatePointDiffs( /* out: */
+                                 /*  in: */
+                                 OctreePtr const& octreePtr,
+                                 pcl::PointCloud<PointT>::Ptr const& cloudPtr,
+                                 Eigen::Affine3f const& pose,
+                                 cv::Mat const& depth );
 
             static void
-            subdivideMesh( pcl::PolygonMesh::ConstPtr input_mesh, pcl::PolygonMesh &output_mesh, int iterations = 1 );
+            subdivideMesh( /* out: */ pcl::PolygonMesh &output_mesh,
+                           /*  in: */ pcl::PolygonMesh::ConstPtr input_mesh, int iterations = 1 );
 
             static void
-            mesh2Octree( pcl::PolygonMesh &mesh, Octree::Ptr &octreePtr, pcl::PointCloud<PointT>::Ptr &cloudPtr, float resolution = .05f );
+            mesh2Octree( /* out: */ Octree::Ptr &octreePtr, pcl::PointCloud<PointT>::Ptr &cloudPtr,
+                         /*  in: */ pcl::PolygonMesh::ConstPtr mesh, float resolution = .05f );
 
         protected:
-            OctreePtr octree_ptr_;
+            Octree::Ptr octree_ptr_;
             pcl::PointCloud<PointT>::Ptr cloud_ptr_;
 
     };

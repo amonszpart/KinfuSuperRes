@@ -2,6 +2,7 @@
 #define PROCESSORWITHINTRINSICS_H
 
 #include <eigen3/Eigen/Dense>
+#include <iostream>
 
 namespace am
 {
@@ -14,6 +15,7 @@ namespace am
                 intrinsics_ << 525.f, 0    , 319.5f,
                                 0   , 525.f, 239.5f,
                                 0   , 0    ,    1.f;
+                std::cerr << "ProcessorWithIntrinsics(): using default intrinics.../n" << intrinsics_ << std::endl;
             }
 
 
