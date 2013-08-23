@@ -281,7 +281,9 @@ int main( int argc, char** argv )
         ply_no_tsdf = true;
     }
 
-    const int img_id = 60;
+    int img_id = 40;
+    pcl::console::parse_argument (argc, argv, "--img_id", img_id );
+    std::cout << "Running for img_id " << img_id << std::endl;
 
     // read DEPTH
     cv::Mat dep16, large_dep16;

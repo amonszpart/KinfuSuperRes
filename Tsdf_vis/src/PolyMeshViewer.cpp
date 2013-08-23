@@ -79,10 +79,13 @@ namespace am
     void
     PolyMeshViewer::showMesh( pcl::PolygonMesh::Ptr const& meshPtr, Eigen::Affine3f const& pose )
     {
+        meshPtr_.reset( new pcl::PolygonMesh );
+        *meshPtr_ = *meshPtr;
+
         visualizer_->removeAllPointClouds();
         visualizer_->addPolygonMesh( *meshPtr );
         am::util::pcl::setViewerPose( *visualizer_, pose );
-        visualizer_->spinOnce();
+        visualizer_->spinOnce(3000);
     }
 
     // SET,GET
