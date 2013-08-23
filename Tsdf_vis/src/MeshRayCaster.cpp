@@ -67,8 +67,10 @@ namespace am
         }
 
         // init output
-        outMeshPtr  = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh );
+        outMeshPtr.reset( new pcl::PolygonMesh );
         *outMeshPtr = *inMeshPtr;
+        std::cout << "EnhanceMesh: inMeshPtr->cloud.size: " << inMeshPtr->cloud.width << "x" <<  inMeshPtr->cloud.height << std::endl;
+        std::cout << "EnhanceMesh: outMeshPtr->cloud.size: " << outMeshPtr->cloud.width << "x" <<  outMeshPtr->cloud.height << std::endl;
         const int point_step = outMeshPtr->cloud.point_step;
         const int x_offs     = outMeshPtr->cloud.fields[0].offset;
         const int y_offs     = outMeshPtr->cloud.fields[1].offset;
@@ -103,12 +105,12 @@ namespace am
 
                 std::vector<int>   k_indices;
                 std::vector<float> k_sqr_distances;
-                int max_nn = 0;
+                int max_nn = 1;
                 octreePtr->radiusSearch( pclPnt, resolution/2.f, k_indices, k_sqr_distances, max_nn );
 
                 if ( k_indices.size() > 0 )
                 {
-                    for ( int k = 0; k < std::min(2,(int)k_indices.size()); ++k )
+                    for ( int k = 0; k < std::min(1,(int)k_indices.size()); ++k )
                     {
                         int pnt_idx = k_indices[k];
                         float *p_x = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + x_offs]) );
@@ -119,6 +121,7 @@ namespace am
                                   << *p_x << "," << *p_y << "," << *p_z
                                   << " to "
                                   << pclPnt.x << "," << pclPnt.y << "," << pclPnt.z << std::endl;*/
+
                         *p_x = pclPnt.x;
                         *p_y = pclPnt.y;
                         *p_z = pclPnt.z;
@@ -254,7 +257,6 @@ namespace am
     }
 
     void
-
     MeshRayCaster::subdivideMesh( pcl::PolygonMesh &output_mesh, pcl::PolygonMesh::ConstPtr input_mesh, int iterations )
     {
         // initialize

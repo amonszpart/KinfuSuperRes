@@ -6,6 +6,7 @@
 #include "AmPclUtil.h"
 
 #include <pcl/io/ply_io.h>
+#include <pcl/io/vtk_lib_io.h>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -22,7 +23,6 @@ namespace am
     UpScaling::UpScaling( Eigen::Matrix3f intrinsics )
         : ProcessorWithIntrinsics( intrinsics )
     {
-
     }
 
     void
@@ -33,11 +33,22 @@ namespace am
 
         std::cout << "UpScaling::run(): starting at res: " << cols << "x" << rows << std::endl;
 
+        pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh );
+        pcl::io::loadPolygonFile( sPolygonPath, *mesh );
+
+        std::cout << "UpScaling::run(): subdividing mesh...";
+        pcl::PolygonMesh::Ptr subdivMeshPtr( new pcl::PolygonMesh );
+        MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 2 );
+        std::cout << "OK..." << std::endl;
+
         std::cout << "UpScaling::run(): showing mesh...";
         PolyMeshViewer polyMeshViewer( intrinsics_, cols, rows );
         polyMeshViewer.initViewer( "UpScaling inputMesh" );
-        polyMeshViewer.showMesh( sPolygonPath, pose );
+        polyMeshViewer.showMesh( subdivMeshPtr, pose );
         std::cout << "OK..." << std::endl;
+
+        std::cout << "mesh: mesh->cloud.size: " << mesh->cloud.width << "x" <<  mesh->cloud.height << std::endl;
+        std::cout << "subdivMeshPtr->cloud.size: " << subdivMeshPtr->cloud.width << "x" <<  subdivMeshPtr->cloud.height << std::endl;
 
         std::cout << "UpScaling::run(): fetching Z buffer...";
         cv::Mat zBufMat;
@@ -51,6 +62,11 @@ namespace am
 
         std::cout << "UpScaling::run(): Yang...";
         cv::Mat filtered;
+        YangFilteringRunParams params;
+        params.spatial_sigma = 1.2;
+        params.range_sigma = 0.5;
+        params.kernel_range = 5;
+        params.yang_iterations = 5;
         runYangCleaned( filtered, zBufMat, rgb8 );
         std::cout << "OK..." << std::endl;
 
@@ -62,10 +78,14 @@ namespace am
         std::cout << "UpScaling::run(): enhance mesh...";
         pcl::PolygonMesh::Ptr enhancedMeshPtr( new pcl::PolygonMesh );
         MeshRayCaster meshRayCaster( intrinsics_ );
+        std::cout << "polyMeshViewer.MeshPtr(): mesh->cloud.size: " << polyMeshViewer.MeshPtr()->cloud.width << "x" <<  polyMeshViewer.MeshPtr()->cloud.height << std::endl;
+        std::cout << "subdivMeshPtr->cloud.size: " << subdivMeshPtr->cloud.width << "x" <<  subdivMeshPtr->cloud.height << std::endl;
         meshRayCaster.enhanceMesh( enhancedMeshPtr, filtered, polyMeshViewer.MeshPtr(), pose, 3.f / 640.f );
         std::cout << "OK..." << std::endl;
 
         std::cout << "UpScaling::run(): save mesh...";
+        fflush(stdout);
+
         boost::filesystem::path polygonPath( sPolygonPath );
         std::string outName = polygonPath.parent_path().string()
                               + polygonPath.stem().string()
