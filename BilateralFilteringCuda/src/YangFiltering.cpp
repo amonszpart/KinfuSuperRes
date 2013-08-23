@@ -30,6 +30,8 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     sdkCreateTimer( &kernel_timer );
     updateGaussian( params.spatial_sigma, params.kernel_range );
 
+    std::cout << "runing yang " << params.spatial_sigma << " " << params.range_sigma << " "  << params.kernel_range;
+
     float maxVal = params.MAXRES;
 
     /// parse input
@@ -81,6 +83,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
 
     for ( int it = 0; it < params.yang_iterations; ++it )
     {
+        std::cout << "yangit " << it << std::endl;
         // set costs to zero
         runSetKernel2D<float>( d_minC.Get()  , maxVal*maxVal, d_minC.GetWidth(), d_minC.GetHeight() );
         runSetKernel2D<float>( d_minCm1.Get(), maxVal*maxVal, d_minCm1.GetWidth(), d_minCm1.GetHeight() );

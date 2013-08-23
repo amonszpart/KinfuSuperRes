@@ -42,6 +42,7 @@ SET( TSDF_VIS_HEADER_LIST
     ../MyKinfuApp/src/kinfu/tools/tsdf_volume.hpp
     ../MyKinfuApp/src/kinfu/tools/kinfu_util.h
     ../MyKinfuApp/src/kinfu/tools/my_screenshot_manager.h
+    ../MyKinfuApp/src/util/MaUtil
     include/DepthViewer3D.h
     include/MeshRayCaster.h
     include/tsdf_viewer.h
@@ -60,6 +61,7 @@ SET( TSDF_VIS_SRC_LIST
     src/tsdf_viewer.cpp
     src/YangFilteringWrapper.cpp
     src/AmPclUtil.cpp
+    ../MyKinfuApp/src/util/MaUtil
     src/PolyMeshViewer.cpp
     src/UpScaling
     main.cpp

@@ -4,6 +4,7 @@
 #include "YangFilteringWrapper.h"
 #include "MeshRayCaster.h"
 #include "AmPclUtil.h"
+#include "MaUtil.h"
 
 #include <pcl/io/ply_io.h>
 #include <pcl/io/vtk_lib_io.h>
@@ -33,6 +34,22 @@ namespace am
 
         std::cout << "UpScaling::run(): starting at res: " << cols << "x" << rows << std::endl;
 
+        boost::filesystem::path polygonPath( sPolygonPath );
+        std::string outDir = ::util::outputDirectoryNameWithTimestamp( polygonPath.parent_path().string() + "enhanced" );
+        boost::filesystem::create_directory( outDir );
+        std::string outName = outDir
+                              + "/" + polygonPath.stem().string()
+                              + "_enhanced"
+                              + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "")
+                              + ".ply";
+        std::string outSubdivName = outDir
+                              + "/" + polygonPath.stem().string()
+                              + "_subdiv"
+                              + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "")
+                              + ".ply";
+
+
+
         pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh );
         pcl::io::loadPolygonFile( sPolygonPath, *mesh );
 
@@ -58,22 +75,22 @@ namespace am
         // debug
         cv::Mat zBufMat8;
         zBufMat.convertTo( zBufMat8, CV_8UC1, 255.f/ 10001.f );
-        cv::imwrite( "zBufMat8.png", zBufMat8 );
+        cv::imwrite( outDir + "/zBufMat8.png", zBufMat8 );
 
         std::cout << "UpScaling::run(): Yang...";
         cv::Mat filtered;
         YangFilteringRunParams params;
         params.spatial_sigma = 1.2;
-        params.range_sigma = 0.5;
+        params.range_sigma = 0.1;
         params.kernel_range = 5;
-        params.yang_iterations = 5;
-        runYangCleaned( filtered, zBufMat, rgb8 );
+        params.yang_iterations = 10;
+        runYangCleaned( filtered, zBufMat, rgb8, params );
         std::cout << "OK..." << std::endl;
 
         // debug
         cv::Mat filtered8;
         filtered.convertTo( filtered8, CV_8UC1, 255.f/10001.f);
-        cv::imwrite( "zBufMat8_filtered.png", filtered8 );
+        cv::imwrite( outDir + "/zBufMat8_filtered.png", filtered8 );
 
         std::cout << "UpScaling::run(): enhance mesh...";
         pcl::PolygonMesh::Ptr enhancedMeshPtr( new pcl::PolygonMesh );
@@ -84,16 +101,9 @@ namespace am
         std::cout << "OK..." << std::endl;
 
         std::cout << "UpScaling::run(): save mesh...";
-        fflush(stdout);
-
-        boost::filesystem::path polygonPath( sPolygonPath );
-        std::string outName = polygonPath.parent_path().string()
-                              + polygonPath.stem().string()
-                              + "_enhanced"
-                              + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "")
-                              + ".ply";
         std::cout << outName;
         pcl::io::savePLYFile( outName, *enhancedMeshPtr );
+        pcl::io::savePLYFile( outSubdivName, *subdivMeshPtr );
         std::cout << "...OK..." << std::endl;
 
         std::cout << "UpScaling::run(): FINISHED..." << std::endl;

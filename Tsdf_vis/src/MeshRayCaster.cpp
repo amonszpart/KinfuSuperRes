@@ -105,12 +105,12 @@ namespace am
 
                 std::vector<int>   k_indices;
                 std::vector<float> k_sqr_distances;
-                int max_nn = 1;
+                int max_nn = 5;
                 octreePtr->radiusSearch( pclPnt, resolution/2.f, k_indices, k_sqr_distances, max_nn );
 
                 if ( k_indices.size() > 0 )
                 {
-                    for ( int k = 0; k < std::min(1,(int)k_indices.size()); ++k )
+                    for ( int k = 0; k < std::min(5,(int)k_indices.size()); ++k )
                     {
                         int pnt_idx = k_indices[k];
                         float *p_x = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + x_offs]) );
