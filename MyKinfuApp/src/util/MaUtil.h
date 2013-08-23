@@ -1,5 +1,6 @@
-#ifndef A_UTIL_H
-#define A_UTIL_H
+#ifndef AM_UTIL_H
+#define AM_UTIL_H
+#pragma once
 
 /* ----------------------------------------
  * INCLUDES
@@ -125,13 +126,9 @@ namespace util
 
     std::string outputDirectoryNameWithTimestamp( std::string path );
 
-    void writePNG( std::string const& name, cv::Mat const& img )
-    {
-        std::vector<int> params;
-        params.push_back( /* IMWRITE_PNG_COMPRESSION: */ 16 );
-        params.push_back( /*          no compression: */ 0  );
-        cv::imwrite( /* filename: */ name, /* cv::Mat: */ img, params );
-    }
+    extern
+    void writePNG( std::string const& name, cv::Mat const& img );
+
 }
 
 #endif // UTIL_H

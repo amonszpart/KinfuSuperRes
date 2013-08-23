@@ -19,7 +19,7 @@ set_property( TARGET imp_bilFilCuda PROPERTY
               IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
 
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
-INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/include/" )
 
 ####################
 

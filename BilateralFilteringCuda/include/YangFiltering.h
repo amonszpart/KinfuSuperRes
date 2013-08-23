@@ -2,7 +2,6 @@
 #define YANGFILTERING_H
 
 #include "BilateralFilterCuda.hpp"
-
 #include "GpuDepthMap.hpp"
 #include "GpuImage.h"
 
@@ -35,7 +34,7 @@ struct YangFilteringRunParams
 class YangFiltering
 {
     public:
-        int run( cv::Mat const& dep16, cv::Mat const& img8, cv::Mat &fDep, YangFilteringRunParams const params = YangFilteringRunParams() );
+        int run( cv::Mat const& dep16, cv::Mat const& img8, cv::Mat &fDep, YangFilteringRunParams const params = YangFilteringRunParams(), std::string depPath = "./" );
 
     protected:
         GpuDepthMap<float>  d_fDep;

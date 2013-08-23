@@ -1,6 +1,5 @@
 #include "YangFiltering.h"
 
-
 #include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
 
@@ -24,7 +23,7 @@ extern void subpixelRefine( GpuDepthMap<float> const& minC  ,
 template <typename T>
 extern T getMax( GpuDepthMap<T> const& img );
 
-int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep, const YangFilteringRunParams params )
+int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep, const YangFilteringRunParams params, std::string depPath )
 {
     const float ETA_L_2 = params.ETA * params.L * params.ETA * params.L;
     StopWatchInterface* kernel_timer = NULL;
@@ -106,7 +105,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         for ( float d = std::max( 0.f, mn - params.L * params.ETA); d < loop_stop; d += 1.f )
         {
             // debug
-            std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
+            //std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
 
             // calculate truncated cost
             squareDiff( /*         in: */ d_fDep,
@@ -142,7 +141,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         cv::Mat dep_out;
         fDep.convertTo( dep_out, CV_16UC1 );
         char title[255];
-        sprintf( title, "iteration%d.png", it );
+        sprintf( title, (depPath+"iteration%d.png").c_str(), it );
 
         // write "iteration"
         std::vector<int> imwrite_params;
@@ -180,8 +179,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         //cv::imwrite( title, diffUC16, imwrite_params );
 
         //cv::waitKey(20);
-
-        SAFE_DELETE_ARRAY( tmpFDep );
+        std::cout << "iteration: " << it << std::endl;
     }
 
     // copy out
@@ -191,6 +189,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     // cleanup
     SAFE_DELETE_ARRAY( fDepArr );
     SAFE_DELETE_ARRAY( guideArr );
+    SAFE_DELETE_ARRAY( tmpFDep );
 
     return 0;
 }

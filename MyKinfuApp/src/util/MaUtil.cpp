@@ -295,7 +295,16 @@ namespace util
         return outputPath;
     }
 
-    void writePNG( std::string const& name, cv::Mat const& img );
+    //namespace am
+    //{
+        void writePNG( std::string const& name, cv::Mat const& img )
+        {
+            std::vector<int> params;
+            params.push_back( /* IMWRITE_PNG_COMPRESSION: */ 16 );
+            params.push_back( /*          no compression: */ 0  );
+            cv::imwrite( /* filename: */ name, /* cv::Mat: */ img, params );
+        }
+    //}
 }
 
 #if 0

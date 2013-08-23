@@ -12,7 +12,7 @@ do
   imgName=${f:1};
 
   echo "Processing $depName and $imgName files...";
-  fun="/home/bontius/KinfuSuperRes/Tsdf_vis/build/tsdf_vis --yangd $dirName --dep $depName --img $imgName --brute-force";
+  fun="/home/amonszpart/cpp_projects/KinfuSuperRes/Tsdf_vis/build/tsdf_vis --yangd $dirName --dep $depName --img $imgName --brute-force";
   eval $fun
 done
 

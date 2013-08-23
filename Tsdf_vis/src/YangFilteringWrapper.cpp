@@ -7,9 +7,12 @@
 
 #include <boost/filesystem.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <boost/filesystem.hpp>
 
 
-// run in a clean directory: ~/KinfuSuperRes/Tsdf_vis/bruteYang.sh ".." "d" "png"
+// cd ~/rec/testing/ram*/poses/bruteYang &&
+// mkdir ../safe &&
+// ~/cpp_projects/KinfuSuperRes/Tsdf_vis/bruteYang.sh ".." "d" "png"
 int bruteRun( std::string depPath, std::string imgPath )
 {
     std::cout << "C++BruteYang depPath: " << depPath << " imgPath: " << imgPath << std::endl;
@@ -38,7 +41,9 @@ int bruteRun( std::string depPath, std::string imgPath )
                         params.spatial_sigma,
                         params.range_sigma,
                         params.kernel_range );
-               std::cout << "running..." << command << (system(command) ? "\tOK" : "\tfailed...") << std::endl;
+               std::cout << "running..." << command;
+               fflush(stdout);
+               std::cout << (system(command) ? "\tOK" : "\tfailed...") << std::endl;
            }
         }
     }
@@ -100,9 +105,11 @@ int runYang( std::string depPath, std::string imgPath, YangFilteringRunParams ya
     //cv::imshow( "bilf", bilfiltered / depMax );
     bilfiltered.copyTo( fDep );
 
+    boost::filesystem::path path = boost::filesystem::path(depPath);
+
 #if 1
     YangFiltering yf;
-    yf.run( fDep, rgb8, fDep, yangFilteringRunParams );
+    yf.run( fDep, rgb8, fDep, yangFilteringRunParams, path.stem().string() );
 #elif 0
     // input: fDep(CV_32FC1,0..10001.f), rgb8(CV_8UC3)
 
@@ -284,13 +291,13 @@ int runYang( std::string depPath, std::string imgPath, YangFilteringRunParams ya
                   << "maxVal(fDep): " << maxVal << std::endl;
         cv::Mat tmp;
         fDep.convertTo( tmp, CV_16UC1 );
-        cv::imwrite( "yang16.png", tmp, (std::vector<int>){16,0} );
+        cv::imwrite( depPath+"_yang16.png", tmp, (std::vector<int>){16,0} );
     }
 
-    while ( key_pressed != 27 )
+    /*while ( key_pressed != 27 )
     {
         key_pressed = cv::waitKey();
-    }
+    }*/
 
     return EXIT_SUCCESS;
 }

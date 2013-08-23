@@ -71,14 +71,14 @@ void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,
     cv::Mat zBuf8;
     zBufMat.convertTo( zBuf8, CV_8UC1, 1.f / 10001.f );
 
-    std::vector<cv::Mat> zBuf8Vec = { zBuf8, zBuf8, zBuf8 };
+    /*std::vector<cv::Mat> zBuf8Vec = { zBuf8, zBuf8, zBuf8 };
     cv::Mat zBuf8C3;
     cv::merge( zBuf8Vec, zBuf8C3 );
-    std::cout << "merge ok" << std::endl;
+    std::cout << "merge ok" << std::endl;*/
 
-    cv::Mat overlay;
-    cv::addWeighted( zBuf8C3, 0.9f, rgb8_960, 0.1f, 1.0, overlay );
-    cv::imshow( "overlay", overlay );
+    //cv::Mat overlay;
+    //cv::addWeighted( zBuf8C3, 0.9f, rgb8_960, 0.1f, 1.0, overlay );
+    //cv::imshow( "overlay", overlay );
 }
 
 // global state
@@ -195,8 +195,8 @@ void octtreeMesh( pcl::PolygonMesh &mesh )
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_pcl(new pcl::PointCloud<pcl::PointXYZ>);
 
     //Input of the above cloud and the corresponding output of cloud_pcl
-    pcl::fromPCLPointCloud2( mesh.cloud, *cloud_pcl );
-    //pcl::fromROSMsg( mesh.cloud, *cloud_pcl );
+    //pcl::fromPCLPointCloud2( mesh.cloud, *cloud_pcl );
+    pcl::fromROSMsg( mesh.cloud, *cloud_pcl );
     octree.setInputCloud( cloud_pcl );
     octree.addPointsFromInputCloud();
 
@@ -274,7 +274,7 @@ int main( int argc, char** argv )
             pcl::console::parse_argument( argc, argv, "--iter"            , runParams.yang_iterations  );
             if ( runParams.yang_iterations <= 0 ) runParams.yang_iterations = 3;
             std::cout << "Running for " << runParams.yang_iterations << std::endl;
-
+            std::cout << "with: " << runParams.spatial_sigma << " " << runParams.range_sigma << " " << runParams.kernel_range << std::endl;
 
             // error check
             if ( !canDoYang )
@@ -284,7 +284,7 @@ int main( int argc, char** argv )
             }
 
             // run
-            //runYang( yangDir + "/" + depName, yangDir + "/" + imgName, runParams );
+            runYang( yangDir + "/" + depName, yangDir + "/" + imgName, runParams );
             return EXIT_SUCCESS;
         }
         // else TSDF or PLY
@@ -494,7 +494,7 @@ int main( int argc, char** argv )
         // get depth
         auto vshort = tsdfViewer->getLatestDepth();
         cv::Mat dep( 480, 640, CV_16UC1, vshort.data() );
-        util::writePNG( "dep224.png", dep );
+        //util::writePNG( "dep224.png", dep );
     }
 
     // cleanup

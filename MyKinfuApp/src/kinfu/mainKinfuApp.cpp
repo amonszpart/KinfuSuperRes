@@ -1,8 +1,8 @@
 #include "./tools/kinfu_app.h"
 
 #include "BilateralFilterCuda.hpp"
-
 #include "../util/MaUtil.h"
+
 #include <iostream>
 
 using namespace std;

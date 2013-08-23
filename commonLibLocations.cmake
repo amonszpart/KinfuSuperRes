@@ -1,3 +1,4 @@
+INCLUDE( ../localcfg.cmake )
 # PARAMS
 if(TROLL)
     SET( PCL_LOC ~/3rdparty/pcl-trunk/install )
