@@ -84,6 +84,10 @@ namespace am
         params.range_sigma = 0.1;
         params.kernel_range = 5;
         params.yang_iterations = 10;
+//        params.spatial_sigma = 1.2;
+//        params.range_sigma = 0.1;
+//        params.kernel_range = 3;
+//        params.yang_iterations = 1;
         runYangCleaned( filtered, zBufMat, rgb8, params );
         std::cout << "OK..." << std::endl;
 

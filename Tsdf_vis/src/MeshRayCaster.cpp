@@ -69,12 +69,34 @@ namespace am
         // init output
         outMeshPtr.reset( new pcl::PolygonMesh );
         *outMeshPtr = *inMeshPtr;
+        {
+            pcl::PointCloud<pcl::PointXYZ> tmpCloud;
+            pcl::fromROSMsg( inMeshPtr->cloud, tmpCloud );
+            pcl::PointCloud<pcl::PointXYZRGB> cloud2;
+            //pcl::PolygonMesh mesh2;
+            //std::vector<pcl::PointXYZ, Eigen::aligned_allocator<pcl::PointXYZ> >::iterator it1;
+            pcl::PointXYZRGB tmp;
+
+            for ( auto it1 = tmpCloud.points.begin() ; it1 != tmpCloud.points.end() ; ++it1 )
+            {
+                tmp.x = it1->x;
+                tmp.y = it1->y;
+                tmp.z = it1->z;
+                tmp.r = 127;
+                tmp.g = 128;
+                tmp.b = 129;
+                cloud2.push_back(tmp);
+            }
+            pcl::toROSMsg( cloud2, outMeshPtr->cloud );
+        }
+
         std::cout << "EnhanceMesh: inMeshPtr->cloud.size: " << inMeshPtr->cloud.width << "x" <<  inMeshPtr->cloud.height << std::endl;
         std::cout << "EnhanceMesh: outMeshPtr->cloud.size: " << outMeshPtr->cloud.width << "x" <<  outMeshPtr->cloud.height << std::endl;
         const int point_step = outMeshPtr->cloud.point_step;
         const int x_offs     = outMeshPtr->cloud.fields[0].offset;
         const int y_offs     = outMeshPtr->cloud.fields[1].offset;
         const int z_offs     = outMeshPtr->cloud.fields[2].offset;
+        const int rgb_offs     = outMeshPtr->cloud.fields[3].offset;
 
         // octree
         Octree::Ptr octreePtr;
@@ -117,10 +139,23 @@ namespace am
                         float *p_y = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + y_offs]) );
                         float *p_z = reinterpret_cast<float*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + z_offs]) );
 
+                        uchar *p_bgr = reinterpret_cast<uchar*>( &(outMeshPtr->cloud.data[pnt_idx * point_step + rgb_offs]) );
+                        /*std::cout << "p_rgb: "
+                                  << (int)p_bgr[0] << " "
+                                  << (int)p_bgr[1] << " "
+                                  << (int)p_bgr[2]
+                                  << std::endl;*/
+
                         /*std::cout << "substituting: "
                                   << *p_x << "," << *p_y << "," << *p_z
                                   << " to "
                                   << pclPnt.x << "," << pclPnt.y << "," << pclPnt.z << std::endl;*/
+
+                        float dx = (*p_x - pclPnt.x);
+                        float dy = (*p_y - pclPnt.y);
+                        float dz = (*p_z - pclPnt.z);
+                        p_bgr[2] = 128 + std::min((uchar)127,(uchar)round(sqrt(dx*dx+dy*dy+dz*dz) * 100.f));
+                        std::cout << round(sqrt(dx*dx+dy*dy+dz*dz)) << std::endl;
 
                         *p_x = pclPnt.x;
                         *p_y = pclPnt.y;
