@@ -36,22 +36,32 @@ SET( GNU_FLAGS ${GNU_FLAGS} "-O3 -Wno-deprecated" )
 
 SET( TSDF_VIS_NAME "tsdf_vis" )
 
+
 SET( TSDF_VIS_HEADER_LIST
     ../MyKinfuApp/src/kinfu/tools/tsdf_volume.h
     ../MyKinfuApp/src/kinfu/tools/tsdf_volume.hpp
     ../MyKinfuApp/src/kinfu/tools/kinfu_util.h
     ../MyKinfuApp/src/kinfu/tools/my_screenshot_manager.h
-    include/YangFilteringWrapper.h
     include/DepthViewer3D.h
+    include/MeshRayCaster.h
     include/tsdf_viewer.h
+    include/YangFilteringWrapper.h
+    include/AmPclUtil.h
+    include/ProcessorWithIntrinsics.h
+    include/PolyMeshViewer.h
+    include/UpScaling
 )
 
 SET( TSDF_VIS_SRC_LIST
     ../MyKinfuApp/src/kinfu/tools/kinfu_util.cpp
     ../MyKinfuApp/src/kinfu/tools/my_screenshot_manager.cpp
-    src/YangFilteringWrapper.cpp
     src/DepthViewer3D.cpp
+    src/MeshRayCaster.cpp
     src/tsdf_viewer.cpp
+    src/YangFilteringWrapper.cpp
+    src/AmPclUtil.cpp
+    src/PolyMeshViewer.cpp
+    src/UpScaling
     main.cpp
 )
 

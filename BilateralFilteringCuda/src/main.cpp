@@ -12,36 +12,52 @@
  * @param img16 16bit depth image to map
  * @param guide 8UC3 rgb image to map over
  **/
-int testViewpointMapping( cv::Mat const& img16, cv::Mat const& guide )
+int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& guide )
 {
-    cv::imshow( "img", img16 );
-    cv::Mat mapped16( cv::Mat::eye(img16.size(), CV_32FC1 ) );
-    ViewPointMapperCuda::runViewpointMapping( img16, mapped16 );
+    cv::imshow( "img", dep16 );
+    cv::Mat mapped16( cv::Mat::eye(dep16.size(), CV_32FC1 ) );
+    ViewPointMapperCuda::runViewpointMapping( dep16, mapped16 );
     cv::imshow( "out", mapped16 );
 
-    cv::Mat fMapped;
-    mapped16.convertTo( fMapped, CV_32FC1, 1.f / 10001.f );
+    cv::Mat mappedF;
+    mapped16.convertTo( mappedF, CV_32FC1, 1.f / 10001.f );
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( mappedF, &minVal, &maxVal );
+        std::cout << "minVal(fmapped16): " << minVal << ", "
+                  << "maxVal(fmapped16): " << maxVal << std::endl;
+    }
+    cv::Mat mapped8;
+    mapped16.convertTo( mapped8, CV_8UC1, 255.f / 10001.f );
+    cv::imshow( "mapped8", mapped8 );
 
-    cv::Mat fImg;
-    img16.convertTo( fImg, CV_32FC1, 1.f / 10001.f );
+    cv::Mat depF;
+    dep16.convertTo( depF, CV_32FC1, 1.f / 10001.f );
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( depF, &minVal, &maxVal );
+        std::cout << "minVal(depF): " << minVal << ", "
+                  << "maxVal(depF): " << maxVal << std::endl;
+    }
+
 
     cv::Mat diff;
-    cv::absdiff( fImg, fMapped, diff );
+    cv::absdiff( depF, mappedF, diff );
     cv::imshow( "diff", diff );
 
     cv::Mat fGuide;
     guide.convertTo( fGuide, CV_32FC1, 1.f / 255.f );
 
     std::vector<cv::Mat> fMappedVector;
-    fMappedVector.push_back( fMapped );
-    fMappedVector.push_back( fMapped );
-    fMappedVector.push_back( fMapped );
+    fMappedVector.push_back( mappedF );
+    fMappedVector.push_back( mappedF );
+    fMappedVector.push_back( mappedF );
 
     cv::Mat fMapped3;
     //cv::merge( fMappedVector, fMapped3 );
     cv::merge( fMappedVector.data(), 3, fMapped3 );
 
-    cv::Mat fBlended( fMapped.rows, fMapped.cols, CV_32FC1 );
+    cv::Mat fBlended( mappedF.rows, mappedF.cols, CV_32FC1 );
     cv::addWeighted( fGuide, 0.5,
                      fMapped3, 0.7, 0.0, fBlended, CV_32FC1 );
     cv::imshow( "fBlended", fBlended );
@@ -49,21 +65,21 @@ int testViewpointMapping( cv::Mat const& img16, cv::Mat const& guide )
 
     // test ushort version
     {
-        ushort* data = new ushort[ img16.cols * img16.rows ];
-        for ( int y = 0; y < img16.rows; ++y )
+        ushort* data = new ushort[ dep16.cols * dep16.rows ];
+        for ( int y = 0; y < dep16.rows; ++y )
         {
-            for ( int x = 0; x < img16.cols; ++x )
+            for ( int x = 0; x < dep16.cols; ++x )
             {
-                data[ y * img16.cols + x ] = img16.at<ushort>( y, x );
+                data[ y * dep16.cols + x ] = dep16.at<ushort>( y, x );
             }
         }
 
-        ViewPointMapperCuda::runViewpointMapping( data, img16.cols, img16.rows );
+        ViewPointMapperCuda::runViewpointMapping( data, dep16.cols, dep16.rows );
 
-        cv::Mat outMat( img16.size(), img16.type() );
-        for ( int y = 0; y < img16.rows; ++y )
+        cv::Mat outMat( dep16.size(), dep16.type() );
+        for ( int y = 0; y < dep16.rows; ++y )
         {
-            for ( int x = 0; x < img16.cols; ++x )
+            for ( int x = 0; x < dep16.cols; ++x )
             {
                 outMat.at<ushort>( y, x ) = data[ y * outMat.cols + x ];
             }

@@ -3,8 +3,14 @@
 
 #include <string>
 #include "YangFiltering.h"
+namespace am
+{
+    extern int runYangCleaned( cv::Mat &filteredDep16, std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams = YangFilteringRunParams() );
+    extern int runYangCleaned( cv::Mat &filteredDep16, cv::Mat const& dep16, cv::Mat const& rgb8, YangFilteringRunParams yangFilteringRunParams = YangFilteringRunParams() );
 
-int bruteRun( std::string depPath, std::string imgPath );
-int runYang(std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams = YangFilteringRunParams() );
+    extern int bruteRun( std::string depPath, std::string imgPath );
+    extern int runYang(std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams = YangFilteringRunParams() );
+
+} // end ns am
 
 #endif // YANGFILTERINGWRAPPER_H

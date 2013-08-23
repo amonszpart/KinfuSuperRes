@@ -104,6 +104,29 @@ void ViewPointMapperCuda::runViewpointMapping( unsigned short *& data, int w, in
     runViewpointMapping( data, data, w, h );
 }
 
+
+// returns a float2 matrix of normalised 3D coordinates without the homogeneous part
+extern void cam2World( int w, int h, GpuDepthMap<float> &out );
+void ViewPointMapperCuda::runCam2World( int w, int h, float* out_data )
+{
+    // check input
+    if ( !out_data )
+    {
+        std::cerr << "ViewPointMapperCuda::runCam2World(): out_data needs to be initialized!" << std::endl;
+        return;
+    }
+
+    // input
+    static GpuDepthMap<float> d_out;
+    d_out.Create( DEPTH_MAP_TYPE_FLOAT, w * 2, h ); // two coordinates per pixel
+
+    // work
+    cam2World( w, h, d_out );
+
+    // output
+    d_out.CopyDataOut( out_data );
+}
+
 template <typename T>
 extern void runCopyKernel2D( T *in , unsigned w_in , unsigned h_in , size_t pitch_in,
                              T *out, size_t pitch_out );

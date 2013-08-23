@@ -950,7 +950,8 @@ int testCostVolume()
     bilfiltered.copyTo( fDep );
 
 #if 1
-    YangFiltering::run( fDep, rgb8, fDep );
+    YangFiltering yf;
+    yf.run( fDep, rgb8, fDep );
 #elif 0
     // input: fDep(CV_32FC1,0..10001.f), rgb8(CV_8UC3)
 

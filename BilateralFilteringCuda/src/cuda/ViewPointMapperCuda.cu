@@ -13,31 +13,24 @@
 
 #include <iostream>
 
-#define HEIGHT 480
-#define WIDTH 640
-
-// The maximum observable depth, in meters.
-#define MAX_DEPTH 10
-
-// Constants for undoing the depth nonlinearity.
-#define DN_W 0.3513e3f
-#define DN_B 1.0925e3f
-
 // comp_distortion_oulu.m rewrite from Bogouet toolbox
-__device__ float2 CamDep2World( float2 xd,
-                                float2 F,
-                                float2 C,
-                                float k1, // K1
-                                float k2, // K2
-                                float p1, // K3
-                                float p2, // K4
-                                float k3, // K5
-                                float alpha = 0.f )
+/*
+ * \return normalized coordinates { xn.x, xn.y, 1.f }
+ */
+__device__ float3 cam2World( float2 xd,
+                             float2 F, float2 C,
+                             float k1, // K1
+                             float k2, // K2
+                             float p1, // K3
+                             float p2, // K4
+                             float k3, // K5
+                             float alpha = 0.f )
 {
+    xd.x = (xd.x - C.x) / F.x;
+    xd.y = (xd.y - C.y) / F.y;
+
     // initial guess
-    float2 xn = {
-        (xd.x - C.x) / F.x,
-        (xd.y - C.y) / F.y };
+    float2 xn = xd;
 
     // skew
     xn.x -= alpha * xn.y;
@@ -58,18 +51,17 @@ __device__ float2 CamDep2World( float2 xd,
         xn = (xd - delta_x) / (float2) { k_radial, k_radial };
     }
 
-    return xn;
+    return (float3){ xn.x, xn.y, 1.f };
 }
 
-__device__ float2 World2CamRgb( float3 xw,
-                                float2 F,
-                                float2 C,
-                                float k1, // K1
-                                float k2, // K2
-                                float p1, // K3
-                                float p2, // K4
-                                float k3, // K5
-                                float alpha = 0.f)
+__device__ float2 world2Cam( float3 xw,
+                             float2 F, float2 C,
+                             float k1, // K1
+                             float k2, // K2
+                             float p1, // K3
+                             float p2, // K4
+                             float k3, // K5
+                             float alpha = 0.f)
 {
     float2 x = {
         xw.x / xw.z,
@@ -101,81 +93,59 @@ __device__ float2 World2CamRgb( float3 xw,
     return xd3 * F + C;
 }
 
-
 // Args:
 //   depth_abs - the absolute depth from the kinect.
 //   depth_proj - the projected depth.
 template <typename T>
-__global__ void mapViewpointKernel( const T* in,
-                              T *out,
-                              int w, int h,
-                              size_t in_pitch,
-                              size_t out_pitch )
+__global__ void mapViewpointKernel( const T *in,
+                                          T *out,
+                                    int w, int h,
+                                    size_t in_pitch,
+                                    size_t out_pitch )
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= w || y >= h)
-        return;
+    if (x >= w || y >= h) return;
 
-    const float d = in[ y * w + x ]; // * 10001.f
+    const float d = in[ y * in_pitch + x ]; // * 10001.f
 
-    //out[ y * w + x ] = px;
-
-    float2 pn_left = {
-        (x - CX_D) / FX_D,
-        (y - CY_D) / FY_D };
-
-    pn_left = CamDep2World( pn_left, (float2){FX_D, FY_D}, (float2){CX_D, CY_D},
-                            K1_D, K2_D, K3_D, K4_D, K5_D, ALPHA_D );
-
-    // ****************************************
-    //   PROJECT THE DEPTH TO 3D WORLD POINTS
-    // ****************************************
-    float3 P_world_left = {
-        pn_left.x * d,
-        pn_left.y * d,
-        d };
-
-    // *******************************************
-    //   Next, Rotate and translate the 3D points
-    // *******************************************
+    float3 P_world_left = d * cam2World( (float2){x   , y   },
+                                         (float2){FX_D, FY_D}, (float2){CX_D, CY_D},
+                                         K1_D, K2_D, K3_D, K4_D, K5_D,
+                                         ALPHA_D );
     // R * [X; Y; Z] + T
-
     float3 P_world_right = {
         (R1 * P_world_left.x) + (R2 * P_world_left.y) + (R3 * P_world_left.z) + T1,
         (R4 * P_world_left.x) + (R5 * P_world_left.y) + (R6 * P_world_left.z) + T2,
         (R7 * P_world_left.x) + (R8 * P_world_left.y) + (R9 * P_world_left.z) + T3 };
 
-    // *******************************************
-    //   Project into the RGB coordinate frame.
-    // *******************************************
-
-    float2 p_right = World2CamRgb( P_world_right,
-                                   (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
-                                   K1_RGB, K2_RGB, K3_RGB, K4_RGB, K5_RGB, ALPHA_RGB );
+    float2 p2_right = world2Cam( P_world_right,
+                                 (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
+                                 K1_RGB, K2_RGB, K3_RGB, K4_RGB, K5_RGB,
+                                 ALPHA_RGB );
 
     // map to 0.f..1.f
     //P_world_right.z /= 10001.f;
+
     // create int pointer
     int *pZ = (int*) &(P_world_right.z);
 
     // round to integer coordinates
-    int2 int_p_right = { nearbyintf(p_right.x), nearbyintf(p_right.y) };
+    int2 int_p_right = { nearbyintf(p2_right.x),
+                         nearbyintf(p2_right.y) };
 
     // check boundaries
-    if ( (int_p_right.x >= w) ||
-         (int_p_right.y >= h) ||
-         (int_p_right.x <  0) ||
-         (int_p_right.y <  0)   ) return;
+    if ( (int_p_right.x >= w) || (int_p_right.y >= h) ||
+         (int_p_right.x <  0) || (int_p_right.y <  0)   ) return;
 
-    float old = atomicCAS ( (int*)&(out[ int_p_right.y * w + int_p_right.x ]), 0, *pZ );
+    float old = atomicCAS ( (int*)&(out[ int_p_right.y * out_pitch + int_p_right.x ]), 0, *pZ );
     if ( old != 0.f )
     {
-        atomicMin ( (int*)&(out[ int_p_right.y * w + int_p_right.x ]), *pZ );
+        atomicMin( (int*)&(out[ int_p_right.y * out_pitch + int_p_right.x ]), *pZ );
     }
-
 }
 
+//// runMapViewpoint ////
 
 template<typename T>
 void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out )
@@ -183,13 +153,13 @@ void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out )
     cudaMemset( out.Get(), 0, out.GetWidth() * out.GetHeight() * sizeof(T) );
     checkCudaErrors( cudaDeviceSynchronize() );
 
-    //runSetKernel2D( out.Get(), 22222.f, out.GetWidth(), out.GetHeight() );
-
-    dim3 gridSize((in.GetWidth() + 16 - 1) / 16, (in.GetHeight() + 16 - 1) / 16);
+    dim3 gridSize( (in.GetWidth()  + 16 - 1) / 16,
+                   (in.GetHeight() + 16 - 1) / 16 );
     dim3 blockSize( 16, 16 );
     mapViewpointKernel<<< gridSize, blockSize>>>( in.Get(), out.Get(),
-                                            in.GetWidth(), in.GetHeight(),
-                                            in.GetPitch(), out.GetPitch() );
+                                                  in.GetWidth(), in.GetHeight(),
+                                                  in.GetPitch()  / sizeof(T),
+                                                  out.GetPitch() / sizeof(T) );
 
     // sync host and stop computation timer
     checkCudaErrors( cudaDeviceSynchronize() );
@@ -197,3 +167,40 @@ void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out )
 
 template void runMapViewpoint<float>( GpuDepthMap<float> const& in, GpuDepthMap<float> &out );
 template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const& in, GpuDepthMap<unsigned short> &out );
+
+//// toWorld ////
+
+// Args:
+//   depth_abs - the absolute depth from the kinect.
+//   depth_proj - the projected depth.
+__global__ void cam2WorldKernel( float *out,
+                                 int w, int h,
+                                 size_t out_pitch )
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= w || y >= h) return;
+
+    float3 P_world = cam2World( (float2){x   , y   },
+                                (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
+                                K1_RGB, K2_RGB, K3_RGB, K4_RGB, K5_RGB,
+                                ALPHA_RGB );
+    *(reinterpret_cast<float2*>(&out[ y * out_pitch + 2 * x ])) = (float2){P_world.x, P_world.y};
+}
+
+/*
+ * \brief "undistort": Gives a mapping from {x, y} to {xn, yn, 1}
+ * \param out Out is a (2*w, h) image containing normalised point coordinates (xn, yn)
+ */
+void cam2World( int w, int h, GpuDepthMap<float> &out )
+{
+    dim3 gridSize( (w + 16 - 1) / 16,
+                   (h + 16 - 1) / 16 );
+    dim3 blockSize( 16, 16 );
+    cam2WorldKernel<<< gridSize, blockSize>>>( out.Get(),
+                                               w, h,
+                                               out.GetPitch() / sizeof(float) );
+
+    // sync host and stop computation timer
+    checkCudaErrors( cudaDeviceSynchronize() );
+}

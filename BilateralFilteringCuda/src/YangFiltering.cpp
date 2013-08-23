@@ -148,39 +148,8 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
         imwrite_params.push_back( 0 );
         cv::imwrite( title, dep_out, imwrite_params );
-
-
-        // show
-        //cv::imshow( title, fDep / 10001.f );
-
-        // float(in)
-        //cv::Mat ftmp;
-        //dep16.convertTo( ftmp, CV_32FC1 );
-        //cv::Mat dep16U16;
-        //dep16.convertTo( dep16U16, CV_16UC1 );
-
-        // diff
-        /*cv::Mat diff;
-        std::cout << "dep16U16.type(): " << dep16U16.type() << std::endl;
-        std::cout << "dep_out.type(): " << dep_out.type() << std::endl;
-        double minv, maxv;
-        cv::minMaxLoc( dep16, &minv, &maxv );
-        std::cout << "dep16minmax: " << minv << " " << maxv << std::endl;
-        cv::minMaxLoc( dep_out, &minv, &maxv );
-        std::cout << "dep_outminmax: " << minv << " " << maxv << std::endl;
-        cv::absdiff( dep16U16, dep_out, diff );*/
-        // show
-        //cv::imshow( "diff", diff/10001.f );
-
-        // write
-        //sprintf( title, "diff_iteration%d.png", it );
-        //cv::Mat diffUC16;
-        //diff.convertTo( diffUC16, CV_16UC1 );
-        //cv::imwrite( title, diffUC16, imwrite_params );
-
-        //cv::waitKey(20);
-        std::cout << "iteration: " << it << std::endl;
     }
+
 
     // copy out
     d_fDep.CopyDataOut( fDepArr );

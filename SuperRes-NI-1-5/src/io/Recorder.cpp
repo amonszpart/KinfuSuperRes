@@ -79,7 +79,7 @@ namespace am
         //ImageGenerator imageGenerator;
         nRetVal = context.FindExistingNode(XN_NODE_TYPE_IMAGE, imageGenerator );
         CHECK_RC(nRetVal, "Find image generator");
-        nRetVal = recorder.AddNodeToRecordi ng( imageGenerator );
+        nRetVal = recorder.AddNodeToRecording( imageGenerator );
         CHECK_RC(nRetVal, "Add image node to recording");
 
         /*IRGenerator irGenerator;
