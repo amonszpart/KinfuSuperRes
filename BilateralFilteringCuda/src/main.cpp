@@ -7,17 +7,40 @@
 #include "BilateralFilterCuda.hpp"
 #include "MyThrustUtil.h"
 
+void blend( cv::Mat &blendedUC3, cv::Mat const& dep, float depMax, cv::Mat const& rgb, float rgbMax = 255.f )
+{
+    cv::Mat depFC1_1;
+    dep.convertTo( depFC1_1, CV_32FC1, 1.f / depMax );
+
+    std::vector<cv::Mat> depFC1Vector;
+    depFC1Vector.push_back( depFC1_1 );
+    depFC1Vector.push_back( depFC1_1 );
+    depFC1Vector.push_back( depFC1_1 );
+    cv::Mat depFC1_3;
+    cv::merge( depFC1Vector.data(), 3, depFC1_3 );
+
+    cv::Mat rgbFC1;
+    rgb.convertTo( rgbFC1, CV_32FC1, 1.f / rgbMax );
+
+    cv::Mat blendedFC1( depFC1_3.rows, depFC1_3.cols, CV_32FC1 );
+    cv::addWeighted( rgbFC1, 0.5,
+                     depFC1_3, 0.7,
+                     0.0, blendedFC1, CV_32FC1 );
+    blendedFC1.convertTo( blendedUC3, CV_8UC3, 255.f );
+}
+
 /*
  * @brief       Testruns ViewPointMapperCuda::runViewPointMapping
  * @param img16 16bit depth image to map
  * @param guide 8UC3 rgb image to map over
  **/
-int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& guide )
+int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& rgb8 )
 {
     cv::imshow( "img", dep16 );
     cv::Mat mapped16( cv::Mat::eye(dep16.size(), CV_32FC1 ) );
     ViewPointMapperCuda::runViewpointMapping( dep16, mapped16 );
     cv::imshow( "out", mapped16 );
+    cv::imshow( "rgb8", rgb8 );
 
     cv::Mat mappedF;
     mapped16.convertTo( mappedF, CV_32FC1, 1.f / 10001.f );
@@ -46,7 +69,7 @@ int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& guide )
     cv::imshow( "diff", diff );
 
     cv::Mat fGuide;
-    guide.convertTo( fGuide, CV_32FC1, 1.f / 255.f );
+    rgb8.convertTo( fGuide, CV_32FC1, 1.f / 255.f );
 
     std::vector<cv::Mat> fMappedVector;
     fMappedVector.push_back( mappedF );
@@ -88,6 +111,30 @@ int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& guide )
         cv::imshow( "ushortMapping", outMat );
 
         SAFE_DELETE_ARRAY( data );
+    }
+
+    // test undistort version
+    {
+        ViewPointMapperCuda::runViewpointMapping( dep16, mapped16, true );
+        cv::Mat blendedUC3;
+        blend( blendedUC3, mapped16, 10001.f, rgb8, 255.f );
+        cv::imshow( "blendedUC3", blendedUC3 );
+
+        cv::Mat undistortedRgb;
+        ViewPointMapperCuda::undistortRgb( undistortedRgb, rgb8, am::viewpoint_mapping::INTR_RGB_640_480, am::viewpoint_mapping::INTR_RGB_640_480 );
+        cv::imshow( "undistortedRgb", undistortedRgb );
+        cv::Mat blendedUndistortedUC3;
+        blend( blendedUndistortedUC3, mapped16, 10001.f, undistortedRgb, 255.f );
+        cv::imshow( "blendedUndistortedUC3", blendedUndistortedUC3 );
+
+        cv::Mat rgb8x2;
+        cv::resize( rgb8, rgb8x2, rgb8.size() * 2, 0, 0, CV_INTER_NN );
+        ViewPointMapperCuda::undistortRgb( undistortedRgb, rgb8x2, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
+        cv::imshow( "undistortedRgbBig", undistortedRgb );
+        cv::Mat mapped16x2;
+        cv::resize( mapped16, mapped16x2, mapped16.size() * 2, 0, 0, CV_INTER_NN );
+        blend( blendedUndistortedUC3, mapped16x2, 10001.f, undistortedRgb, 255.f );
+        cv::imshow( "blendedUndistortedUC3x2", blendedUndistortedUC3 );
     }
 
 

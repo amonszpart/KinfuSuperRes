@@ -10,9 +10,9 @@
 
 #define K1_RGB 0.211853f
 #define K2_RGB -0.598351f
-#define K3_RGB 0.000754f
-#define K4_RGB -0.000743f
-#define K5_RGB 0.542609f
+#define P1_RGB 0.000754f
+#define P2_RGB -0.000743f
+#define K3_RGB 0.542609f
 #define ALPHA_RGB -0.002161f
 
 #define FX_D 588.486898f
@@ -22,9 +22,9 @@
 
 #define K1_D -0.094563f
 #define K2_D 0.387595f
-#define K3_D 0.000838f
-#define K4_D 0.001505f
-#define K5_D -0.494912f
+#define P1_D 0.000838f
+#define P2_D 0.001505f
+#define K3_D -0.494912f
 #define ALPHA_D -0.002096f
 
 #define R1 0.999998f

@@ -12,6 +12,7 @@
 #include "helper_cuda.h"
 
 #include <iostream>
+#include <vector>
 
 // comp_distortion_oulu.m rewrite from Bogouet toolbox
 /*
@@ -32,24 +33,27 @@ __device__ float3 cam2World( float2 xd,
     // initial guess
     float2 xn = xd;
 
-    // skew
-    xn.x -= alpha * xn.y;
-
-    for ( int kk = 20; kk; --kk )
+    if ( (alpha != 0.f) && (k1 != 0.f) )
     {
-        float r2        = xn.x * xn.x +
-                          xn.y * xn.y;
-        float sqr_r_2   = r2 * r2;
-        float k_radial  = 1.f +
-                          k1 * r2           +
-                          k2 * sqr_r_2      +
-                          k3 * sqr_r_2 * r2;
+        // skew
+        xn.x -= alpha * xn.y;
 
-        float2 delta_x = { 2.f * p1 * xn.x * xn.y + p2 * (r2 + 2.f * xn.x * xn.x),
-                           2.f * p2 * xn.x * xn.y + p1 * (r2 + 2.f * xn.y * xn.y)  };
+        for ( int kk = 20; kk; --kk )
+        {
+            float r2        = xn.x * xn.x +
+                              xn.y * xn.y;
+            float sqr_r_2   = r2 * r2;
+            float k_radial  = 1.f +
+                              k1 * r2           +
+                              k2 * sqr_r_2      +
+                              k3 * sqr_r_2 * r2;
 
-        xn = (xd - delta_x) / (float2) { k_radial, k_radial };
+            float2 delta_x = { 2.f * p1 * xn.x * xn.y + p2 * (r2 + 2.f * xn.x * xn.x),
+                               2.f * p2 * xn.x * xn.y + p1 * (r2 + 2.f * xn.y * xn.y)  };
+
+            xn = (xd - delta_x) / (float2) { k_radial, k_radial };
     }
+}
 
     return (float3){ xn.x, xn.y, 1.f };
 }
@@ -67,30 +71,40 @@ __device__ float2 world2Cam( float3 xw,
         xw.x / xw.z,
         xw.y / xw.z };
 
-    float r2 = x.x*x.x + x.y*x.y;
-    float r4 = r2*r2;
-    float r6 = r4 * r2;
+    float2 xd3;
+    if ( (alpha != 0.f) && (k1 != 0.f) )
+    {
 
-    // Radial distortion:
-    float cdist = 1.f + k1 * r2 + k2 * r4 + k3 * r6;
-    float2 xd1 = x * cdist;
+        float r2 = x.x*x.x + x.y*x.y;
+        float r4 = r2*r2;
+        float r6 = r4 * r2;
 
-    // tangential distortion:
-    float a1 = 2.f * x.x * x.y;
-    float a2 = r2 + 2.f * x.x * x.x;
-    float a3 = r2 + 2 * x.y * x.y;
+        // Radial distortion:
+        float cdist = 1.f + k1 * r2 + k2 * r4 + k3 * r6;
+        float2 xd1 = x * cdist;
 
-    float2 delta_x = { p1 * a1 + p2 * a2,
-                       p1 * a3 + p2 * a1 };
+        // tangential distortion:
+        float a1 = 2.f * x.x * x.y;
+        float a2 = r2 + 2.f * x.x * x.x;
+        float a3 = r2 + 2 * x.y * x.y;
 
-    float2 xd2 = xd1 + delta_x;
+        float2 delta_x = { p1 * a1 + p2 * a2,
+                           p1 * a3 + p2 * a1 };
 
-    // skew
-    float2 xd3 = { xd2.x + alpha * xd2.y,
-                   xd2.y };
+        float2 xd2 = xd1 + delta_x;
 
-    // to camera space
-    return xd3 * F + C;
+        // skew
+        xd3.x = xd2.x + alpha * xd2.y;
+        xd3.y = xd2.y;
+
+        // to camera space
+        return xd3 * F + C;
+    }
+    else
+    {
+        // to camera space
+        return x  * F + C;
+    }
 }
 
 // Args:
@@ -101,7 +115,8 @@ __global__ void mapViewpointKernel( const T *in,
                                           T *out,
                                     int w, int h,
                                     size_t in_pitch,
-                                    size_t out_pitch )
+                                    size_t out_pitch,
+                                    const bool undistort = false )
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -111,7 +126,7 @@ __global__ void mapViewpointKernel( const T *in,
 
     float3 P_world_left = d * cam2World( (float2){x   , y   },
                                          (float2){FX_D, FY_D}, (float2){CX_D, CY_D},
-                                         K1_D, K2_D, K3_D, K4_D, K5_D,
+                                         K1_D, K2_D, P1_D, P2_D, K3_D,
                                          ALPHA_D );
     // R * [X; Y; Z] + T
     float3 P_world_right = {
@@ -119,10 +134,21 @@ __global__ void mapViewpointKernel( const T *in,
         (R4 * P_world_left.x) + (R5 * P_world_left.y) + (R6 * P_world_left.z) + T2,
         (R7 * P_world_left.x) + (R8 * P_world_left.y) + (R9 * P_world_left.z) + T3 };
 
-    float2 p2_right = world2Cam( P_world_right,
-                                 (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
-                                 K1_RGB, K2_RGB, K3_RGB, K4_RGB, K5_RGB,
-                                 ALPHA_RGB );
+    float2 p2_right;
+    if ( undistort )
+    {
+        p2_right = world2Cam( P_world_right,
+                              (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
+                              0.f, 0.f, 0.f, 0.f, 0.f,
+                              0.f );
+    }
+    else
+    {
+        p2_right = world2Cam( P_world_right,
+                              (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
+                              K1_RGB, K2_RGB, P1_RGB, P2_RGB, K3_RGB,
+                              ALPHA_RGB );
+    }
 
     // map to 0.f..1.f
     //P_world_right.z /= 10001.f;
@@ -148,7 +174,7 @@ __global__ void mapViewpointKernel( const T *in,
 //// runMapViewpoint ////
 
 template<typename T>
-void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out )
+void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out, bool undistort = false )
 {
     cudaMemset( out.Get(), 0, out.GetWidth() * out.GetHeight() * sizeof(T) );
     checkCudaErrors( cudaDeviceSynchronize() );
@@ -159,14 +185,15 @@ void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out )
     mapViewpointKernel<<< gridSize, blockSize>>>( in.Get(), out.Get(),
                                                   in.GetWidth(), in.GetHeight(),
                                                   in.GetPitch()  / sizeof(T),
-                                                  out.GetPitch() / sizeof(T) );
+                                                  out.GetPitch() / sizeof(T),
+                                                  undistort );
 
     // sync host and stop computation timer
     checkCudaErrors( cudaDeviceSynchronize() );
 }
 
-template void runMapViewpoint<float>( GpuDepthMap<float> const& in, GpuDepthMap<float> &out );
-template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const& in, GpuDepthMap<unsigned short> &out );
+template void runMapViewpoint<float>( GpuDepthMap<float> const& in, GpuDepthMap<float> &out, bool undistort );
+template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const& in, GpuDepthMap<unsigned short> &out, bool undistort );
 
 //// toWorld ////
 
@@ -183,7 +210,7 @@ __global__ void cam2WorldKernel( float *out,
 
     float3 P_world = cam2World( (float2){x   , y   },
                                 (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
-                                K1_RGB, K2_RGB, K3_RGB, K4_RGB, K5_RGB,
+                                K1_RGB, K2_RGB, P1_RGB, P2_RGB, K3_RGB,
                                 ALPHA_RGB );
     *(reinterpret_cast<float2*>(&out[ y * out_pitch + 2 * x ])) = (float2){P_world.x, P_world.y};
 }
@@ -203,4 +230,41 @@ void cam2World( int w, int h, GpuDepthMap<float> &out )
 
     // sync host and stop computation timer
     checkCudaErrors( cudaDeviceSynchronize() );
+}
+
+
+void getIntrinsicsRGB( std::vector<float>& intrinsics, std::vector<float>& distortion_coeffs )
+{
+    intrinsics.resize(9);
+    intrinsics[0] = FX_RGB;
+    intrinsics[2] = CX_RGB;
+    intrinsics[4] = FY_RGB;
+    intrinsics[5] = CY_RGB;
+    intrinsics[8] = 1.f;
+
+    distortion_coeffs.resize(6);
+    distortion_coeffs[0] = K1_RGB;
+    distortion_coeffs[1] = K2_RGB;
+    distortion_coeffs[2] = P1_RGB;
+    distortion_coeffs[3] = P2_RGB;
+    distortion_coeffs[4] = K3_RGB;
+    distortion_coeffs[5] = ALPHA_RGB;
+}
+
+void getIntrinsicsDEP( std::vector<float>& intrinsics, std::vector<float>& distortion_coeffs )
+{
+    intrinsics.resize(9);
+    intrinsics[0] = FX_D;
+    intrinsics[2] = CX_D;
+    intrinsics[4] = FY_D;
+    intrinsics[5] = CY_D;
+    intrinsics[8] = 1.f;
+
+    distortion_coeffs.resize(6);
+    distortion_coeffs[0] = K1_D;
+    distortion_coeffs[1] = K2_D;
+    distortion_coeffs[2] = P1_D;
+    distortion_coeffs[3] = P2_D;
+    distortion_coeffs[4] = K3_D;
+    distortion_coeffs[5] = ALPHA_D;
 }

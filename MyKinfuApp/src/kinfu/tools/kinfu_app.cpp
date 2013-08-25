@@ -449,10 +449,11 @@ namespace am
             // map viewpoint
             {
                 mapped_depth.resize( depth_arg.cols * depth_arg.rows );
-                ViewPointMapperCuda::runViewpointMapping( /*  in_data: */ depth_arg.data,
-                                                          /* out_data: */ mapped_depth.data(),
-                                                          /*    width: */ depth_arg.cols,
-                                                          /*   height: */ depth_arg.rows );
+                ViewPointMapperCuda::runViewpointMapping( /*   in_data: */ depth_arg.data,
+                                                          /*  out_data: */ mapped_depth.data(),
+                                                          /*     width: */ depth_arg.cols,
+                                                          /*    height: */ depth_arg.rows,
+                                                          /* undistort: */ true );
 
                 // create new depth pointer
                 crFilteredDepthPtr.cols = depth_arg.cols;
@@ -518,7 +519,8 @@ namespace am
                 else
                 {
 #                   if MYKINFU
-                    /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ prefiltered );
+                    std::cout << "skipping initial bilfilter" << std::endl;
+                    /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ true );
 #                   else
                     /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL );
 #                   endif

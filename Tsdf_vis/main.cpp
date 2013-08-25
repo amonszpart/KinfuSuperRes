@@ -6,6 +6,7 @@
 #include "UpScaling.h"
 
 #include "BilateralFilterCuda.hpp"
+#include "ViewPointMapperCuda.h"
 #include "YangFilteringWrapper.h"
 
 #include "my_screenshot_manager.h"
@@ -28,64 +29,6 @@
 // --in ~/rec/troll_recordings/short_prism_kinect_20130816_1206/short_20130816_1327_nomap
 // --in /home/amonszpart/rec/testing/ram_20130818_1209_lf_200/cloud_mesh.ply
 // --in ~/workspace/rec/testing/ram_20130818_1209_lf_200/cloud_mesh.ply
-
-// try to get ZBuffer image to the right scale
-template <typename T>
-void processZBuffer( std::vector<T> zBuffer, int w, int h, std::map<std::string,cv::Mat> mats, cv::Mat & zBufMat )
-{
-    std::cout << "processZBuffer..." << std::endl;
-    const float zNear = 0.001;
-    const float zFar = 10.01;
-    // zBuf to Mat
-    zBufMat.create( h, w, CV_16UC1 );
-    for ( int y = 0; y < zBufMat.rows; ++y )
-    {
-        for ( int x = 0; x < zBufMat.cols; ++x )
-        {
-            float z_n = zBuffer[ y * zBufMat.cols + x ];
-            ushort d = round(2.0 * zNear * zFar / (zFar + zNear - z_n * (zFar - zNear)) * 1000.f);
-            zBufMat.at<ushort>(y,x) = (d > 10001) ? 0 : d;
-
-            //http://stackoverflow.com/questions/6652253/getting-the-true-z-value-from-the-depth-buffer
-        }
-    }
-
-#if 1
-    // minmax zBufMat
-    double minv, maxv;
-    cv::minMaxLoc( zBufMat, &minv, &maxv );
-    std::cout << "maxv: " << maxv << " minv: " << minv << std::endl;
-
-    // minmax large_dep16
-    {
-        double minVal, maxVal;
-        cv::minMaxIdx( mats["large_dep16"], &minVal, &maxVal );
-        std::cout << "minVal(large_dep16): " << minVal << ", "
-                  << "maxVal(large_dep16): " << maxVal << std::endl;
-    }
-#endif
-
-    // upscale
-    //cv::Mat tmp;
-    //cv::subtract( zBufMat, minv, tmp, cv::Mat(), CV_32FC1 );
-    //cv::divide( tmp, (maxv - minv) / 10001.f, zBufMat, CV_32FC1 );
-
-    // show
-    cv::imshow( "zBufMat", zBufMat );
-    cv::imwrite( "zBufMat.png", zBufMat );
-
-    cv::Mat rgb8_960;
-    cv::resize( mats["rgb8"], rgb8_960, mats["large_dep16"].size() );
-    cv::Mat zBuf8;
-    zBufMat.convertTo( zBuf8, CV_8UC1, 255.f / 10001.f );
-    cv::imshow( "zBuf8", zBuf8 );
-
-    /*std::vector<cv::Mat> zBuf8Vec = { zBuf8, zBuf8, zBuf8 };
-    cv::Mat zBuf8C3;
-    cv::merge( zBuf8Vec, zBuf8C3 );
-    std::cout << "merge ok" << std::endl;*/
-
-}
 
 // global state
 struct MyPlayer
@@ -282,7 +225,7 @@ int main( int argc, char** argv )
                                            / std::string("poses")
                                            / (std::string("d") + boost::lexical_cast<std::string> (img_id) + std::string(".png"));
         dep16 = cv::imread( dep_path.c_str(), -1 );
-        cv::resize( dep16, large_dep16, dep16.size() * 2 );
+        cv::resize( dep16, large_dep16, dep16.size() * 2, 0, 0, CV_INTER_NN );
     }
 
     // read RGB
@@ -292,8 +235,16 @@ int main( int argc, char** argv )
                                             / std::string("poses")
                                             / (boost::lexical_cast<std::string> (img_id) + std::string(".png"));
         rgb8 = cv::imread( rgb8_path.c_str(), -1 );
-        cv::resize( rgb8, rgb8_960, large_dep16.size() );
+
+        cv::Mat large_rgb8;
+        cv::resize( rgb8, large_rgb8, large_dep16.size(), 0, 0, CV_INTER_NN );
+        ViewPointMapperCuda::undistortRgb( rgb8_960, large_rgb8, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
     }
+    cv::Mat blended;
+    am::util::blend( blended, large_dep16, 10001.f, rgb8_960, 255.f );
+    cv::imshow( "blended", blended );
+    cv::waitKey();
+    return 0;
 
     // read poses
     std::map<int,Eigen::Affine3f> poses;
@@ -430,16 +381,6 @@ int main( int argc, char** argv )
 
         // exit after one iteration
         //g_myPlayer.exit = true;
-    }
-
-    // process Z buffer
-    {
-        mats["large_dep16"] = large_dep16;
-        mats["rgb8"]        = rgb8;
-        cv::Mat zBufMat;
-        processZBuffer( zBuffer, w, h, mats, zBufMat );
-        std::string dirPath = boost::filesystem::path(inputFilePath).parent_path().string();
-        //util::writePNG( dirPath + )
     }
 
     cv::imshow( "large_dep16", large_dep16 );
