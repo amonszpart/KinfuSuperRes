@@ -8,6 +8,7 @@
 
 #include <pcl/io/ply_io.h>
 #include <pcl/io/vtk_lib_io.h>
+#include <pcl/console/parse.h>
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -27,7 +28,7 @@ namespace am
     }
 
     void
-    UpScaling::run( std::string const& sPolygonPath, Eigen::Affine3f const& pose, cv::Mat const& rgb8, int img_id, int p_cols, int p_rows )
+    UpScaling::run( std::string const& sPolygonPath, Eigen::Affine3f const& pose, cv::Mat const& rgb8, int img_id, int p_cols, int p_rows, int argc, char** argv )
     {
         int cols = ( p_cols > -1 ) ? p_cols : rgb8.cols;
         int rows = ( p_rows > -1 ) ? p_rows : rgb8.rows;
@@ -84,6 +85,12 @@ namespace am
         params.range_sigma = 0.1;
         params.kernel_range = 5;
         params.yang_iterations = 10;
+
+        pcl::console::parse_argument( argc, argv, "--spatial_sigma"   , params.spatial_sigma    );
+        pcl::console::parse_argument( argc, argv, "--range_sigma"     , params.range_sigma      );
+        pcl::console::parse_argument( argc, argv, "--kernel_range"    , params.kernel_range     );
+        pcl::console::parse_argument( argc, argv, "--cross_iterations", params.cross_iterations );
+        pcl::console::parse_argument( argc, argv, "--iter"            , params.yang_iterations  );
 //        params.spatial_sigma = 1.2;
 //        params.range_sigma = 0.1;
 //        params.kernel_range = 3;

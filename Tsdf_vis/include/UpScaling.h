@@ -15,7 +15,7 @@ namespace am
             UpScaling( Eigen::Matrix3f intrinsics );
 
             void
-            run( std::string const& sPolygonPath, Eigen::Affine3f const& pose, cv::Mat const& rgb8, int img_id = -1, int p_cols = -1, int p_rows = -1 );
+            run( std::string const& sPolygonPath, Eigen::Affine3f const& pose, cv::Mat const& rgb8, int img_id = -1, int p_cols = -1, int p_rows = -1, int argc = 0, char** argv = NULL );
     };
 
 } // end ns am
