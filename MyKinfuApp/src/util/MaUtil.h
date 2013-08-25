@@ -124,6 +124,7 @@ namespace util
 
     std::string getCvImageType( int type );
 
+    extern
     std::string outputDirectoryNameWithTimestamp( std::string path );
 
     extern

@@ -583,7 +583,7 @@ namespace am
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void
-    KinFuApp::startMainLoop (bool triggered_capture, int limit_frames )
+    KinFuApp::startMainLoop (bool triggered_capture, int limit_frames, int start_frame )
     {
         using namespace openni_wrapper;
         typedef boost::shared_ptr<DepthImage> DepthImagePtr;
@@ -599,7 +599,7 @@ namespace am
         boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)> func1 = is_oni ? func1_oni : func1_dev;
         boost::function<void (const DepthImagePtr&)> func2 = is_oni ? func2_oni : func2_dev;
 
-        bool need_colors = integrate_colors_ || registration_ || 1;
+        bool need_colors = integrate_colors_ || registration_;
         boost::signals2::connection c = need_colors ? capture_.registerCallback (func1) : capture_.registerCallback (func2);
 
         {
@@ -617,6 +617,14 @@ namespace am
             {
                 if ( triggered_capture )
                     capture_.start(); // Triggers new frame
+
+                if ( frame_count < start_frame )
+                {
+                    std::cout << "skipping frame " << frame_count << std::endl;
+                    ++frame_count;
+                    continue;
+                }
+
                 bool has_data = data_ready_cond_.timed_wait (lock, boost::posix_time::millisec(100));
 
                 try { this->execute (depth_, rgb24_, has_data); }
@@ -637,7 +645,7 @@ namespace am
                 {
                     exit_ = true;
                 }
-                if ( limit_frames > 0 && frame_count > limit_frames )
+                if ( limit_frames > 0 && (frame_count - start_frame) > limit_frames )
                 {
                     exit_ = true;
                 }

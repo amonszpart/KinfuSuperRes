@@ -240,11 +240,6 @@ int main( int argc, char** argv )
         cv::resize( rgb8, large_rgb8, large_dep16.size(), 0, 0, CV_INTER_NN );
         ViewPointMapperCuda::undistortRgb( rgb8_960, large_rgb8, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
     }
-    cv::Mat blended;
-    am::util::blend( blended, large_dep16, 10001.f, rgb8_960, 255.f );
-    cv::imshow( "blended", blended );
-    cv::waitKey();
-    return 0;
 
     // read poses
     std::map<int,Eigen::Affine3f> poses;

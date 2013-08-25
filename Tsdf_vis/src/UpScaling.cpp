@@ -56,7 +56,7 @@ namespace am
 
         std::cout << "UpScaling::run(): subdividing mesh...";
         pcl::PolygonMesh::Ptr subdivMeshPtr( new pcl::PolygonMesh );
-        MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 2 );
+        MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 1 );
         std::cout << "OK..." << std::endl;
 
         std::cout << "UpScaling::run(): showing mesh...";
@@ -72,6 +72,13 @@ namespace am
         cv::Mat zBufMat;
         am::util::pcl::fetchViewerZBuffer( zBufMat, polyMeshViewer.VisualizerPtr() );
         std::cout << "OK..." << std::endl;
+
+        cv::Mat blended;
+        am::util::blend( blended, zBufMat, 10001.f, rgb8, 255.f );
+        cv::imshow( "blended", blended);
+        cv::imwrite("blended.png", blended );
+        cv::waitKey();
+        return;
 
         // debug
         cv::Mat zBufMat8;

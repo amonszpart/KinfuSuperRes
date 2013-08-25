@@ -99,10 +99,10 @@ SET( HEADERS_LIST
 SET( SRC_LIST
     ${KINFU_TRACKER_CPPs}
     ${KINFU_SRC_LIST}
-    src/main.cpp
     src/util/MaUtil.cpp
     src/myopenni/MyONIGrabber.cpp
     src/myopenni/MyOpenNIGrabber.cpp
+    src/main.cpp
     #src/kinfu/AMKinfuTracker.cpp
 )
 

@@ -138,6 +138,13 @@ namespace am
         if (pc::find_switch (argc, argv, "--dump-poses") || pc::find_switch (argc, argv, "-dp"))
             app.dump_poses_ = true;
 
+
+
+        int start_frame = 0;
+        pc::parse_argument(argc, argv, "-sf", start_frame);
+        std::cout << "start_frames " << start_frame << std::endl;
+
+
         int limit_frames = -1;
         pc::parse_argument(argc, argv, "-lf", limit_frames);
         std::cout << "limit_frames: " << limit_frames << std::endl;
@@ -146,12 +153,12 @@ namespace am
         app.scan_volume_ = true;
 
         // output files' path
-        std::string path = util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
+        std::string path = ::util::outputDirectoryNameWithTimestamp( outFileName ) + "/";
         xnOSCreateDirectory( path.c_str() );
         app.screenshot_manager_.setPath( path + "/poses/" );
 
         // executing
-        try { app.startMainLoop (triggered_capture, limit_frames); }
+        try { app.startMainLoop (triggered_capture, limit_frames, start_frame); }
         catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
         catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
         catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
