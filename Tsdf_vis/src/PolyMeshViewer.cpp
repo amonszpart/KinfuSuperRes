@@ -32,12 +32,14 @@ namespace am
         visualizer_->setBackgroundColor (0, 0, 0);
         visualizer_->initCameraParameters ();
         //visualizer_->setPosition (0, 500);
-        visualizer_->setSize( cols_, rows_ );
+        //visualizer_->setSize( cols_, rows_ );
+        visualizer_->setSize( 2.f * intrinsics_(0,2), 2.f * intrinsics_(1,2) );
         visualizer_->setCameraClipDistances( 0.001, 10.01 );
         visualizer_->setShowFPS( false );
 
         // calculate fovy
-        double fovy = 2.0 * atan(intrinsics_(1,2) / 2.f / intrinsics_(1,1)) * 180.0 / M_PI;
+        double fovy = atan(intrinsics_(1,2) / intrinsics_(1,1)) * 360.0 / M_PI;
+        //double fovy = atan(intrinsics_(1,2) / intrinsics_(1,1)) * 360.0 / M_PI;
 
         // set fovy and aspect ratio
         vtkSmartPointer<vtkRendererCollection> rens = visualizer_->getRendererCollection();
@@ -55,9 +57,13 @@ namespace am
             cam->SetViewAngle( fovy );
 
             // aspect
-            /* vtkMatrix4x4 *projmat = */ cam->GetProjectionTransformMatrix( /* aspect (w/h): */ intrinsics_(0,2)/intrinsics_(1,2), 0.001, 10.01 );
+            vtkMatrix4x4 *projmat =  cam->GetProjectionTransformMatrix( /* aspect (w/h): */ intrinsics_(0,2)/intrinsics_(1,2), 0.001, 10.01 );
+            // cam->GetProjectionTransformMatrix( /* aspect (w/h): */ intrinsics_(0,2)/intrinsics_(1,2), 0.001, 10.01 );
             // THIS IS SETTING THE PROJ MATRIX USING the already set VIEWANGLE
+            std::cout << *projmat << std::endl;
+            visualizer_->setSize( cols_, rows_ );
         }
+
 
         // flip flag
         inited_ = true;

@@ -56,9 +56,12 @@ namespace am
 
         std::cout << "UpScaling::run(): subdividing mesh...";
         pcl::PolygonMesh::Ptr subdivMeshPtr( new pcl::PolygonMesh );
-        MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 1 );
+        //MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 1 );
+        *subdivMeshPtr = *mesh;
         std::cout << "OK..." << std::endl;
 
+        MeshRayCaster meshRayCaster( intrinsics_ );
+#if 0
         std::cout << "UpScaling::run(): showing mesh...";
         PolyMeshViewer polyMeshViewer( intrinsics_, cols, rows );
         polyMeshViewer.initViewer( "UpScaling inputMesh" );
@@ -72,13 +75,16 @@ namespace am
         cv::Mat zBufMat;
         am::util::pcl::fetchViewerZBuffer( zBufMat, polyMeshViewer.VisualizerPtr() );
         std::cout << "OK..." << std::endl;
+#else
+        cv::Mat zBufMat(rows,cols,CV_16UC1);
+        meshRayCaster.run( zBufMat, subdivMeshPtr, pose, 0 );
+#endif
 
         cv::Mat blended;
         am::util::blend( blended, zBufMat, 10001.f, rgb8, 255.f );
         cv::imshow( "blended", blended);
+        cv::waitKey(10);
         cv::imwrite("blended.png", blended );
-        cv::waitKey();
-        return;
 
         // debug
         cv::Mat zBufMat8;
@@ -112,10 +118,10 @@ namespace am
 
         std::cout << "UpScaling::run(): enhance mesh...";
         pcl::PolygonMesh::Ptr enhancedMeshPtr( new pcl::PolygonMesh );
-        MeshRayCaster meshRayCaster( intrinsics_ );
-        std::cout << "polyMeshViewer.MeshPtr(): mesh->cloud.size: " << polyMeshViewer.MeshPtr()->cloud.width << "x" <<  polyMeshViewer.MeshPtr()->cloud.height << std::endl;
+
+        std::cout << "polyMeshViewer.MeshPtr(): mesh->cloud.size: " << subdivMeshPtr->cloud.width << "x" <<  subdivMeshPtr->cloud.height << std::endl;
         std::cout << "subdivMeshPtr->cloud.size: " << subdivMeshPtr->cloud.width << "x" <<  subdivMeshPtr->cloud.height << std::endl;
-        meshRayCaster.enhanceMesh( enhancedMeshPtr, filtered, polyMeshViewer.MeshPtr(), pose, 3.f / 640.f );
+        meshRayCaster.enhanceMesh( enhancedMeshPtr, filtered, subdivMeshPtr, pose, 3.f / 640.f );
         std::cout << "OK..." << std::endl;
 
         std::cout << "UpScaling::run(): save mesh...";

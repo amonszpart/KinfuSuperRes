@@ -214,7 +214,7 @@ int main( int argc, char** argv )
         ply_no_tsdf = true;
     }
 
-    int img_id = 40;
+    int img_id = 50;
     pcl::console::parse_argument (argc, argv, "--img_id", img_id );
     std::cout << "Running for img_id " << img_id << std::endl;
 
@@ -233,7 +233,7 @@ int main( int argc, char** argv )
     {
         boost::filesystem::path rgb8_path = boost::filesystem::path(inputFilePath).parent_path()
                                             / std::string("poses")
-                                            / (boost::lexical_cast<std::string> (img_id) + std::string(".png"));
+                                            / (boost::lexical_cast<std::string> (std::max(0,img_id-1)) + std::string(".png"));
         rgb8 = cv::imread( rgb8_path.c_str(), -1 );
 
         cv::Mat large_rgb8;
@@ -253,6 +253,43 @@ int main( int argc, char** argv )
 
     am::UpScaling upScaling( intrinsics );
     upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id, -1, -1, argc, argv );
+    return 0;
+    // process mesh
+    cv::Mat rcDepth16;
+    pcl::PolygonMesh::Ptr enhancedMeshPtr;
+    am::MeshRayCaster mrc( intrinsics );
+    if ( 1 )
+    {
+        pcl::PolygonMeshPtr meshPtr( new pcl::PolygonMesh );
+        pcl::io::loadPolygonFile( inputFilePath, *meshPtr );
+        am::MeshRayCaster mrc( intrinsics );
+        mrc.run( rcDepth16, meshPtr, poses[img_id] );
+
+        // show output
+        cv::imshow( "rcDepth16", rcDepth16 );
+        cv::Mat rcDepth8;
+        rcDepth16.convertTo( rcDepth8, CV_8UC1, 255.f / 10001.f );
+        cv::imshow( "rcDepth8", rcDepth8 );
+
+        // show overlay
+        {
+            std::vector<cv::Mat> rc8Vec = { rcDepth8, rcDepth8, rcDepth8 };
+            cv::Mat rc8C3;
+            cv::merge( rc8Vec.data(), 3, rc8C3 );
+            std::cout << "merge ok" << std::endl;
+
+            cv::Mat overlay;
+            cv::addWeighted( rc8C3, 0.95f, rgb8_960, 0.05f, 1.0, overlay );
+            cv::imshow( "overlay", overlay );
+            cv::waitKey();
+        }
+
+        // show 3D
+        {
+            //am::DepthViewer3D depthViewer;
+            //depthViewer.showMats( rcDepth16, rgb8_960, img_id, poses, intrinsics );
+        }
+    }
     return 0;
 
     // apply pose
@@ -295,39 +332,7 @@ int main( int argc, char** argv )
         }
     }
 
-    // process mesh
-    cv::Mat rcDepth16;
-    pcl::PolygonMesh::Ptr enhancedMeshPtr;
-    am::MeshRayCaster mrc( intrinsics );
-    if ( 0 )
-    {
-        am::MeshRayCaster mrc( intrinsics );
-        mrc.run( rcDepth16, tsdfViewer->MeshPtr(), poses[img_id] );
 
-        // show output
-        cv::imshow( "rcDepth16", rcDepth16 );
-        cv::Mat rcDepth8;
-        rcDepth16.convertTo( rcDepth8, CV_8UC1, 255.f / 10001.f );
-        cv::imshow( "rcDepth8", rcDepth8 );
-
-        // show overlay
-        {
-            std::vector<cv::Mat> rc8Vec = { rcDepth8, rcDepth8, rcDepth8 };
-            cv::Mat rc8C3;
-            cv::merge( rc8Vec, rc8C3 );
-            std::cout << "merge ok" << std::endl;
-
-            cv::Mat overlay;
-            cv::addWeighted( rc8C3, 0.95f, rgb8_960, 0.2f, 1.0, overlay );
-            cv::imshow( "overlay", overlay );
-        }
-
-        // show 3D
-        {
-            //am::DepthViewer3D depthViewer;
-            //depthViewer.showMats( rcDepth16, rgb8_960, img_id, poses, intrinsics );
-        }
-    }
 
 
     std::vector<float> zBuffer;

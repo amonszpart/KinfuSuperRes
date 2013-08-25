@@ -26,6 +26,7 @@ namespace am
         }
 
         // subdivision
+        if ( subdivideIterations > 0 )
         {
             std::cout << "Subdividing mesh...";
 
@@ -213,6 +214,7 @@ namespace am
 
         for ( int y = 0; y < depthFC1.rows; ++y )
         {
+            std::cout << "rayCast.y: " << y << std::endl;
             for ( int x = 0; x < depthFC1.cols; ++x /*, mappedCoordsIndex += 2 */)
             {
                 ray_start = translation;
