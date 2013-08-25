@@ -275,7 +275,7 @@ int main( int argc, char** argv )
     pcl::console::parse_argument (argc, argv, "--img_id", img_id );
     std::cout << "Running for img_id " << img_id << std::endl;
 
-    // read DEPTH
+        // read DEPTH
     cv::Mat dep16, large_dep16;
     {
         boost::filesystem::path dep_path = boost::filesystem::path(inputFilePath).parent_path()
@@ -306,7 +306,7 @@ int main( int argc, char** argv )
     }
 
     am::UpScaling upScaling( intrinsics );
-    upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id );
+    upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id, -1, -1, argc, argv );
     return 0;
 
     // apply pose

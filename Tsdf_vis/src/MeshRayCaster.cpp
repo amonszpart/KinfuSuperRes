@@ -155,7 +155,8 @@ namespace am
                         float dy = (*p_y - pclPnt.y);
                         float dz = (*p_z - pclPnt.z);
                         p_bgr[2] = 128 + std::min((uchar)127,(uchar)round(sqrt(dx*dx+dy*dy+dz*dz) * 100.f));
-                        std::cout << round(sqrt(dx*dx+dy*dy+dz*dz)) << std::endl;
+                        p_bgr[1] = 255;
+                        std::cout << round(sqrt(dx*dx+dy*dy+dz*dz)) << " ";
 
                         *p_x = pclPnt.x;
                         *p_y = pclPnt.y;
@@ -169,7 +170,7 @@ namespace am
         }
 
         // plot hist
-        std::cout << "hist: ";
+        std::cout << "/nhist: ";
         for ( int i = 0; i < hist.size(); ++i )
         {
             if ( hist[i] > 0 ) std::cout << i << ": " << hist[i] << "; ";
