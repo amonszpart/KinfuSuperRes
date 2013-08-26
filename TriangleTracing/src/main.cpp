@@ -13,107 +13,77 @@ using namespace std;
 
 #define M_PI       3.14159265358979323846
 
+#include "mesh.h"
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <pcl/io/vtk_lib_io.h>
+#include <eigen3/Eigen/Dense>
 
 struct GLRenderer
 {
         GLRenderer()
-            : width(320), height(320),
-              pixels( new GLubyte[width*height*sizeof(float) * 4] )
+            : width(1280), height(960),
+              pixels( new GLubyte[width*height*sizeof(float   ) * 4] ),
+              ids   ( new GLuint [width*height*sizeof(unsigned) * 3] ),
+              depthrenderbuffer(0), FramebufferName(0), renderedTexture({-1,-1})
         {}
 
         ~GLRenderer()
         {
             if ( pixels ) { delete [] pixels; pixels = NULL; }
+            if ( ids    ) { delete [] ids   ; ids    = NULL; }
+
+            glDeleteTextures( 2, renderedTexture );
+            glDeleteFramebuffers(1, &FramebufferName);
+            glDeleteRenderbuffers(1, &depthrenderbuffer);
         }
 
         int W() { return width; }
         int H() { return height; }
         GLubyte *& Pixels() { return pixels; }
-        int SzPixels() { return width * height * sizeof(float) * 4; }
+        GLuint  *& Ids   () { return ids;    }
+        int SzPixels() { return width * height * sizeof(float   ) * 4; }
+        int SzIds()    { return width * height * sizeof(unsigned) * 3; }
+
+        GLuint depthrenderbuffer;
+        GLuint FramebufferName;
+        GLuint renderedTexture[2];
+
+        Mesh meshes;
 
     protected:
         int width;
         int height;
         GLubyte *pixels;
+        GLuint  *ids;
         int szPixels;
 
-} glRendererInstance;
+} gInst;
 
-// Data for drawing Axis
-float verticesAxis[] = {-20.0f, 0.0f, 0.0f, 1.0f,
-            20.0f, 0.0f, 0.0f, 1.0f,
-
-            0.0f, -20.0f, 0.0f, 1.0f,
-            0.0f,  20.0f, 0.0f, 1.0f,
-
-            0.0f, 0.0f, -20.0f, 1.0f,
-            0.0f, 0.0f,  20.0f, 1.0f};
-
-float colorAxis[] = {   0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f};
-
-// Data for triangle 1
-float vertices1[] = { -3.0f, 0.0f, -5.0f, 1.0f,
-                      -1.0f, 0.0f, -5.0f, 1.0f,
-                      -2.0f, 2.0f, -5.0f, 1.0f,
-                       1.f, 1.f, 1.f, 1.f,
-                       2.f, 2.f, 2.f, 1.f,
-                       1.f, 2.f, 2.f, 1.f,
-                      1.0f, 0.0f, -5.0f, 1.0f,
-                      3.0f, 0.0f, -5.0f, 1.0f,
-                      2.0f, 2.0f, -5.0f, 1.0f };
-
-float colors1[] = { 1.0f, 0.0f, 1.0f, 1.0f,
-                    2.0f, 0.0f, 1.0f, 1.0f,
-                    3.0f, 0.0f, 1.0f, 1.0f,
-                    4.0f, 0.0f, 1.0f, 1.0f,
-                    5.0f, 0.0f, 1.0f, 1.0f,
-                    6.0f, 0.0f, 1.0f, 1.0f,
-                    7.0f, 0.0f, 1.0f, 1.0f,
-                    8.0f, 0.0f, 1.0f, 1.0f,
-                    9.0f, 0.0f, 1.0f, 1.0f };
-unsigned int faceArray [] = { 0, 1, 2,
-                              1, 2, 3,
-                              3, 4, 5,
-                              6, 7, 8 };
-
-// Data for triangle 2
-float vertices2[] = {   1.0f, 0.0f, -5.0f, 1.0f,
-            3.0f, 0.0f, -5.0f, 1.0f,
-            2.0f, 2.0f, -5.0f, 1.0f};
-
-float colors2[] = { 1.0f, 0.0f, 0.0f, 1.0f,
-            1.0f, 0.0f, 0.0f, 1.0f,
-            1.0f,0.0f, 0.0f, 1.0f};
 
 // Shader Names
-char *vertexFileName = "../src/shaders/triangles.vert";
-char *fragmentFileName = "../src/shaders/triangles.frag";
+const char *vertexFileName   = "../src/shaders/triangles.vert";
+const char *fragmentFileName = "../src/shaders/triangles.frag";
 
 // Program and Shader Identifiers
 GLuint p,v,f;
 
 // Vertex Attribute Locations
-GLuint vertexLoc, colorLoc;
+GLuint vertexLoc, texLoc, normalLoc;
 
 // Uniform variable Locations
-GLuint projMatrixLoc, viewMatrixLoc, modelMatrixLoc;
+GLuint projMatrixLoc, viewMatrixLoc, modelMatrixLoc, eyeLoc;
 
 // Vertex Array Objects Identifiers
 GLuint vao[3];
-GLuint FramebufferName = 0;
-GLuint renderedTexture = 0;
+
 
 // storage for Matrices
 float projMatrix[16];
 float viewMatrix[16];
 float modelMatrix[16];
+float eyePosition[3];
 
 // ----------------------------------------------------
 // VECTOR STUFF
@@ -186,11 +156,11 @@ void setTranslationMatrix(float *mat, float x, float y, float z) {
 // Projection Matrix
 //
 
-void buildProjectionMatrix(float fov, float ratio, float nearP, float farP) {
-
+void buildProjectionMatrix(float fov, float ratio, float nearP, float farP)
+{
     float f = 1.0f / tan (fov * (M_PI / 360.0));
 
-    setIdentityMatrix(projMatrix,4);
+    setIdentityMatrix( projMatrix, 4 );
 
     projMatrix[0] = f / ratio;
     projMatrix[1 * 4 + 1] = f;
@@ -207,19 +177,21 @@ void buildProjectionMatrix(float fov, float ratio, float nearP, float farP) {
 // i.e. a vertical up vector (remmeber gluLookAt?)
 //
 
-void setCamera(float posX, float posY, float posZ,
-               float lookAtX, float lookAtY, float lookAtZ) {
+void setCamera( float posX, float posY, float posZ,
+                float lookAtX, float lookAtY, float lookAtZ,
+                float upX, float upY, float upZ )
+{
 
     float dir[3], right[3], up[3];
 
-    up[0] = 0.0f;   up[1] = 1.0f;   up[2] = 0.0f;
+    up[0] = upX;   up[1] = upY;   up[2] = upZ;
 
     dir[0] =  (lookAtX - posX);
     dir[1] =  (lookAtY - posY);
     dir[2] =  (lookAtZ - posZ);
     normalize(dir);
 
-    crossProduct(dir,up,right);
+    crossProduct( dir, up, right );
     normalize(right);
 
     crossProduct(right,dir,up);
@@ -232,9 +204,9 @@ void setCamera(float posX, float posY, float posZ,
     viewMatrix[8]  = right[2];
     viewMatrix[12] = 0.0f;
 
-    viewMatrix[1]  = up[0];
-    viewMatrix[5]  = up[1];
-    viewMatrix[9]  = up[2];
+    viewMatrix[1]  = -up[0];
+    viewMatrix[5]  = -up[1];
+    viewMatrix[9]  = -up[2];
     viewMatrix[13] = 0.0f;
 
     viewMatrix[2]  = -dir[0];
@@ -250,6 +222,10 @@ void setCamera(float posX, float posY, float posZ,
     setTranslationMatrix(aux, -posX, -posY, -posZ);
 
     multMatrix(viewMatrix, aux);
+
+    eyePosition[0] = posX;
+    eyePosition[1] = posY;
+    eyePosition[2] = posZ;
 
     setIdentityMatrix( modelMatrix, 4 );
 }
@@ -267,156 +243,159 @@ void changeSize(int w, int h) {
     // Set the viewport to be the entire window
     glViewport(0, 0, w, h);
 
-    ratio = (1.0f * w) / h;
-    buildProjectionMatrix(53.13f, ratio, 1.0f, 30.0f);
+    //ratio = (1.0f * w) / h;
+    //buildProjectionMatrix(53.13f, ratio, 1.0f, 30.0f);
 }
 
-void setupBuffers() {
+void setupBuffers( int width, int height )
+{
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI, WindowWidth, WindowHeight, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, NULL);
+    //glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_pickingTexture, 0);
 
-    GLuint buffers[3];
-
-    glGenVertexArrays(3, vao);
-    //
-    // VAO for first triangle
-    //
-    glBindVertexArray(vao[0]);
-    // Generate two slots for the vertex and color buffers
-    glGenBuffers(3, buffers);
-    // bind buffer for vertices and copy data into buffer
-    glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices1), vertices1, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(vertexLoc);
-    glVertexAttribPointer(vertexLoc, 4, GL_FLOAT, 0, 16, 0);
-
-    // bind buffer for colors and copy data into buffer
-    glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colors1), colors1, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(colorLoc);
-    glVertexAttribPointer(colorLoc, 4, GL_FLOAT, 0, 16, 0);
-
-    // buffer for faces
-
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[2]);
-    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(faceArray), faceArray, GL_STATIC_DRAW );
-
-    //
-    // VAO for second triangle
-    //
-    glBindVertexArray(vao[1]);
-    // Generate two slots for the vertex and color buffers
-    glGenBuffers(2, buffers);
-
-    // bind buffer for vertices and copy data into buffer
-    glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices2), vertices2, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(vertexLoc);
-    glVertexAttribPointer(vertexLoc, 4, GL_FLOAT, 0, 0, 0);
-
-    // bind buffer for colors and copy data into buffer
-    glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colors2), colors2, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(colorLoc);
-    glVertexAttribPointer(colorLoc, 4, GL_FLOAT, 0, 0, 0);
-
-    //
-    // This VAO is for the Axis
-    //
-    glBindVertexArray(vao[2]);
-    // Generate two slots for the vertex and color buffers
-    glGenBuffers(2, buffers);
-    // bind buffer for vertices and copy data into buffer
-    glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verticesAxis), verticesAxis, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(vertexLoc);
-    glVertexAttribPointer(vertexLoc, 4, GL_FLOAT, 0, 0, 0);
-
-    // bind buffer for colors and copy data into buffer
-    glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colorAxis), colorAxis, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(colorLoc);
-    glVertexAttribPointer(colorLoc, 4, GL_FLOAT, 0, 0, 0);
-
-    // The framebuffer, which regroups 0, 1, or more textures, and 0 or 1 depth buffer.
+    glGenFramebuffers( 1, &gInst.FramebufferName );
+    glBindFramebuffer(GL_FRAMEBUFFER, gInst.FramebufferName );
 
     {
-        glGenFramebuffers( 1, &FramebufferName );
-        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
-        // The texture we're going to render to
-
-        glGenTextures(1, &renderedTexture);
-
+        glGenTextures( 2, gInst.renderedTexture );
         // "Bind" the newly created texture : all future texture functions will modify this texture
-        glBindTexture(GL_TEXTURE_2D, renderedTexture);
-
+        glBindTexture( GL_TEXTURE_2D, gInst.renderedTexture[0] );
         // Give an empty image to OpenGL ( the last "0" )
-        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 320, 320, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-
+        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
         // Poor filtering. Needed !
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        // The depth buffer
-        GLuint depthrenderbuffer;
-        glGenRenderbuffers(1, &depthrenderbuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, depthrenderbuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 320, 320);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderbuffer);
-
-        // Set "renderedTexture" as our colour attachement #0
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, renderedTexture, 0);
-
-        // Set the list of draw buffers.
-        GLenum DrawBuffers[2] = {GL_COLOR_ATTACHMENT0};
-        glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
-
-        // Always check that our framebuffer is ok
-        if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cerr << "asdf" << std::endl;
-
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gInst.renderedTexture[0], 0 );
     }
 
+    // Create the texture object for the primitive information buffer
+    {
+        glBindTexture(GL_TEXTURE_2D, gInst.renderedTexture[1] );
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI, width, height, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, NULL );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gInst.renderedTexture[1], 0 );
+        //glReadPixels(x, y, 1, 1, GL_RGB_INTEGER, GL_UNSIGNED_INT, &Pixel);
+    }
+
+    // The depth buffer
+    {
+        glGenRenderbuffers(1, &gInst.depthrenderbuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, gInst.depthrenderbuffer);
+        glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height );
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gInst.depthrenderbuffer);
+
+        // Create the texture object for the depth buffer
+        //glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, WindowWidth, WindowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        //glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTexture, 0);
+    }
+
+    // Set the list of draw buffers.
+    GLenum DrawBuffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers( 2, DrawBuffers ); // "1" is the size of DrawBuffers
+
+    // Always check that our framebuffer is ok
+    if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cerr << "asdf" << std::endl;
 }
 
 void setUniforms() {
 
     // must be called after glUseProgram
-    glUniformMatrix4fv(projMatrixLoc,  1, false, projMatrix );
-    glUniformMatrix4fv(viewMatrixLoc,  1, false, viewMatrix );
-    glUniformMatrix4fv(modelMatrixLoc,  1, false, modelMatrix );
+    glUniformMatrix4fv(projMatrixLoc,  1, false,  projMatrix );
+    glUniformMatrix4fv(viewMatrixLoc,  1, false,  viewMatrix );
+    glUniformMatrix4fv(modelMatrixLoc, 1, false, modelMatrix );
+    glUniform3f( eyeLoc, eyePosition[0], eyePosition[1], eyePosition[2] );
 }
 
-void renderScene(void) {
+void renderScene( void )
+{
+    // Render to our framebuffer
+    //setCamera( 10,2,8,0,2,-5);
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    Eigen::Affine3f pose; pose.linear() << 1.f, 0.f, 0.f,
+//                                  0.f, 1.f, 0.f,
+//                                  0.f, 0.f, 1.f;
+//    pose.translation() << 0.f, 0.f, -0.3f;
+    Eigen::Affine3f pose; pose.linear() << 1.f, 0.f, 0.f,
+                                            0.f, 1.f, 0.f,
+                                            0.f, 0.f, 1.f;
+    pose.translation() << 1.5f, 1.5f, -0.3f;
 
-    setCamera( 10,2,8,0,2,-5);
+
+    Eigen::Vector3f pos_vector     = pose * Eigen::Vector3f (0, 0, 0);
+    Eigen::Vector3f look_at_vector = pose.rotation () * Eigen::Vector3f (0, 0, 1) + pos_vector;
+    Eigen::Vector3f up_vector      = pose.rotation () * Eigen::Vector3f (0, -1, 0);
+
+    std::cout << "pos_vector: " << pos_vector << std::endl;
+
+    setCamera(  pos_vector[0], pos_vector[1], pos_vector[2],
+                look_at_vector[0], look_at_vector[1], look_at_vector[2],
+                up_vector[0], up_vector[1], up_vector[2] );
+    //setCamera( 10,2,8,0,2,-5,0,1,0);
+
 
     glUseProgram(p);
     setUniforms();
 
-    glBindVertexArray( vao[0] );
-    glDrawArrays( GL_TRIANGLES, 0, sizeof(vertices1) / 16 );
-    //glDrawElements( GL_TRIANGLES, sizeof(faceArray), GL_UNSIGNED_INT, 0 );
+    std::cout << "current projMat: " << std::endl;
+    for ( int y = 0; y < 4; ++y )
+    {
+        for (int x = 0; x < 4; ++x )
+        {
+            std::cout << projMatrix[y*4+x] << ",";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
 
-    // Render to our framebuffer
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
-    glViewport(0,0,glRendererInstance.W(),glRendererInstance.H()); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+    std::cout << "current viewMat: " << std::endl;
+    for ( int y = 0; y < 4; ++y )
+    {
+        for (int x = 0; x < 4; ++x )
+        {
+            std::cout << viewMatrix[y*4+x] << ",";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
 
-    glFinish();
+    glBindFramebuffer( GL_FRAMEBUFFER, gInst.FramebufferName );
+    glDrawBuffers( 2, gInst.renderedTexture );
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport( 0, 0, gInst.W(), gInst.H() ); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+
+    gInst.meshes.Render();
+
+    //glFinish();
 
     //glBindFramebuffer( GL_FRAMEBUFFER, FramebufferName );
     //glReadBuffer( GL_COLOR_ATTACHMENT0 );
     //glReadPixels(0, 0, glRendererInstance.W(), glRendererInstance.H(), GL_RGBA, GL_FLOAT, glRendererInstance.Pixels() );
     //glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-    glBindVertexArray(vao[2]);
-    glDrawArrays(GL_LINES, 0, 6);
+    //glutSwapBuffers();
 
+    // disable
+    GLenum tmpBuff[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers( 1, tmpBuff );
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+    gInst.meshes.Render();
+
+    //glFinish();
     glutSwapBuffers();
 }
 
-void processNormalKeys(unsigned char key, int x, int y) {
-
-    if (key == 27) {
+void processNormalKeys( unsigned char key, int x, int y )
+{
+    if ( key == 27 )
+    {
         glDeleteVertexArrays(3,vao);
         glDeleteProgram(p);
         glDeleteShader(v);
@@ -485,17 +464,17 @@ GLuint setupShaders() {
 
     GLuint p,v,f;
 
-    v = glCreateShader(GL_VERTEX_SHADER);
-    f = glCreateShader(GL_FRAGMENT_SHADER);
+    v = glCreateShader( GL_VERTEX_SHADER   );
+    f = glCreateShader( GL_FRAGMENT_SHADER );
 
-    vs = textFileRead(vertexFileName);
-    fs = textFileRead(fragmentFileName);
+    vs = textFileRead( vertexFileName   );
+    fs = textFileRead( fragmentFileName );
 
     const char * vv = vs;
     const char * ff = fs;
 
-    glShaderSource(v, 1, &vv,NULL);
-    glShaderSource(f, 1, &ff,NULL);
+    glShaderSource( v, 1, &vv, NULL );
+    glShaderSource( f, 1, &ff, NULL );
 
     free(vs);free(fs);
 
@@ -509,25 +488,34 @@ GLuint setupShaders() {
     glAttachShader(p,v);
     glAttachShader(p,f);
 
-    glBindFragDataLocation(p, 0, "outputF");
+    glBindFragDataLocation( p, 0, "outputF" );
+    glBindFragDataLocation( p, 1, "ids"     );
     glLinkProgram(p);
     printProgramInfoLog(p);
 
-    vertexLoc = glGetAttribLocation(p,"position");
-    colorLoc = glGetAttribLocation(p, "color");
+    vertexLoc = glGetAttribLocation( p, "position" );
+    std::cout << "vertexLoc: " << vertexLoc << std::endl;
+
+    texLoc    = glGetAttribLocation( p, "texCoord" );
+    std::cout << "texLoc: " << texLoc << std::endl;
+
+    normalLoc  = glGetAttribLocation( p, "normal"   );
+    std::cout << "colorLoc: " << normalLoc << std::endl;
 
     projMatrixLoc = glGetUniformLocation(p, "projMatrix");
     viewMatrixLoc = glGetUniformLocation(p, "viewMatrix");
     modelMatrixLoc = glGetUniformLocation(p, "modelMatrix");
+    eyeLoc = glGetUniformLocation(p, "eyePos");
 
     return(p);
 }
 
-int main(int argc, char **argv) {
+int main( int argc, char **argv )
+{
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(100,100);
-    glutInitWindowSize( glRendererInstance.W(), glRendererInstance.H() );
+    glutInitWindowSize( gInst.W(), gInst.H() );
     glutCreateWindow("Lighthouse 3D");
 
     glutDisplayFunc(renderScene);
@@ -547,22 +535,105 @@ int main(int argc, char **argv) {
     glClearColor(0.0,0.0,0.0,1.0);
 
     p = setupShaders();
-    setupBuffers();
+    setupBuffers( gInst.W(), gInst.H() );
+
+    gInst.meshes.LoadMesh( "/home/bontius/workspace/rec/testing/cloud_mesh.ply" );
+    gInst.meshes.vertexShaderLoc    = vertexLoc;
+    gInst.meshes.texShaderLoc       = texLoc;
+    gInst.meshes.normalShaderLoc    = normalLoc;
+
+    Eigen::Matrix3f intrinsics;
+    intrinsics << 521.7401 * 2.f, 0             , 323.4402 * 2.f,
+                  0             , 522.1379 * 2.f, 258.1387 * 2.f,
+                  0             , 0             , 1             ;
+    double width  = 1280.;
+    double height = 960.;
+    double znear  = 0.001;
+    double zfar   = 10.01;
+    int x0 = 0;
+    int y0 = 0;
+    Eigen::Matrix3f K(intrinsics);
+
+    float ratio = (1.0f * width) / height;
+    buildProjectionMatrix(53.13f, ratio, 0.001f, 10.01f);
+    for ( int y = 0; y < 4; ++y )
+    {
+        for ( int x = 0; x < 4; ++x )
+        {
+            std::cout << projMatrix[y*4+x] << ",";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    float proj[16] = {  2.*K(0,0)/width,                      -2. * K(0,1) /  width,                                  0.,  0.,
+                        0              ,                       2. * K(1,1) / height,                                  0.,  0.,
+                        0              , (  width - 2. * K(0,2) + 2. * x0) /  width,    (-zfar - znear) / (zfar - znear), -1.,
+                        0              , (-height + 2. * K(1,2) + 2. * y0) / height, -2. * zfar * znear / (zfar - znear),  0. };
+    /*float proj[16] = { 2.*K(0,0)/width, -2. * K(0,1) / width , (width  - 2. * K(0,2) + 2. * x0)/width ,                            0,
+                        0              , -2. * K(1,1) / height, (height - 2. * K(1,2) + 2. * y0)/height,                            0,
+                        0              ,                     0, (-zfar - znear)/(zfar - znear)         , -2*zfar*znear/(zfar - znear),
+                        0              ,                     0,                                      -1,                            0 };*/
+    memcpy( projMatrix, proj, 16*sizeof(float) );
+
+    for ( int y = 0; y < 4; ++y )
+    {
+        for ( int x = 0; x < 4; ++x )
+        {
+            std::cout << projMatrix[y*4+x] << ",";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
 
     glutMainLoopEvent();
     //glutMainLoop();
 
-    glBindFramebuffer( GL_FRAMEBUFFER, FramebufferName );
+    glBindFramebuffer( GL_FRAMEBUFFER, gInst.FramebufferName );
     glReadBuffer( GL_COLOR_ATTACHMENT0 );
-    glReadPixels(0, 0, glRendererInstance.W(), glRendererInstance.H(), GL_RGBA, GL_FLOAT, glRendererInstance.Pixels() );
+    glReadPixels(0, 0, gInst.W(), gInst.H(), GL_RGBA, GL_FLOAT, gInst.Pixels() );
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
+    cv::Mat ca0( gInst.H(), gInst.W(), CV_32FC4, gInst.Pixels() );
+    std::vector<cv::Mat> chans;
+    cv::split( ca0, chans );
+    cv::imshow( "chan3", chans[3] );
+    cv::imshow( "chan2", chans[2] );
+    cv::imshow( "chan1", chans[1] );
+    cv::imshow( "chan0", chans[0] );
+
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[3], &minVal, &maxVal );
+        std::cout << "minVal(chans[3]): " << minVal << ", "
+                  << "maxVal(chans[3]): " << maxVal << std::endl;
+    }
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[2], &minVal, &maxVal );
+        std::cout << "minVal(chans[2]): " << minVal << ", "
+                  << "maxVal(chans[2]): " << maxVal << std::endl;
+    }
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[1], &minVal, &maxVal );
+        std::cout << "minVal(chans[1]): " << minVal << ", "
+                  << "maxVal(chans[1]): " << maxVal << std::endl;
+    }
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[0], &minVal, &maxVal );
+        std::cout << "minVal(chans[0]): " << minVal << ", "
+                  << "maxVal(chans[0]): " << maxVal << std::endl;
+    }
+
+
     bool printed = false;
-    for ( int i = 0; i < glRendererInstance.SzPixels() / 4; i+= 16 )
+    for ( int i = 0; i < gInst.SzPixels() / 4; i+= 16 )
     {
         int val = static_cast<int>(
                       round(
-                          reinterpret_cast<float*>(glRendererInstance.Pixels())[i] * 10.f
+                          reinterpret_cast<float*>(gInst.Pixels())[i] * 10.f
                           )
                       );
         if ( val > 0 )
@@ -571,20 +642,45 @@ int main(int argc, char **argv) {
 
             int val2 = static_cast<int>(
                                   round(
-                                      reinterpret_cast<float*>(glRendererInstance.Pixels())[i+2]
+                                      reinterpret_cast<float*>(gInst.Pixels())[i+2]
                                       )
                                   );
-            std::cout << "(" << val << "," << val2 << ")";
+            std::cout << "(" << reinterpret_cast<float*>(gInst.Pixels())[i] * 10.f << ","
+                      << val << "," << val2 << ")";
         }
     }
     if ( printed ) std::cout << std::endl;
-    cv::Mat m( glRendererInstance.H(), glRendererInstance.W(), CV_32FC4, glRendererInstance.Pixels() );
-    std::vector<cv::Mat> chans;
-    cv::split( m, chans );
-    cv::imshow( "chan0", chans[0] / 10.f );
-    cv::imshow( "chan3", chans[3] / 10.f );
-    cv::waitKey();
 
+    glBindFramebuffer( GL_FRAMEBUFFER, gInst.FramebufferName );
+    glReadBuffer( GL_COLOR_ATTACHMENT1 );
+    glReadPixels(0, 0, gInst.W(), gInst.H(), GL_RGB_INTEGER, GL_UNSIGNED_INT, gInst.Ids() );
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+    cv::Mat ca1( gInst.H(), gInst.W(), CV_32SC3, gInst.Ids() );
+    cv::split( ca1, chans );
+    cv::imshow( "ca1C2", chans[2] );
+    cv::imshow( "ca1C1", chans[1] );
+    cv::imshow( "ca1C0", chans[0] );
+
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[2], &minVal, &maxVal );
+        std::cout << "minVal(chans[2]): " << minVal << ", "
+                  << "maxVal(chans[2]): " << maxVal << std::endl;
+    }
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[1], &minVal, &maxVal );
+        std::cout << "minVal(chans[1]): " << minVal << ", "
+                  << "maxVal(chans[1]): " << maxVal << std::endl;
+    }
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( chans[0], &minVal, &maxVal );
+        std::cout << "minVal(chans[0]): " << minVal << ", "
+                  << "maxVal(chans[0]): " << maxVal << std::endl;
+    }
+    cv::waitKey();
 
     return(0);
 }

@@ -6,5 +6,5 @@
 // or explicit are given
 //////////////////////////////////////////////////////////////////////
 
-char *textFileRead(char *fn);
-int textFileWrite(char *fn, char *s);
+char *textFileRead( const char *fn );
+int  textFileWrite( char *fn, char *s);
