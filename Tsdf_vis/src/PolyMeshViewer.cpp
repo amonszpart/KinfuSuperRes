@@ -32,8 +32,8 @@ namespace am
         visualizer_->setBackgroundColor (0, 0, 0);
         visualizer_->initCameraParameters ();
         //visualizer_->setPosition (0, 500);
-        //visualizer_->setSize( cols_, rows_ );
-        visualizer_->setSize( 2.f * intrinsics_(0,2), 2.f * intrinsics_(1,2) );
+        visualizer_->setSize( cols_, rows_ );
+        //visualizer_->setSize( 2.f * intrinsics_(0,2), 2.f * intrinsics_(1,2) );
         visualizer_->setCameraClipDistances( 0.001, 10.01 );
         visualizer_->setShowFPS( false );
 
@@ -61,7 +61,7 @@ namespace am
             // cam->GetProjectionTransformMatrix( /* aspect (w/h): */ intrinsics_(0,2)/intrinsics_(1,2), 0.001, 10.01 );
             // THIS IS SETTING THE PROJ MATRIX USING the already set VIEWANGLE
             std::cout << *projmat << std::endl;
-            visualizer_->setSize( cols_, rows_ );
+            //visualizer_->setSize( cols_, rows_ );
         }
 
 

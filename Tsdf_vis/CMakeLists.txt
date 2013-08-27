@@ -50,7 +50,8 @@ SET( TSDF_VIS_HEADER_LIST
     include/AmPclUtil.h
     include/ProcessorWithIntrinsics.h
     include/PolyMeshViewer.h
-    include/UpScaling
+    include/UpScaling.h
+    include/vtkCatmullClarkFilter.h
 )
 
 SET( TSDF_VIS_SRC_LIST
@@ -63,7 +64,8 @@ SET( TSDF_VIS_SRC_LIST
     src/AmPclUtil.cpp
     ../MyKinfuApp/src/util/MaUtil
     src/PolyMeshViewer.cpp
-    src/UpScaling
+    src/UpScaling.cpp
+    src/vtkCatmullClarkFilter.cpp
     main.cpp
 )
 
@@ -80,4 +82,5 @@ TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME}
     ${MY_LIBRARIES}
     ${PCL_LOC}/lib/libpcl_octree.so
     ${PCL_LOC}/lib/libpcl_surface.so
+    vtkGraphics
 )

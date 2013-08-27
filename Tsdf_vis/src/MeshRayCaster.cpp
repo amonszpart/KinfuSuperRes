@@ -8,6 +8,10 @@
 #include <pcl/octree/octree.h>
 #include <pcl/surface/vtk_smoothing/vtk_mesh_subdivision.h>
 #include <pcl/ros/conversions.h>
+#include <pcl/surface/vtk_smoothing/vtk_utils.h>
+#include <vtkApproximatingSubdivisionFilter.h>
+#include <vtkCatmullClarkFilter.h>
+#include <vtkSmartPointer.h>
 
 #include <opencv2/highgui/highgui.hpp>
 //#include <opencv2/core/core.hpp>
@@ -297,6 +301,25 @@ namespace am
     void
     MeshRayCaster::subdivideMesh( pcl::PolygonMesh &output_mesh, pcl::PolygonMesh::ConstPtr input_mesh, int iterations )
     {
+#if 1
+        //vtkPolyData *polyData = (vtkPolyData*)(dsActor->GetMapper()->GetInputAsDataSet());
+        vtkApproximatingSubdivisionFilter *filter = vtkCatmullClarkFilter::New();
+        filter->SetNumberOfSubdivisions( iterations );
+
+        // Convert from PCL mesh representation to the VTK representation
+        vtkSmartPointer<vtkPolyData> vtk_polygons;
+        pcl::VTKUtils::convertToVTK( *input_mesh, vtk_polygons );
+
+        // Apply the VTK algorithm
+        vtkSmartPointer<vtkPolyDataAlgorithm> vtk_subdivision_filter = vtkCatmullClarkFilter::New();
+
+        vtk_subdivision_filter->SetInput( vtk_polygons );
+        vtk_subdivision_filter->Update();
+        vtk_polygons = vtk_subdivision_filter->GetOutput();
+
+        // Convert the result back to the PCL representation
+        pcl::VTKUtils::convertToPCL( vtk_polygons, output_mesh );
+#else
         // initialize
         pcl::MeshSubdivisionVTK msvtk;
         msvtk.setFilterType( pcl::MeshSubdivisionVTK::LINEAR );
@@ -320,6 +343,8 @@ namespace am
         // last iteration
         msvtk.setInputMesh( (iterations > 1) ? tmp[mesh_id] : input_mesh );
         msvtk.process( output_mesh );
+#endif
+
     }
 
     void
