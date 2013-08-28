@@ -131,8 +131,12 @@ void Mesh::initMesh( pcl::PolygonMesh::Ptr const& meshPtr )
         if ( *p_z < minz ) minz = *p_z ;
 
         vertices.push_back(
-                    Vertex(Vector3f(*p_x, *p_y, *p_z),Vector3f(pid/point_step, .5f, 1.f ))
+                    Vertex(Vector3f(*p_x, *p_y, *p_z),Vector3f( /*  vertexId: */ pid/point_step,
+                                                                /* polygonId: */ pid/point_step/3,
+                                                                /*    unused: */ 1.f ))
                     );
+        //std::cout << pid/point_step << ": "
+        //          << meshPtr->polygons[pid/point_step/3].vertices[0] << "," << meshPtr->polygons[pid/point_step/3].vertices[1] << "," << meshPtr->polygons[pid/point_step/3].vertices[2] << std::endl;
 
         /*std::cout << "putting vertex: "
                   << vertices.back().m_pos.x << ","

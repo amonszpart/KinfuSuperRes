@@ -8,11 +8,6 @@ MESSAGE(STATUS "MYINCLUDES: " ${MY_INCLUDES})
 MESSAGE(STATUS "MYLIBS: " ${MY_LIBRARIES})
 MESSAGE(STATUS "CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
 
-INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/include/ )
-INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/src/ )
-INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuApp/src/util )
-INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuApp/src/kinfu/tools )
-
 ### BilateralFilteringCuda
 ADD_LIBRARY( imp_bilFilCuda STATIC IMPORTED)
 SET_PROPERTY( TARGET imp_bilFilCuda PROPERTY
@@ -27,15 +22,30 @@ add_library ( libMyKinfuTracker STATIC IMPORTED)
 set_property( TARGET libMyKinfuTracker PROPERTY
               IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/build/libMyKinfuTracker.a )
 SET(KINFU_LIB libMyKinfuTracker)
-#INCLUDE_DIRECTORIES( "../MyKinfuTracker/include/" )
-#INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/src/" )
+
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/include/ )
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/src/ )
+
+### MyKinfuApp
+
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuApp/src/util )
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuApp/src/kinfu/tools )
+
+### TriangleTracing
+
+add_library ( libTriangleTracing STATIC IMPORTED)
+set_property( TARGET libTriangleTracing PROPERTY
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../TriangleTracing/build/libTriangleTracing.a )
+
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../TriangleTracing/include/ )
+#INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/src/ )
+
 
 ####################
 
 SET( GNU_FLAGS ${GNU_FLAGS} "-O3 -Wno-deprecated" )
 
 SET( TSDF_VIS_NAME "tsdf_vis" )
-
 
 SET( TSDF_VIS_HEADER_LIST
     ../MyKinfuApp/src/kinfu/tools/tsdf_volume.h

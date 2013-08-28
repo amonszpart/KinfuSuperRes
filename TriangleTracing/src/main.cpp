@@ -25,11 +25,11 @@ using namespace std;
 
 struct GLRenderer
 {
-        void renderDepthAndIndices( cv::Mat &depth, cv::Mat &indices,
+        void renderDepthAndIndices( std::vector<cv::Mat> &depth, std::vector<cv::Mat> &indices,
                                  int w, int h, Eigen::Matrix3f const& intrinsics,
                                  Eigen::Affine3f const& pose, std::string const& meshPath, float alpha = 10001.f );
 
-        void renderDepthAndIndices(cv::Mat &depth, cv::Mat &indices,
+        void renderDepthAndIndices(std::vector<cv::Mat> &depth, std::vector<cv::Mat> &indices,
                                  int w, int h, Eigen::Matrix3f const& intrinsics,
                                  Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr const& meshPtr, float alpha = 10001.f );
 
@@ -83,8 +83,8 @@ struct GLRenderer
         void renderScene( void );
 
         // ReadPixels
-        void readDepthToFC1( cv::Mat &mat, float alpha = 10001.f );
-        void readIds       ( cv::Mat &mat );
+        void readDepthToFC1( cv::Mat &mat, float alpha, cv::Mat &indices );
+        void readIds       ( cv::Mat &mat, cv::Mat &triangleIDs );
 
     protected:
         int      width_;
@@ -94,48 +94,6 @@ struct GLRenderer
         int      szPixels;
         bool    inited_;
 } rendererInstance;
-
-void GLRenderer::readDepthToFC1( cv::Mat &mat, float alpha )
-{
-    const int pixels_point_step = sizeof(float) * 4;
-
-    glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
-    glReadBuffer( GL_COLOR_ATTACHMENT0 );
-    glReadPixels( 0, 0, width_, height_, GL_RGBA, GL_FLOAT, pixels );
-    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-
-    mat.create( height_, width_, CV_32FC1 );
-    for ( int y = 0; y < height_; ++y )
-    {
-        for ( int x = 0; x < width_; ++x )
-        {
-            // copy one channel only
-            float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step] ) * alpha;
-            mat.at<float>( y, x ) = val;
-        }
-    }
-}
-
-void GLRenderer::readIds( cv::Mat &mat )
-{
-    const int ids_point_step = 3 * sizeof(unsigned);
-    glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
-    glReadBuffer( GL_COLOR_ATTACHMENT1 );
-    glReadPixels( 0, 0, width_, height_, GL_RGB_INTEGER, GL_UNSIGNED_INT, ids );
-    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-
-    mat.create( height_, width_, CV_8UC4 );
-    for ( int y = 0; y < height_; ++y )
-    {
-        for ( int x = 0; x < width_; ++x )
-        {
-            // copy one channel only
-            unsigned val = *reinterpret_cast<unsigned*>( &ids[(y * width_ + x) * ids_point_step] );
-
-            mat.at<unsigned>( y, x * 4 ) = val;
-        }
-    }
-}
 
 void GLRenderer::setSize( int w, int h )
 {
@@ -219,8 +177,8 @@ void GLRenderer::loadMesh( std::string const& mesh_path )
 }
 
 // Shader Names
-const char *vertexFileName   = "../src/shaders/triangles.vert";
-const char *fragmentFileName = "../src/shaders/triangles.frag";
+const char *vertexFileName   = "shaders/triangles.vert";
+const char *fragmentFileName = "shaders/triangles.frag";
 
 // ----------------------------------------------------
 // VECTOR STUFF
@@ -609,7 +567,53 @@ void GLRenderer::setIntrinsics( Eigen::Matrix3f K, float zNear, float zFar )
     memcpy( projMatrix, proj, 16 * sizeof(float) );
 }
 
-void GLRenderer::renderDepthAndIndices( cv::Mat &depth, cv::Mat &indices,
+void GLRenderer::readDepthToFC1( cv::Mat &mat, float alpha, cv::Mat &indices )
+{
+    const int pixels_point_step = sizeof(float) * 4;
+
+    glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
+    glReadBuffer( GL_COLOR_ATTACHMENT0 );
+    glReadPixels( 0, 0, width_, height_, GL_RGBA, GL_FLOAT, pixels );
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+    mat.create( height_, width_, CV_32FC1 );
+    indices.create( height_, width_, CV_32FC1 );
+    for ( int y = 0; y < height_; ++y )
+    {
+        for ( int x = 0; x < width_; ++x )
+        {
+            // copy one channel only
+            float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step] ) * alpha;
+            mat.at<float>( y, x ) = val;
+            float ind = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step + sizeof(float)] );
+            indices.at<float>( y, x) = ind;
+        }
+    }
+}
+
+void GLRenderer::readIds( cv::Mat &inds, cv::Mat &triangleIDs )
+{
+    glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
+    glReadBuffer( GL_COLOR_ATTACHMENT1 );
+    glReadPixels( 0, 0, width_, height_, GL_RGB_INTEGER, GL_UNSIGNED_INT, ids );
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+    inds.create( height_, width_, CV_8UC4 );
+    triangleIDs.create( height_, width_, CV_8UC4 );
+    for ( int y = 0; y < height_; ++y )
+    {
+        for ( int x = 0; x < width_; ++x )
+        {
+            // copy one channel only
+
+            inds       .at<unsigned>(y,x) = ids[ (y * width_ + x) * 3     ]; // ids is GLuint pointer, so sizeof unsigned not needed
+            triangleIDs.at<unsigned>(y,x) = ids[ (y * width_ + x) * 3 + 1 ];
+        }
+    }
+}
+
+
+void GLRenderer::renderDepthAndIndices(std::vector<cv::Mat> &depths, std::vector<cv::Mat> &indices,
                                      int w, int h, Eigen::Matrix3f const& intrinsics,
                                      Eigen::Affine3f const& pose, std::string const& meshPath,
                                      float alpha )
@@ -617,10 +621,10 @@ void GLRenderer::renderDepthAndIndices( cv::Mat &depth, cv::Mat &indices,
     pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
     pcl::io::loadPolygonFile( meshPath, *meshPtr );
 
-    renderDepthAndIndices( depth, indices, w, h, intrinsics, pose, meshPtr, alpha );
+    renderDepthAndIndices( depths, indices, w, h, intrinsics, pose, meshPtr, alpha );
 }
 
-void GLRenderer::renderDepthAndIndices( cv::Mat &depth, cv::Mat &indices,
+void GLRenderer::renderDepthAndIndices( std::vector<cv::Mat> &depths, std::vector<cv::Mat> &indices,
                                      int w, int h, Eigen::Matrix3f const& intrinsics,
                                      Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr const& meshPtr,
                                      float alpha )
@@ -637,17 +641,22 @@ void GLRenderer::renderDepthAndIndices( cv::Mat &depth, cv::Mat &indices,
     //glutMainLoop();
     renderScene();
 
-    readDepthToFC1( depth, alpha );
-    readIds( indices );
+    depths.resize(2);
+    indices.resize(2);
+    readDepthToFC1( depths[0], alpha, depths[1] );
+    readIds( indices[0], indices[1] );
 }
 
 int main( int argc, char **argv )
 {
     // projection
     Eigen::Matrix3f intrinsics;
-    intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
-            0             , 522.1379 * 2.f, 258.1387 * 2.f,
-            0             , 0             , 1             ;
+//    intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
+//            0             , 522.1379 * 2.f, 258.1387 * 2.f,
+//            0             , 0             , 1             ;
+    intrinsics << 521.7401 * 2.f / 1280.f * 32.f, 0.f       , 323.4402 * 2.f / 1280.f * 32.f,
+            0.f             , 522.1379 * 2.f / 960.f * 24.f, 258.1387 * 2.f / 960.f * 24.f,
+            0.f             , 0.f             , 1.f             ;
 
     // view
     Eigen::Affine3f pose; pose.linear()
@@ -656,10 +665,37 @@ int main( int argc, char **argv )
                0.f, 0.f, 1.f;
     pose.translation() << 1.5f, 1.5f, -0.3f;
 
+    std::vector<cv::Mat> depths, indices;
     cv::Mat depthFC1, indices32UC1;
-    rendererInstance.renderDepthAndIndices( depthFC1, indices32UC1, 1280, 960, intrinsics, pose, "/home/bontius/workspace/rec/testing/cloud_mesh.ply", 10001.f );
+    rendererInstance.renderDepthAndIndices( depths, indices, 32, 24, intrinsics, pose, "/home/bontius/workspace/rec/testing/cloud_mesh.ply", 10001.f );
+
+    depthFC1     = depths[0];  // depths
+    indices32UC1 = indices[0]; // vertex ids
 
     cv::imshow( "depth", depthFC1 / 5001.f );
+    for ( int y = 0; y < indices32UC1.rows; ++y )
+        for ( int x = 0; x < indices32UC1.cols; ++x )
+        {
+            std::cout << "("
+                      << y << ","
+                      << x << ","
+                      << indices32UC1.at<unsigned>(y,x) << ","
+                      <<   indices[1].at<unsigned>(y,x) << ","
+                      << "  " << indices32UC1.at<unsigned>(y,x)/3
+                      << ");";
+        }
+    std::cout << std::endl;
+
+    cv::Mat indices2;
+    indices32UC1.convertTo( indices2, CV_32FC1, 600000.f );
+    cv::imshow( "indicesFC1", indices2 );
+    {
+        double minVal, maxVal;
+        cv::minMaxIdx( indices2, &minVal, &maxVal );
+        std::cout << "minVal(indices2): " << minVal << ", "
+                  << "maxVal(indices2): " << maxVal << std::endl;
+    }
+
 
     cv::Mat out;
     depthFC1.convertTo( out, CV_16UC1 );
@@ -679,7 +715,7 @@ int main( int argc, char **argv )
         {
             //indicesFC1.at<float>( y, x ) = ((float)*((unsigned*)indices32UC1.ptr<uchar>(y, x * 4)));
             //indicesFC1.at<float>( y, x ) = ((float)*((unsigned*)indices32UC1.ptr<uchar>(y, x * 4)));
-            indicesFC1.at<float>( y, x ) = (float)*(indices32UC1.ptr<unsigned>(y,x));
+            indicesFC1.at<float>( y, x ) = indices32UC1.at<float>( y, x );
         }
     }
 
@@ -690,7 +726,7 @@ int main( int argc, char **argv )
                   << "maxVal(indicesFC1): " << maxVal << std::endl;
     }
 
-    cv::imshow( "indices", indicesFC1 );
+    cv::imshow( "indices", indicesFC1 / 530679.f );
 
     cv::Mat indices16UC1;
     indicesFC1.convertTo( indices16UC1, CV_16UC1 );
