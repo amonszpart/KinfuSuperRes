@@ -112,8 +112,8 @@ namespace am
             bool     inited_;
 
             // Shader Names
-            const char *vertexFileName   = "../TriangleTracing/build/shaders/triangles.vert"; // copied into build directory by cmake
-            const char *fragmentFileName = "../TriangleTracing/build/shaders/triangles.frag";
+            const char *vertexFileName;//   = "../TriangleTracing/build/shaders/triangles.vert"; // copied into build directory by cmake
+            const char *fragmentFileName;// = "../TriangleTracing/build/shaders/triangles.frag";
     };
 
 } // end ns am

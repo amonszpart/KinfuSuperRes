@@ -87,7 +87,7 @@ namespace am
         viewer_ptr_->setSize( 1280, 960 );
         viewer_ptr_->setCameraClipDistances( 0.01, 10.01 );
         viewer_ptr_->setShowFPS( true );
-//        viewer_ptr_->addCoordinateSystem(10.f, 1, 0, 0 );
+        viewer_ptr_->addCoordinateSystem(1.f, 0, 0, 0 );
 //        viewer_ptr_->addCoordinateSystem(5.f, 0, 1, 0 );
 //        viewer_ptr_->addCoordinateSystem(3.f, 0, 0, 1 );
 //        viewer_ptr_->addCoordinateSystem(1.f, 0, 0, 0 );
@@ -149,18 +149,21 @@ namespace am
         // set camera2
         {
             Eigen::Vector3f camPos;
-            camPos[0] = min_pt[0] + (max_pt[0] - min_pt[0]) / 4.f;
-            camPos[1] = min_pt[1] + (max_pt[1] - min_pt[1]) / 6.f;
-            camPos[2] = min_pt[2] + (max_pt[2] - min_pt[2]) / 4.f;
+            camPos[0] = min_pt[0];// + (max_pt[0] - min_pt[0]) / 4.f; // max at bin
+            camPos[1] = min_pt[1];// + (max_pt[1] - min_pt[1]) / 6.f; // max at left corner
+            camPos[2] = min_pt[2] + (max_pt[2] - min_pt[2]) / 4.f; // max bottom of floor
             Eigen::Affine3f pose;
-            pose.linear() = (//Eigen::AngleAxisf(0.f * M_PI,Eigen::Vector3f::UnitX()) *
-                             Eigen::AngleAxisf(.5f * M_PI,Eigen::Vector3f::UnitY()) *
-                             Eigen::AngleAxisf(.5f * M_PI,Eigen::Vector3f::UnitZ())  ).matrix();
+            //pose.linear() = (//Eigen::AngleAxisf(0.f * M_PI,Eigen::Vector3f::UnitX()) *
+            //                 Eigen::AngleAxisf(.5f * M_PI,Eigen::Vector3f::UnitY()) *
+            //                 Eigen::AngleAxisf(.5f * M_PI,Eigen::Vector3f::UnitZ())  ).matrix();
             pose.translation() = camPos;
             //am::TSDFViewer::setViewerPose( *viewer_ptr_, pose );
-            viewer_ptr_->setCameraPosition( camPos[0], camPos[1], camPos[2],
-                                            centroid[0], centroid[1], centroid[2],
+            viewer_ptr_->setCameraPosition( -1.,0.21,1.,//camPos[0], camPos[1], camPos[2],
+                                            //centroid[0], centroid[1], centroid[2],
+                                            2,2,2,
                                             .0, .0, -1. );
+            //viewer_ptr_->addCoordinateSystem(3.f, camPos[0], camPos[1], camPos[2] );
+            viewer_ptr_->addCoordinateSystem(2.f, -1.f, 1.f, 1.f );
 
             /*Eigen::Matrix4f pose2;
             pose2 << 0.369991, 0.318449, -0.872752, 1.25756,
@@ -177,5 +180,11 @@ namespace am
         viewer_ptr_->spin();
     }
 
+    void
+    DepthViewer3D::showAllPoses()
+    {
+        am::DepthViewer3D depthViewer;
+        //depthViewer.showMats( large_dep16, rgb8_960, img_id, poses, intrinsics );
+    }
 } // end ns am
 

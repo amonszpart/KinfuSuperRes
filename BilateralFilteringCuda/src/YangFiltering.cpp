@@ -144,7 +144,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         cv::Mat dep_out;
         fDep.convertTo( dep_out, CV_16UC1 );
         char title[255];
-        sprintf( title, (depPath+"iteration%d.png").c_str(), it );
+        sprintf( title, (depPath+"/iteration%d.png").c_str(), it );
 
         // write "iteration"
         std::vector<int> imwrite_params;

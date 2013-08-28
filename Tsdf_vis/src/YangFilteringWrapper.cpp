@@ -138,20 +138,21 @@ namespace am {
         // convert input depth to float
         cv::Mat fDep; dep.convertTo( fDep, CV_32FC1  );
 
-        BilateralFilterCuda<float> bfc;
+        /*BilateralFilterCuda<float> bfc;
         bfc.setIterations( 2 );
         bfc.setFillMode( FILL_ONLY_ZEROS );
         cv::Mat bilfiltered;
         bfc.runBilateralFiltering( fDep, rgb8, bilfiltered,
                                    5.f, .1f, 10, 1.f );
         //cv::imshow( "bilf", bilfiltered / depMax );
-        bilfiltered.copyTo( fDep );
+        bilfiltered.copyTo( fDep );*/
 
     boost::filesystem::path path = boost::filesystem::path(depPath);
+    std::cout << "path: " << path.parent_path().string();
 
 #if 1
     YangFiltering yf;
-    yf.run( fDep, rgb8, fDep, yangFilteringRunParams, path.stem().string() );
+    yf.run( fDep, rgb8, fDep, yangFilteringRunParams, path.parent_path().string() + "/" );
 #elif 0
         // input: fDep(CV_32FC1,0..10001.f), rgb8(CV_8UC3)
 
@@ -333,13 +334,15 @@ namespace am {
                       << "maxVal(fDep): " << maxVal << std::endl;
             cv::Mat tmp;
             fDep.convertTo( tmp, CV_16UC1 );
-            cv::imwrite( "yang16.png", tmp, (std::vector<int>){16,0} );
+            cv::imwrite( depPath + "yang16.png", tmp, (std::vector<int>){16,0} );
+            fDep.convertTo( tmp, CV_8UC1 );
+            cv::imwrite( depPath + "/yang8.png", tmp, (std::vector<int>){16,0} );
         }
 
-        while ( key_pressed != 27 )
+        /*while ( key_pressed != 27 )
         {
             key_pressed = cv::waitKey();
-        }
+        }*/
 
         return EXIT_SUCCESS;
     }

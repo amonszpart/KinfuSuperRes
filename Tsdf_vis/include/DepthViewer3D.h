@@ -28,6 +28,8 @@ namespace am
                                   pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                                   Eigen::Matrix3f const& intrinsics,
                                   float alpha ); /* display scaling of pointcloud */
+            static void
+            showAllPoses();
 
         protected:
             // FIELDS

@@ -99,7 +99,7 @@ bool Mesh::loadMesh( pcl::PolygonMesh::Ptr const& meshPtr )
 
 void Mesh::initMesh( pcl::PolygonMesh::Ptr const& meshPtr )
 {
-    const int MAX_VERTICES = 1000000;
+    const int MAX_VERTICES = 100000000;
 
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;

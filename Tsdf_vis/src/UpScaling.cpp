@@ -55,6 +55,7 @@ namespace am
         pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh );
         pcl::io::loadPolygonFile( sPolygonPath, *mesh );
 
+        pcl::PolygonMesh::Ptr subdivMeshPtr( new pcl::PolygonMesh );
 #if (SUBDIV_ITERATIONS > 0)
         // SUBDIV
         std::cout << "UpScaling::run(): subdividing mesh...";
@@ -62,6 +63,8 @@ namespace am
         MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, SUBDIV_ITERATIONS );
         //*subdivMeshPtr = *mesh;
         std::cout << "OK..." << std::endl;
+#else
+        *subdivMeshPtr = *mesh;
 #endif
 
         MeshRayCaster meshRayCaster( intrinsics_ );

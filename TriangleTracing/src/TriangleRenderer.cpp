@@ -185,6 +185,12 @@ void printProgramInfoLog(GLuint obj)
 
 // --------------------------------------------------------------------------------------------------------------------
 
+/* first include the standard headers that we're likely to need */
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xresource.h>
+#include <stdlib.h>
+
 namespace am
 {
 
@@ -208,6 +214,8 @@ namespace am
                                                   Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr const& meshPtr,
                                                   float alpha )
     {
+
+
         if ( !inited_ ) init( w, h );
 
         setIntrinsics( intrinsics, 0.001, 10.01 );
@@ -318,6 +326,8 @@ namespace am
           inited_(false)
     {
         textureHandles_[0] = textureHandles_[1] = INVALID_OGL_VALUE;
+        vertexFileName = "../../TriangleTracing/build/shaders/triangles.vert";
+        fragmentFileName = "../../TriangleTracing/build/shaders/triangles.frag";
     }
 
     TriangleRenderer::~TriangleRenderer()
@@ -336,6 +346,9 @@ namespace am
 
     void TriangleRenderer::init( int w, int h )
     {
+        //Display *dpy;
+        //dpy = XOpenDisplay(":0");
+
         std::cout << "GLRenderer initing..." << std::endl;
 
         char *myargv[1]; myargv[0] = strdup( "GLRendererGlutApp" );

@@ -251,6 +251,16 @@ int main( int argc, char** argv )
         am::MyScreenshotManager::readPoses( poses_path.string(), poses );
     }
 
+
+    // mats to 3D
+    if ( 0 )
+    {
+        am::DepthViewer3D depthViewer;
+        depthViewer.showMats( large_dep16, rgb8_960, img_id, poses, intrinsics );
+
+        return 0;
+    }
+
     am::UpScaling upScaling( intrinsics );
     upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id, -1, -1, argc, argv );
     return 0;
