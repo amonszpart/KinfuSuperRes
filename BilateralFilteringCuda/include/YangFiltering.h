@@ -18,7 +18,8 @@ struct YangFilteringRunParams
               kernel_range( 4 ),
               cross_iterations( 1 ),
               fill_mode( FILL_ALL ),
-              yang_iterations( 3 ) {}
+              yang_iterations( 3 )
+              {}
 
         int   L;
         float ETA;

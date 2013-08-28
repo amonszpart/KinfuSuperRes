@@ -3,15 +3,21 @@ cmake_minimum_required(VERSION 2.8)
 
 INCLUDE( ../commonLibLocations.cmake )
 
-aux_source_directory(. SRC_LIST1)
-aux_source_directory(./src SRC_LIST2)
-aux_source_directory(./src/shaders SRC_LIST3)
+#aux_source_directory(./src SRC_LIST )
+aux_source_directory(./src/shaders SHADERS_LIST )
 file (GLOB H_LIST "include/*.h")
+
+SET( SRC_LIST
+        src/math_3d.cpp
+        src/mesh.cpp
+        src/textfile.cpp
+        src/TriangleRenderer.cpp
+)
 
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} include )
 
 #add_executable( ${PROJECT_NAME} ${H_LIST}  ${SRC_LIST1} ${SRC_LIST2} ${SRC_LIST3} )
-add_library( ${PROJECT_NAME} ${H_LIST}  ${SRC_LIST1} ${SRC_LIST2} ${SRC_LIST3} )
+add_library( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
 
 TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
     GL
@@ -34,11 +40,7 @@ TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
     #vtkIO
 )
 
-#COMMAND {CMAKE_PROGRAM} -E copy_if_different src/shaders/*.frag ${CMAKE_BINARY_DIR}/shaders
-#message( "cmakebinarydir: " ${CMAKE_BINARY_DIR})
-
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/shaders
         ${CMAKE_BINARY_DIR}/shaders)
-        #$<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders)

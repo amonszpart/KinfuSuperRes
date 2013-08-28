@@ -19,9 +19,8 @@
 #ifndef MESH_H
 #define	MESH_H
 
-#include <map>
-#include <vector>
-#include <GL/glew.h>
+#include "GL/glew.h"
+
 //#include <Importer.hpp>      // C++ importer interface
 //#include <scene.h>       // Output data structure
 //#include <postprocess.h> // Post processing flags
@@ -32,6 +31,9 @@
 //#include "render_callbacks.h"
 #include <Eigen/Dense>
 #include <pcl/PolygonMesh.h>
+
+#include <map>
+#include <vector>
 
 struct Vertex
 {
@@ -48,7 +50,6 @@ struct Vertex
             m_normal = normal;
         }
 };
-
 
 class Mesh
 {

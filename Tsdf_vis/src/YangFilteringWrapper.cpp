@@ -12,7 +12,7 @@
 namespace am {
 
     int runYangCleaned( /* out: */ cv::Mat &filteredDep16,
-                        /*  in: */ std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams )
+                        /*  in: */ std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams, std::string const& path )
     {
         // read
         cv::Mat dep16       = cv::imread( depPath, -1 );
@@ -23,10 +23,10 @@ namespace am {
             return EXIT_FAILURE;
         }
 
-        runYangCleaned( filteredDep16, dep16, rgb8, yangFilteringRunParams );
+        runYangCleaned( filteredDep16, dep16, rgb8, yangFilteringRunParams, path );
     }
 
-    int runYangCleaned( cv::Mat &filteredDep16, cv::Mat const& dep16, cv::Mat const& rgb8, YangFilteringRunParams yangFilteringRunParams )
+    int runYangCleaned( cv::Mat &filteredDep16, cv::Mat const& dep16, cv::Mat const& rgb8, YangFilteringRunParams yangFilteringRunParams, std::string const& path )
     {
         // resize
         cv::Mat dep16_large;
@@ -49,7 +49,7 @@ namespace am {
                                    5.f, .1f, 10, 1.f );
         // Yang
         YangFiltering yf;
-        yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams );
+        yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams, path );
 
         depFC1.convertTo( filteredDep16, CV_16UC1 );
     }

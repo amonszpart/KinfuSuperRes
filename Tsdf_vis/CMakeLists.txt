@@ -87,6 +87,11 @@ ADD_EXECUTABLE( ${TSDF_VIS_NAME} ${TSDF_VIS_SRC_LIST} ${TSDF_VIS_HEADER_LIST} )
 
 # LINK
 TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME}
+    libTriangleTracing
+    GL
+    GLEW
+    glut
+    GLU
     imp_bilFilCuda
     ${KINFU_LIB}
     ${MY_LIBRARIES}
