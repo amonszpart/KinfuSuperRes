@@ -26,14 +26,16 @@ using namespace std;
 int main( int argc, char **argv )
 {
     am::TriangleRenderer rendererInstance;
+    float w = 640.f;
+    float h = 480.f;
 
     // projection
     Eigen::Matrix3f intrinsics;
 //    intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
 //            0             , 522.1379 * 2.f, 258.1387 * 2.f,
 //            0             , 0             , 1             ;
-    intrinsics << 521.7401 * 2.f / 1280.f * 32.f, 0.f       , 323.4402 * 2.f / 1280.f * 32.f,
-            0.f             , 522.1379 * 2.f / 960.f * 24.f, 258.1387 * 2.f / 960.f * 24.f,
+    intrinsics << 521.7401 * 2.f / 1280.f * w, 0.f       , 323.4402 * 2.f / 1280.f * w,
+            0.f             , 522.1379 * 2.f / 960.f * h, 258.1387 * 2.f / 960.f * h,
             0.f             , 0.f             , 1.f             ;
 
     // view
@@ -45,10 +47,11 @@ int main( int argc, char **argv )
 
     std::vector<cv::Mat> depths, indices;
     cv::Mat depthFC1, indices32UC1;
-    rendererInstance.renderDepthAndIndices( depths, indices, 32, 24, intrinsics, pose, "/home/bontius/workspace/rec/testing/cloud_mesh.ply", 10001.f );
+    rendererInstance.renderDepthAndIndices( depths, indices, w, h, intrinsics, pose, "/home/bontius/workspace/rec/testing/cloud_mesh.ply", 10001.f );
 
     depthFC1     = depths[0];  // depths
     indices32UC1 = indices[0]; // vertex ids
+    return 0;
 
     cv::imshow( "depth", depthFC1 / 5001.f );
     for ( int y = 0; y < indices32UC1.rows; ++y )

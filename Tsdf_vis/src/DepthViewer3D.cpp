@@ -107,7 +107,7 @@ namespace am
         // create cloud
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr colorCloudPtr;
         {
-            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, colorCloudPtr, intrinsics, 1.f / 1000.f );
+            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, colorCloudPtr, intrinsics, 1.f / 1000.f, false, &(poses.at(img_id)) );
         }
 
         // calculate centroid
@@ -141,12 +141,12 @@ namespace am
         {
             pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( colorCloudPtr );
             viewer_ptr_->addPointCloud<pcl::PointXYZRGB>( colorCloudPtr, rgb, "colorCloud" );
-            viewer_ptr_->spinOnce();
+            //viewer_ptr_->spinOnce();
             //viewer_ptr_->showCl
             //viewer_ptr_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "colorCloud" );
         }
 
-        // set camera2
+        // set camera
         {
             Eigen::Vector3f camPos;
             camPos[0] = min_pt[0];// + (max_pt[0] - min_pt[0]) / 4.f; // max at bin
@@ -158,7 +158,7 @@ namespace am
             //                 Eigen::AngleAxisf(.5f * M_PI,Eigen::Vector3f::UnitZ())  ).matrix();
             pose.translation() = camPos;
             //am::TSDFViewer::setViewerPose( *viewer_ptr_, pose );
-            viewer_ptr_->setCameraPosition( -1.,0.21,1.,//camPos[0], camPos[1], camPos[2],
+            viewer_ptr_->setCameraPosition( .4,0.6, -1.,//camPos[0], camPos[1], camPos[2],
                                             //centroid[0], centroid[1], centroid[2],
                                             2,2,2,
                                             .0, .0, -1. );

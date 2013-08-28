@@ -50,7 +50,7 @@ namespace am
              *\param[OUT] vertexIds   contains vertex indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
              *\param[OUT] triangleIDs contains triangle indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
              */
-            void readIds( cv::Mat &vertexIds, cv::Mat &triangleIds );
+            void readIds( cv::Mat &vertexIds, cv::Mat &triangleIds, cv::Mat &triangleIds2 );
 
 
             TriangleRenderer();

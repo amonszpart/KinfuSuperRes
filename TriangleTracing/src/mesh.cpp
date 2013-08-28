@@ -130,11 +130,24 @@ void Mesh::initMesh( pcl::PolygonMesh::Ptr const& meshPtr )
         if ( *p_y < miny ) miny = *p_y ;
         if ( *p_z < minz ) minz = *p_z ;
 
+        int fid = pid/point_step/3;
+
         vertices.push_back(
                     Vertex(Vector3f(*p_x, *p_y, *p_z),Vector3f( /*  vertexId: */ pid/point_step,
-                                                                /* polygonId: */ pid/point_step/3,
-                                                                /*    unused: */ 1.f ))
+                                                                /* polygonId: */ fid,
+                                                                /*    unused: */ 1.f))
                     );
+
+        if ( fid == 71935 )
+        {
+            std::cout << "pid: " << pid
+                      << " vxid: " << pid / point_step
+                      << " fid: " << fid
+                      << " vertices: "
+                      << meshPtr->polygons[fid].vertices[0] << ","
+                      << meshPtr->polygons[fid].vertices[1] << ","
+                      << meshPtr->polygons[fid].vertices[2] << std::endl;
+        }
         //std::cout << pid/point_step << ": "
         //          << meshPtr->polygons[pid/point_step/3].vertices[0] << "," << meshPtr->polygons[pid/point_step/3].vertices[1] << "," << meshPtr->polygons[pid/point_step/3].vertices[2] << std::endl;
 
@@ -246,6 +259,7 @@ void Mesh::Render()
         glBindBuffer( GL_ARRAY_BUFFER, m_Entries[i].VB );
         glVertexAttribPointer( vertexShaderLoc, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
         glVertexAttribPointer( normalShaderLoc, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
+        //glVertexAttribPointer( normalShaderLoc, 3, GL_UNSIGNED_INT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
 
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, m_Entries[i].IB );
 

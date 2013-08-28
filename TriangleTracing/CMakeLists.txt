@@ -12,12 +12,13 @@ SET( SRC_LIST
         src/mesh.cpp
         src/textfile.cpp
         src/TriangleRenderer.cpp
+        src/main.cpp
 )
 
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} include )
 
-#add_executable( ${PROJECT_NAME} ${H_LIST}  ${SRC_LIST1} ${SRC_LIST2} ${SRC_LIST3} )
-add_library( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
+add_executable( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
+#add_library( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
 
 TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
     GL

@@ -2,14 +2,12 @@
 
 uniform mat4 viewMatrix, projMatrix, modelMatrix;
 
-
 in vec4 position;
-//in vec2 texCoord;
-in vec3 normal;
+in vec3 normal;   // <vxid, fid, bulk>
 
 out vec4 position_in_world_space;
-//out vec2 out_texCoord;
-out vec3 out_normal;
+out vec3 frag_vxid_fid; // <vxid, fid, bulk>
+flat out uint flat_fid;
 
 void main()
 {
@@ -18,7 +16,8 @@ void main()
 
 //    out_texCoord = texCoord;
 
-    out_normal = normal;
+    frag_vxid_fid = normal;
+    flat_fid      = uint(round(normal.y));
 
     //gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(position,1.0);
 }

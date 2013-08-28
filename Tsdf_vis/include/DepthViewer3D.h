@@ -3,6 +3,7 @@
 
 #include <pcl/visualization/pcl_visualizer.h>
 #include <opencv2/core/core.hpp>
+#include "AmPclUtil.h"
 
 #include <map>
 
@@ -28,7 +29,7 @@ namespace am
                                   pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                                   Eigen::Matrix3f const& intrinsics,
                                   float alpha, bool useColour,
-                                  Eigen::Affine3f const* pose ); /* display scaling of pointcloud */
+                                  Eigen::Affine3f const* const pose ); /* display scaling of pointcloud */
             static void
             showAllPoses();
 
@@ -44,7 +45,7 @@ namespace am
                              pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                              Eigen::Matrix3f const& intrinsics,
                              /* depth scale: */ float alpha, bool useColour,
-                             Eigen::Affine3f const* pose )
+                             Eigen::Affine3f const* const pose )
     {
         // check input
         if ( dep.size() != img.size() )
@@ -63,15 +64,25 @@ namespace am
         // allocate ouptut
         cloudPtr = pcl::PointCloud<pcl::PointXYZRGB>::Ptr( new pcl::PointCloud<pcl::PointXYZRGB> );
 
+        Eigen::Vector3f pnt3D;
         // copy inputs
         for ( int y = 0; y < dep.rows; ++y )
         {
             for ( int x = 0; x < dep.cols; ++x )
             {
+                pnt3D = am::util::pcl::point2To3D( (Eigen::Vector2f){x,y},
+                                                   intrinsics            )
+                        * ( (float)dep.at<depT>( y,x ) * alpha );
+                if ( pose )
+                {
+                    pnt3D = pose->rotation() * pnt3D + pose->translation();
+                }
+
                 pcl::PointXYZRGB point;
-                point.x = (x - intrinsics(0,2)) / intrinsics(0,0) * dep.at<depT>( y,x ) * alpha;
-                point.y = (y - intrinsics(1,2)) / intrinsics(1,1) * dep.at<depT>( y,x ) * alpha;
-                point.z = dep.at<depT>( y,x ) * alpha;
+                point.x = pnt3D(0); //point.x = (x - intrinsics(0,2)) / intrinsics(0,0) * dep.at<depT>( y,x ) * alpha;
+                point.y = pnt3D(1); //point.y = (y - intrinsics(1,2)) / intrinsics(1,1) * dep.at<depT>( y,x ) * alpha;
+                point.z = pnt3D(2); //point.z = dep.at<depT>( y,x ) * alpha;
+
                 uint32_t rgb = (static_cast<uint32_t>(img.at<uchar>(y, x * img.channels() + 2)) << 16 |
                                 static_cast<uint32_t>(img.at<uchar>(y, x * img.channels() + 1)) << 8  |
                                 static_cast<uint32_t>(img.at<uchar>(y, x * img.channels()    ))        );

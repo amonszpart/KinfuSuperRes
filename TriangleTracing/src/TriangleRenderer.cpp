@@ -185,17 +185,8 @@ void printProgramInfoLog(GLuint obj)
 
 // --------------------------------------------------------------------------------------------------------------------
 
-/* first include the standard headers that we're likely to need */
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xresource.h>
-#include <stdlib.h>
-
 namespace am
 {
-
-
-
     /*
      *\brief      Essential method, renders a mesh, and returns it's depthmap and vertex- and triangle-index matrices.
      *\param[OUT] depths    vector<Mat> of size 2, depths[0] contains distances from camera in 0.f..alpha range
@@ -229,9 +220,179 @@ namespace am
         renderScene();
 
         depths.resize(2);
-        indices.resize(2);
+        indices.resize(3);
         readDepthToFC1( depths[0], alpha, depths[1] );
-        readIds( indices[0], indices[1] );
+        readIds( indices[0], indices[1], indices[2] );
+        return;
+
+        std::vector<unsigned> vxIds( indices[1].cols * indices[1].rows );
+        for ( int y = 0; y < indices[1].rows; ++y )
+        {
+            for ( int x = 0; x < indices[1].cols; ++x )
+            {
+                vxIds[ y * indices[1].cols + x ] = indices[0].at<unsigned>(y,x);
+            }
+        }
+
+        std::vector<unsigned> trIds    ( indices[1].cols * indices[1].rows );
+        std::vector<unsigned> trIdsFlat( indices[2].cols * indices[2].rows );
+        for ( int y = 0; y < indices[1].rows; ++y )
+        {
+            for ( int x = 0; x < indices[1].cols; ++x )
+            {
+                trIds[ y * indices[1].cols + x ] = indices[1].at<unsigned>(y,x);
+            }
+        }
+
+        for ( int y = 0; y < indices[2].rows; ++y )
+        {
+            for ( int x = 0; x < indices[2].cols; ++x )
+            {
+                trIdsFlat[ y * indices[2].cols + x ] = indices[2].at<unsigned>(y,x);
+            }
+        }
+
+        unsigned maxTriangleID = *std::max_element( trIds.begin(), trIds.end() ) + 1;
+        std::cout << "maxTriangleID: " << *std::max_element( trIds.begin(), trIds.end() ) << std::endl;
+        std::cout << "maxVertexID: " << *std::max_element( vxIds.begin(), vxIds.end() ) << std::endl;
+        if ( maxTriangleID > 530700 )
+        {
+            std::cerr << "aborting..." << std::endl;
+            return;
+        }
+
+        // count triangles
+        unsigned *triangleCounts = new unsigned[ maxTriangleID ];
+        std::fill( triangleCounts, triangleCounts + maxTriangleID, 0 );
+        for ( auto trId : trIds )
+        {
+            ++triangleCounts[ trId ];
+        }
+        std::cout << "minTriangleCount: " << *std::min_element( triangleCounts+1, triangleCounts+maxTriangleID ) << std::endl;
+        std::cout << "maxTriangleCount: " << *std::max_element( triangleCounts+1, triangleCounts+maxTriangleID ) << std::endl;
+        unsigned maxTrCntID = std::distance( triangleCounts, std::max_element(triangleCounts+1, triangleCounts+maxTriangleID) );
+        std::cout << "maxTrCntID: " << maxTrCntID << std::endl;
+        std::cout << "triangleCounts[maxTrCntID]: " << triangleCounts[maxTrCntID] << std::endl;
+
+        // get vertex id
+        std::vector<unsigned> vertexList;
+        std::vector<unsigned> faceList;
+        std::vector<unsigned> flatFaceList;
+        std::vector<cv::Vec2i> coordinates;
+        for ( unsigned i = 0; i < trIds.size(); ++i )
+        {
+            if ( trIds[i] == maxTrCntID )
+            {
+                vertexList.push_back( vxIds[i] );
+                faceList.push_back( trIds[i] );
+                flatFaceList.push_back( trIdsFlat[i] );
+                coordinates.push_back( cv::Vec2i(i/w, i%w) );
+            }
+        }
+
+        for ( unsigned i = 0; i < vertexList.size(); ++i )
+        {
+            std::cout << "(" << vertexList[i] << "," << faceList[i] << "," << flatFaceList[i] << ","
+                         << coordinates[i][0] << "," << coordinates[i][1]
+                         << "," << depths[1].at<float>( coordinates[i][0], coordinates[i][1] ) * 1000000.f
+                         << "); ";
+        }
+        std::cout << std::endl;
+
+        int v0id = meshPtr->polygons[maxTrCntID].vertices[0];
+        int v1id = meshPtr->polygons[maxTrCntID].vertices[1];
+        int v2id = meshPtr->polygons[maxTrCntID].vertices[2];
+        //float v0
+
+        std::vector< std::vector<cv::Vec2i> > smalls(4);
+        smalls[0].push_back( cv::Vec2i( 0, 0) );
+        smalls[0].push_back( cv::Vec2i(-1, 0) );
+        smalls[0].push_back( cv::Vec2i( 0,-1) );
+
+        smalls[1].push_back( cv::Vec2i( 0, 0) );
+        smalls[1].push_back( cv::Vec2i( 0,-1) );
+        smalls[1].push_back( cv::Vec2i( 1, 0) );
+
+        smalls[2].push_back( cv::Vec2i( 0, 0) );
+        smalls[2].push_back( cv::Vec2i( 1, 0) );
+        smalls[2].push_back( cv::Vec2i( 1, 1) );
+
+        smalls[3].push_back( cv::Vec2i( 0, 0) );
+        smalls[3].push_back( cv::Vec2i(-1, 1) );
+        smalls[3].push_back( cv::Vec2i(-1, 0) );
+
+       for ( int y = 294; y < 307; ++y )
+        {
+            for ( int x = 420; x < 433; ++x )
+            {
+                bool create = false;
+                for ( int smid = 0; smid < smalls.size() && !create; ++smid )
+                {
+                    std::vector<cv::Vec2i> offs = smalls[smid];
+
+                    if (    indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[1][0],x+offs[1][1])
+                         && indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[2][0],x+offs[2][1]) )
+                    {
+                        create = true;
+                    }
+                }
+                if ( create )
+                    std::cout << indices[1].at<unsigned>(y,x) << " ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        return;
+
+        // get vertices of triangle counts > 3
+
+        std::vector<std::vector<unsigned>> vertexlists( maxTriangleID );
+        // for every triangle pixel
+        for ( unsigned j = 0; j < trIds.size(); ++j )
+        {
+            unsigned trid = trIds[j];
+            // if appears more then 3 times
+            if ( triangleCounts[trid] > 3 )
+            {
+                //std::cout << "j: " << j << std::endl;
+                //std::cout << "vxIds[j]: " << vxIds[j] << std::endl;
+                fflush( stdout );
+                // add vertex to this triangle list
+                if ( (vertexlists[trid].size() == 0) ||
+                     (std::find(vertexlists[trid].begin(), vertexlists[trid].end(), vxIds[j]) == vertexlists[trid].end()) )
+                    vertexlists[trid].push_back( vxIds[j] );
+            }
+        }
+
+        bool triples = false;
+        for ( unsigned i = 0; i < vertexlists.size(); ++i )
+        {
+            if ( vertexlists[i].size() > 0 )
+            {
+                std::cout << "trid: " << i;
+                for ( auto vxid : vertexlists[i] )
+                {
+                    std::cout << vxid << ",";
+                }
+                std::cout << std::endl;
+
+                if ( vertexlists[i].size() > 3 )
+                {
+                    std::cerr << "asdfasdfasfasf" << std::endl;
+                    triples = true;
+                }
+            }
+        }
+        if ( triples )
+        {
+            std::cerr << "wroooong" << std::endl;
+        }
+        else
+            std::cerr << "OK" << std::endl;
+
+
+        delete [] triangleCounts;
     }
 
     /*
@@ -280,26 +441,29 @@ namespace am
 
     /*
      *\brief    Read framebuffer object's vertex and triangle index data
-     *\param[OUT] vertexIds   contains vertex indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
-     *\param[OUT] triangleIds contains triangle indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
+     *\param[OUT] vertexIds    contains                vertex   indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
+     *\param[OUT] triangleIds  contains interpolated   triangle indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
+     *\param[OUT] triangleIds2 contains uninterpolated triangle indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
      */
-    void TriangleRenderer::readIds( cv::Mat &vertexIds, cv::Mat &triangleIds )
+    void TriangleRenderer::readIds( cv::Mat &vertexIds, cv::Mat &triangleIds, cv::Mat &triangleIds2 )
     {
         glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
         glReadBuffer( GL_COLOR_ATTACHMENT1 );
         glReadPixels( 0, 0, width_, height_, GL_RGB_INTEGER, GL_UNSIGNED_INT, ids );
         glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-        vertexIds.create( height_, width_, CV_8UC4 );        // there's no CV_32UC1, so emulating it by CV_8UC4, minmaxloc won't be accurate
-        triangleIds.create( height_, width_, CV_8UC4 ); // there's no CV_32UC1, so emulating it by CV_8UC4, minmaxloc won't be accurate
+        vertexIds.create( height_, width_, CV_8UC4 );    // there's no CV_32UC1, so emulating it by CV_8UC4, minmaxloc won't be accurate
+        triangleIds.create( height_, width_, CV_8UC4 );  // there's no CV_32UC1, so emulating it by CV_8UC4, minmaxloc won't be accurate
+        triangleIds2.create( height_, width_, CV_8UC4 ); // there's no CV_32UC1, so emulating it by CV_8UC4, minmaxloc won't be accurate
         for ( int y = 0; y < height_; ++y )
         {
             for ( int x = 0; x < width_; ++x )
             {
                 // copy one channel only
 
-                vertexIds       .at<unsigned>(y,x) = ids[ (y * width_ + x) * 3     ]; // ids is GLuint pointer, so sizeof unsigned not needed
-                triangleIds.at<unsigned>(y,x) = ids[ (y * width_ + x) * 3 + 1 ];
+                vertexIds   .at<unsigned>(y,x) = ids[ (y * width_ + x) * 3     ]; // ids is GLuint pointer, so sizeof unsigned not needed
+                triangleIds .at<unsigned>(y,x) = ids[ (y * width_ + x) * 3 + 1 ];
+                triangleIds2.at<unsigned>(y,x) = ids[ (y * width_ + x) * 3 + 2 ];
             }
         }
     }

@@ -40,6 +40,7 @@ struct Vertex
         Vector3f m_pos;
         //Vector2f m_tex;
         Vector3f m_normal;
+        //Vector3u m_normal;
 
         Vertex() {}
 

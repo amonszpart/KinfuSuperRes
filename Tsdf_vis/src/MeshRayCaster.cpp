@@ -187,6 +187,135 @@ namespace am
         std::cout << "MeshRayCaster::enhanceMesh() finished..." << std::endl;
     }
 
+    void
+    MeshRayCaster::enhanceMesh2( /* out: */ pcl::PolygonMesh::Ptr &outMeshPtr,
+                                  /*  in: */ cv::Mat const& dep16, pcl::PolygonMesh::ConstPtr const& inMeshPtr, Eigen::Affine3f const& p_pose,
+                                  std::vector<cv::Mat> depths, std::vector<cv::Mat> indices )
+    {
+        // start
+        std::cout << "MeshRayCaster::enhanceMesh2() starting..." << std::endl;
+
+        // check input
+        if ( !inMeshPtr.get() )
+        {
+            std::cerr << "MeshRayCaster::enhanceMesh2(): inMeshPtr empty!" << std::endl;
+            return;
+        }
+        // copy // TODO: add colour
+        *outMeshPtr = *inMeshPtr;
+
+        const int point_step = outMeshPtr->cloud.point_step;
+        const int x_offs     = outMeshPtr->cloud.fields[0].offset;
+        const int y_offs     = outMeshPtr->cloud.fields[1].offset;
+        const int z_offs     = outMeshPtr->cloud.fields[2].offset;
+        //const int rgb_offs   = outMeshPtr->cloud.fields[3].offset;
+        const Eigen::Matrix3f rotation    = p_pose.rotation();
+        const Eigen::Vector3f translation = p_pose.translation();
+
+        // clear mesh (we only needed the header from inMeshPtr)
+        outMeshPtr->cloud.data.clear();
+        outMeshPtr->cloud.width = 0;
+        outMeshPtr->cloud.height = 1;
+        outMeshPtr->polygons.clear();
+
+        // triangle index offsets
+        std::vector< std::vector<cv::Vec2i> > smalls(2);
+        {
+            smalls[0].push_back( cv::Vec2i( 0, 0) );
+            smalls[0].push_back( cv::Vec2i(-1, 0) );
+            smalls[0].push_back( cv::Vec2i( 0,-1) );
+
+            smalls[1].push_back( cv::Vec2i( 0, 0) );
+            smalls[1].push_back( cv::Vec2i(-1, 1) );
+            smalls[1].push_back( cv::Vec2i(-1, 0) );
+        }
+
+        // variables
+        Eigen::Vector3f pnt3D;
+        std::vector<bool> keepFaces( inMeshPtr->polygons.size() );
+        std::fill( keepFaces.begin(), keepFaces.end(), true );
+        std::vector< ::pcl::Vertices> newFaces;
+
+        // indices[1] contains rounded triangleIDs as unsigned fields
+        for ( int y = 0; y < indices[1].rows; ++y )
+        {
+            for ( int x = 0; x < indices[1].cols; ++x )
+            {
+                // for every triangle in the image grid ( /_| and  T/ )
+                for ( int smid = 0; smid < smalls.size(); ++smid )
+                {
+                    std::vector<cv::Vec2i> offs = smalls[ smid ];
+
+                    if (    indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[1][0],x+offs[1][1])
+                         && indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[2][0],x+offs[2][1]) )
+                    {
+                        // exclude old face
+                        keepFaces[ indices[1].at<unsigned>(y,x) ] = false;
+
+                        // remember vertexid to insert at
+                        int vxid = outMeshPtr->cloud.width;
+                        // add place for 3 new vertices
+                        outMeshPtr->cloud.width += 3;
+                        outMeshPtr->cloud.data.resize( outMeshPtr->cloud.width * point_step );
+
+                        // prepare face
+                        ::pcl::Vertices newFace;
+
+                        // add 3 vertices
+                        for ( int oid = 0; oid < offs.size(); ++oid, ++vxid )
+                        {
+                            // fill face
+                            newFace.vertices.push_back( vxid );
+
+                            // calculate point
+                            Eigen::Vector2f curr;
+                            curr(0) = x + offs[oid][1];
+                            curr(1) = y + offs[oid][0];
+                            pnt3D = rotation * ( am::util::pcl::point2To3D(curr, intrinsics_) * (float)dep16.at<ushort>(y,x) / 1000.f ) + translation;
+
+                            // add point
+                            *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ vxid * point_step + x_offs]) ) = pnt3D(0);
+                            *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ vxid * point_step + y_offs]) ) = pnt3D(1);
+                            *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ vxid * point_step + z_offs]) ) = pnt3D(2);
+                        }
+
+                        // add face
+                        outMeshPtr->polygons.push_back( newFace );
+                    }
+                }
+            }
+        }
+
+        // put back kept vertices and faces
+        for ( int i = 0; i < inMeshPtr->polygons.size(); ++i )
+        {
+            if ( keepFaces[i] ) //FIXME start face id-s from 1, reserve 0 for empty in frag and mesh.cpp
+            {
+                // copy face
+                outMeshPtr->polygons.push_back( inMeshPtr->polygons[i] );
+
+                // copy vertices
+                int vxid = outMeshPtr->cloud.width;
+                outMeshPtr->cloud.width += 3;
+                outMeshPtr->cloud.data.resize( outMeshPtr->cloud.width * point_step );
+
+                for ( int polygPntId = 0; polygPntId < outMeshPtr->polygons.back().vertices.size(); ++polygPntId, ++vxid )
+                {
+                    int oldVxId = outMeshPtr->polygons.back().vertices[ polygPntId ];
+
+                    *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ vxid * point_step + x_offs]) )
+                            = *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ oldVxId * point_step + x_offs]) );
+                    *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ vxid * point_step + y_offs]) )
+                            = *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ oldVxId * point_step + y_offs]) );
+                    *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ vxid * point_step + z_offs]) )
+                            = *reinterpret_cast<float*>( &(outMeshPtr->cloud.data[ oldVxId * point_step + z_offs]) );
+                }
+            }
+        }
+
+        // finish
+        std::cout << "MeshRayCaster::enhanceMesh2() finished..." << std::endl;
+    }
 
     inline
     Eigen::Vector3f get_next_ray( int x, int y, Eigen::Matrix3f intrinsics )

@@ -38,6 +38,26 @@ struct Vector2i
     int y;
 };
 
+struct Vector3u
+{
+    unsigned x,y,z;
+
+    Vector3u()
+    {
+        x = 0U;
+        y = 0U;
+        z = 0U;
+    }
+
+    Vector3u( unsigned _x, unsigned _y, unsigned _z)
+    {
+        x = _x;
+        y = _y;
+        z = _z;
+    }
+
+};
+
 struct Vector2f
 {
     float x;

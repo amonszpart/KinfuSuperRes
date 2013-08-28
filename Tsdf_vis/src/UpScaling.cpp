@@ -149,7 +149,7 @@ namespace am
             for ( int y = 0; y < filtered.rows; ++y )
                 for ( int x = 0; x < filtered.cols; ++x )
                 {
-                    diff.at<ushort>( y, x ) = 10001U + ((int)filtered.at<ushort>(y,x) - (int)zBufMat.at<ushort>(y,x));
+                    diff.at<ushort>( y, x ) = 10001U + filtered.at<ushort>(y,x) - zBufMat.at<ushort>(y,x);
                 }
             cv::imwrite( outDir + "/zBufMat_diff16UC1"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", diff );
         }
@@ -163,7 +163,7 @@ namespace am
             std::cout << "polyMeshViewer.MeshPtr(): mesh->cloud.size: " << subdivMeshPtr->cloud.width << "x" <<  subdivMeshPtr->cloud.height << std::endl;
             meshRayCaster.enhanceMesh( enhancedMeshPtr, filtered, subdivMeshPtr, pose, 3.f / 640.f );
 #else
-            meshRayCaster.enhanceMesh( enhancedMeshPtr, filtered, mesh, pose, 3.f / 640.f );
+            meshRayCaster.enhanceMesh2( enhancedMeshPtr, filtered, mesh, pose, depths, indices );
 #endif
             std::cout << "OK..." << std::endl;
         }

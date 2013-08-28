@@ -35,6 +35,11 @@ namespace am
                          const float resolution = 3.f / 512.f );
 
             void
+            enhanceMesh2( /* out: */ pcl::PolygonMesh::Ptr &outMeshPtr,
+                          /*  in: */ cv::Mat const& dep16, pcl::PolygonMesh::ConstPtr const& inMeshPtr, Eigen::Affine3f const& p_pose,
+                          std::vector<cv::Mat> depths, std::vector<cv::Mat> indices );
+
+            void
             rayCast( /* out: */ std::vector<int> &p_indices, cv::Mat *p_depth,
                      /*  in: */ Octree::Ptr const& octree, pcl::PointCloud<PointT>::Ptr const& cloudPtr, Eigen::Affine3f const& pose );
 

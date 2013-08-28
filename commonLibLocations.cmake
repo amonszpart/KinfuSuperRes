@@ -21,8 +21,9 @@ FIND_PACKAGE( OpenCV REQUIRED )
 
 # FLAGS
 SET( CMAKE_CXX_COMPILER /usr/bin/g++ )
-SET( CMAKE_CXX_FLAGS "-std=c++0x -O3 -Wno-deprecated" )
-SET( GNU_FLAGS ${GNU_FLAGS} "-O3 -Wno-deprecated")
+#SET( CMAKE_CXX_FLAGS "-std=c++0x -O3 -Wno-deprecated" )
+SET( CMAKE_CXX_FLAGS "-std=c++0x" )
+#SET( GNU_FLAGS ${GNU_FLAGS} "-O3 -Wno-deprecated")
 
 # DEFS
 add_definitions( -D__x86_64__=1 -Dlinux=1 -DHAVE_OPENCV=1 -DHAVE_OPENNI=1 )
