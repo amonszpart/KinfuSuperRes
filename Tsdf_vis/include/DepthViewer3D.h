@@ -27,7 +27,8 @@ namespace am
             static void matsTo3D( cv::Mat const& dep, cv::Mat const& img,
                                   pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                                   Eigen::Matrix3f const& intrinsics,
-                                  float alpha ); /* display scaling of pointcloud */
+                                  float alpha, bool useColour,
+                                  Eigen::Affine3f const* pose ); /* display scaling of pointcloud */
             static void
             showAllPoses();
 
@@ -42,7 +43,8 @@ namespace am
     DepthViewer3D::matsTo3D( cv::Mat const& dep, cv::Mat const& img,
                              pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                              Eigen::Matrix3f const& intrinsics,
-                             /* depth scale: */ float alpha )
+                             /* depth scale: */ float alpha, bool useColour,
+                             Eigen::Affine3f const* pose )
     {
         // check input
         if ( dep.size() != img.size() )
