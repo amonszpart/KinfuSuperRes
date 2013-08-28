@@ -30,7 +30,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     sdkCreateTimer( &kernel_timer );
     updateGaussian( params.spatial_sigma, params.kernel_range );
 
-    std::cout << "runing yang " << params.spatial_sigma << " " << params.range_sigma << " "  << params.kernel_range;
+    std::cout << "running yang " << params.spatial_sigma << " " << params.range_sigma << " "  << params.kernel_range << std::endl;
 
     float maxVal = params.MAXRES;
 

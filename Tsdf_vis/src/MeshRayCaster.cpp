@@ -133,7 +133,7 @@ namespace am
                 std::vector<int>   k_indices;
                 std::vector<float> k_sqr_distances;
                 int max_nn = 5;
-                octreePtr->radiusSearch( pclPnt, resolution/2.f, k_indices, k_sqr_distances, max_nn );
+                octreePtr->radiusSearch( pclPnt, resolution*2.f, k_indices, k_sqr_distances, max_nn );
 
                 if ( k_indices.size() > 0 )
                 {
@@ -301,10 +301,10 @@ namespace am
     void
     MeshRayCaster::subdivideMesh( pcl::PolygonMesh &output_mesh, pcl::PolygonMesh::ConstPtr input_mesh, int iterations )
     {
-#if 1
+#if 0
         //vtkPolyData *polyData = (vtkPolyData*)(dsActor->GetMapper()->GetInputAsDataSet());
-        vtkApproximatingSubdivisionFilter *filter = vtkCatmullClarkFilter::New();
-        filter->SetNumberOfSubdivisions( iterations );
+        //vtkApproximatingSubdivisionFilter *filter = vtkCatmullClarkFilter::New();
+        //filter->SetNumberOfSubdivisions( iterations );
 
         // Convert from PCL mesh representation to the VTK representation
         vtkSmartPointer<vtkPolyData> vtk_polygons;

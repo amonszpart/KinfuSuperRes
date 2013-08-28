@@ -36,7 +36,7 @@ namespace am
         std::cout << "UpScaling::run(): starting at res: " << cols << "x" << rows << std::endl;
 
         boost::filesystem::path polygonPath( sPolygonPath );
-        std::string outDir = ::util::outputDirectoryNameWithTimestamp( polygonPath.parent_path().string() + "enhanced" );
+        std::string outDir = ::util::outputDirectoryNameWithTimestamp( polygonPath.parent_path().string() + "/enhanced" );
         boost::filesystem::create_directory( outDir );
         std::string outName = outDir
                               + "/" + polygonPath.stem().string()
@@ -56,12 +56,12 @@ namespace am
 
         std::cout << "UpScaling::run(): subdividing mesh...";
         pcl::PolygonMesh::Ptr subdivMeshPtr( new pcl::PolygonMesh );
-        //MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 1 );
-        *subdivMeshPtr = *mesh;
+        MeshRayCaster::subdivideMesh( *subdivMeshPtr, mesh, 2 );
+        //*subdivMeshPtr = *mesh;
         std::cout << "OK..." << std::endl;
 
         MeshRayCaster meshRayCaster( intrinsics_ );
-#if 0
+#if 1
         std::cout << "UpScaling::run(): showing mesh...";
         PolyMeshViewer polyMeshViewer( intrinsics_, cols, rows );
         polyMeshViewer.initViewer( "UpScaling inputMesh" );
@@ -84,12 +84,12 @@ namespace am
         am::util::blend( blended, zBufMat, 10001.f, rgb8, 255.f );
         cv::imshow( "blended", blended);
         cv::waitKey(10);
-        cv::imwrite("blended.png", blended );
+        cv::imwrite(outDir+"/blended"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", blended );
 
         // debug
         cv::Mat zBufMat8;
-        zBufMat.convertTo( zBufMat8, CV_8UC1, 255.f/ 10001.f );
-        cv::imwrite( outDir + "/zBufMat8.png", zBufMat8 );
+        zBufMat.convertTo( zBufMat8, CV_8UC1, 255.f / 10001.f );
+        cv::imwrite( outDir + "/zBufMat8" + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", zBufMat8 );
 
         std::cout << "UpScaling::run(): Yang...";
         cv::Mat filtered;
@@ -114,7 +114,16 @@ namespace am
         // debug
         cv::Mat filtered8;
         filtered.convertTo( filtered8, CV_8UC1, 255.f/10001.f);
-        cv::imwrite( outDir + "/zBufMat8_filtered.png", filtered8 );
+        cv::imwrite( outDir + "/zBufMat8"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + "_filtered.png", filtered8 );
+
+        cv::Mat diff( filtered.rows, filtered.cols, CV_16UC1 );
+        for ( int y = 0; y < filtered.rows; ++y )
+            for ( int x = 0; x < filtered.cols; ++x )
+            {
+                diff.at<ushort>( y, x ) = 10001 + ((int)filtered.at<ushort>(y,x) - (int)zBufMat.at<ushort>(y,x));
+            }
+
+        cv::imwrite( outDir + "/zBufMat_diff16UC1"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", diff );
 
         std::cout << "UpScaling::run(): enhance mesh...";
         pcl::PolygonMesh::Ptr enhancedMeshPtr( new pcl::PolygonMesh );

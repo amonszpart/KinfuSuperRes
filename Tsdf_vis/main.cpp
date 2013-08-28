@@ -143,32 +143,6 @@ int main( int argc, char** argv )
                   0             , 522.1379 * 2.f, 258.1387 * 2.f,
                   0             , 0             , 1             ;
 
-    double width  = 1280.;
-    double height = 960.;
-    double znear  = 0.001;
-    double zfar   = 10.01;
-    int x0 = 0;
-    int y0 = 0;
-    am::PolyMeshViewer polyMeshViewer( intrinsics, 1280, 960 );
-    polyMeshViewer.initViewer( "UpScaling inputMesh" );
-
-    Eigen::Matrix3f K(intrinsics);
-    double proj[16] = { 2.*K(0,0)/width, -2. * K(0,1) / width , (width  - 2. * K(0,2) + 2. * x0)/width ,                            0,
-                        0              , -2. * K(1,1) / height, (height - 2. * K(1,2) + 2. * y0)/height,                            0,
-                        0              ,                     0, (-zfar - znear)/(zfar - znear)         , -2*zfar*znear/(zfar - znear),
-                        0              ,                     0,                                      -1,                            0 };
-
-    for ( int y = 0; y < 4; ++y )
-    {
-        for ( int x = 0; x < 4; ++x )
-        {
-            std::cout << proj[y*4+x] << ",";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << std::endl;
-    return 0;
-
     //// YANG /////////////////////////////////////////////////////////////////////////////////////////////////////////
     {
         bool canDoYang = true;
@@ -284,7 +258,7 @@ int main( int argc, char** argv )
     cv::Mat rcDepth16;
     pcl::PolygonMesh::Ptr enhancedMeshPtr;
     am::MeshRayCaster mrc( intrinsics );
-    if ( 1 )
+    if ( 0 )
     {
         pcl::PolygonMeshPtr meshPtr( new pcl::PolygonMesh );
         pcl::io::loadPolygonFile( inputFilePath, *meshPtr );
