@@ -152,13 +152,13 @@ __global__ void subpixelRefineKernel(
     float a1 = c_min_p1 - c_min_m1;
     float a2 = ( 2.f * (c_min_p1 + c_min_m1 - 2.f * c_min) );
     float a3 = a1 / a2;
-    if ( d_min > 0 )
-        a3 = min( max( a3, d_min * -3.f), d_min * 3.f );
-    else
-        a3 = min( max( a3, -10.f), 10.f );
+    //if ( d_min > 0 )
+    //    a3 = min( max( a3, d_min * -3.f), d_min * 3.f );
+    //else
+    //    a3 = min( max( a3, -10.f), 10.f );
 
     // out
-    fDep_next[ y * fDep_next_pitch + x ] = d_min - a3;
+    fDep_next[ y * fDep_next_pitch + x ] = min( max( d_min - a3, d_min - 1.f), d_min + 1.f);
 }
 
 void subpixelRefine( GpuDepthMap<float> const& minC  ,

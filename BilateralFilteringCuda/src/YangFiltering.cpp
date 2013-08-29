@@ -36,7 +36,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
 
     /// parse input
     // fDep
-    if ( dep16.type() == CV_16UC1 ) dep16.convertTo( fDep, CV_32FC1 );
+    if ( dep16.type() == CV_16UC1 ) { dep16.convertTo( fDep, CV_32FC1 ); std::cerr << "YangFiltering::run(): warning, converting from 16UC1" << std::endl; }
     else                            dep16.copyTo   ( fDep );
 
     float *fDepArr = NULL;
@@ -144,9 +144,15 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         cv::Mat dep_out;
         fDep.convertTo( dep_out, CV_16UC1 );
         char title[255];
-        sprintf( title, (depPath+"/iteration%d.png").c_str(), it );
-
+        sprintf( title, (depPath+"/iteration16_%d.png").c_str(), it );
         // write "iteration"
+        std::vector<int> imwrite_params;
+        imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
+        imwrite_params.push_back( 0 );
+        cv::imwrite( title, dep_out, imwrite_params );
+        fDep.convertTo( dep_out, CV_8UC1, 255.f / 10001.f );
+        char title[255];
+        sprintf( title, (depPath+"/iteration8_%d.png").c_str(), it );
         std::vector<int> imwrite_params;
         imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
         imwrite_params.push_back( 0 );

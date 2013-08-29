@@ -134,9 +134,130 @@ void printUsage()
               << std::endl;
 }
 
+void addFace( pcl::PolygonMesh::Ptr &meshPtr, std::vector<Eigen::Vector3f> points, std::vector<Eigen::Vector3f> *colors )
+{
+    int vxId = meshPtr->cloud.width;
+    std::cout << "vxid: " << vxId << std::endl;
+    meshPtr->cloud.width += 3;
+    meshPtr->cloud.data.resize( meshPtr->cloud.width * meshPtr->cloud.point_step );
+    float* tmp;
+    ::pcl::Vertices face;
+    for ( int pid = 0; pid < 3; ++pid, ++vxId )
+    {
+        face.vertices.push_back( vxId );
+        for ( int i = 0; i < 3; ++i )
+        {
+            tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[i].offset]) );
+            *tmp = points[pid](i);
+        }
+        if ( colors )
+        {
+            tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[ vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[3].offset]) );
+            for ( int i = 0; i < 3; ++i )
+            {
+                tmp[i] = colors->at(pid)(i);
+            }
+        }
+    }
+
+    meshPtr->polygons.push_back( face );
+    meshPtr->cloud.row_step = meshPtr->cloud.point_step * meshPtr->cloud.width;
+}
+
+void testMesh( std::string &path, Eigen::Affine3f const &pose )
+{
+    pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
+    pcl::io::loadPolygonFile( path, *meshPtr );
+#if 0
+
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    pcl::PointXYZ pnt;
+    pnt.x = 1.f;
+    pnt.y = 1.f;
+    pnt.z = 2.f;
+    cloud.push_back( pnt );
+    pnt.x = 1.f;
+    pnt.y = 5.f;
+    pnt.z = 2.f;
+    cloud.push_back( pnt );
+    pnt.x = 5.f;
+    pnt.y = 5.f;
+    pnt.z = 2.f;
+    cloud.push_back( pnt );
+    pcl::toPCLPointCloud2( cloud, meshPtr->cloud );
+    for ( int pid = 0; pid < std::min(10,(int)meshPtr->polygons.size()); ++pid )
+    {
+        for ( int vid = 0; vid < 3; ++vid )
+        {
+            std::cout << meshPtr->polygons[pid].vertices[vid] << " ";
+        }
+        std::cout << std::endl;
+    }
+    meshPtr->polygons.clear();
+
+    meshPtr->polygons.resize(2);
+    meshPtr->polygons[0].vertices.resize(3);
+    meshPtr->polygons[0].vertices[0] = 0U;
+    meshPtr->polygons[0].vertices[1] = 2U;
+    meshPtr->polygons[0].vertices[2] = 1U;
+    meshPtr->polygons[1].vertices.resize(3);
+    //meshPtr->polygons[1].vertices[0] = 3U;
+    //meshPtr->polygons[1].vertices[1] = 5U;
+    //meshPtr->polygons[1].vertices[2] = 4U;
+    for ( int pid = 0; pid < std::min(1,(int)meshPtr->polygons.size()); ++pid )
+    {
+        for ( int vid = 0; vid < 3; ++vid )
+        {
+            std::cout << meshPtr->polygons[pid].vertices[vid] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "mesh: " << *meshPtr << std::endl;
+
+    am::PolyMeshViewer mv;
+    mv.initViewer( "pm1", 1280, 960 );
+    mv.showMesh( meshPtr, pose );
+    mv.VisualizerPtr()->addCoordinateSystem( 2.f, 0.f, 0.f, 0.f );
+    mv.VisualizerPtr()->spinOnce();
+#endif
+    //meshPtr->cloud.data.clear();
+    //meshPtr->cloud.width = 0;
+    //meshPtr->cloud.height = 1;
+    //meshPtr->polygons.clear();
+
+    addFace( meshPtr,
+             (std::vector<Eigen::Vector3f>){
+                 (Eigen::Vector3f){1.f, 1.f, 2.f},
+                 (Eigen::Vector3f){1.f, 5.f, 2.f},
+                 (Eigen::Vector3f){5.f, 5.f, 2.f}
+             }, NULL);
+    addFace( meshPtr,
+             (std::vector<Eigen::Vector3f>){
+                 (Eigen::Vector3f){0.f, 0.f, 4.f},
+                 (Eigen::Vector3f){1.f, 1.f, 4.f},
+                 (Eigen::Vector3f){1.f, 0.f, 4.f}
+             }, NULL);
+    addFace( meshPtr,
+             (std::vector<Eigen::Vector3f>){
+                 (Eigen::Vector3f){0.f, 0.f, 6.f},
+                 (Eigen::Vector3f){2.f, 1.f, 6.f},
+                 (Eigen::Vector3f){1.f, 5.f, 6.f}
+             }, NULL);
+    //meshPtr->polygons.resize( meshPtr->polygons.size()+1 );
+    //meshPtr->polygons.back().vertices.resize( 3 );
+
+    am::PolyMeshViewer mv2;
+    mv2.initViewer( "pm2", 1280, 960 );
+    mv2.VisualizerPtr()->addCoordinateSystem( 2.f, 0.f, 0.f, 0.f );
+    mv2.showMesh( meshPtr, pose );
+    mv2.VisualizerPtr()->spin();
+}
+
 // main
 int main( int argc, char** argv )
 {
+
     // test intrinsics
     Eigen::Matrix3f intrinsics;
     intrinsics << 521.7401 * 2.f, 0             , 323.4402 * 2.f,
@@ -250,6 +371,9 @@ int main( int argc, char** argv )
 
         am::MyScreenshotManager::readPoses( poses_path.string(), poses );
     }
+
+    testMesh( inputFilePath, poses[img_id] );
+    return 0;
 
 
     // mats to 3D
