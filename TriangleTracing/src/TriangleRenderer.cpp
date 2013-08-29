@@ -421,6 +421,7 @@ namespace am
 
         glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
         glReadBuffer( GL_COLOR_ATTACHMENT0 );
+        glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE );
         glReadPixels( 0, 0, width_, height_, GL_RGBA, GL_FLOAT, pixels );
         glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
@@ -527,7 +528,7 @@ namespace am
     {
         glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
         glReadBuffer( GL_COLOR_ATTACHMENT1 );
-        glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE);
+        glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE );
         glReadPixels( 0, 0, width_, height_, GL_RGB_INTEGER, GL_UNSIGNED_INT, ids );
         glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
