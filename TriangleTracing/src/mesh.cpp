@@ -134,7 +134,7 @@ void Mesh::initMesh( pcl::PolygonMesh::Ptr const& meshPtr )
 
         vertices.push_back(
                     Vertex(Vector3f(*p_x, *p_y, *p_z),Vector3f( /*  vertexId: */ pid/point_step,
-                                                                /* polygonId: */ fid,
+                                                                /* polygonId: */ fid+1,
                                                                 /*    unused: */ 1.f))
                     );
 

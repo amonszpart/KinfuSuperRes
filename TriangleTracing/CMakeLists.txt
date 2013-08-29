@@ -17,8 +17,8 @@ SET( SRC_LIST
 
 INCLUDE_DIRECTORIES( ${MY_INCLUDES} include )
 
-add_executable( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
-#add_library( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
+#add_executable( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
+add_library( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
 
 TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
     GL
@@ -41,7 +41,7 @@ TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
     #vtkIO
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/src/shaders
-        ${CMAKE_BINARY_DIR}/shaders)
+#add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#    COMMAND ${CMAKE_COMMAND} -E copy_directory
+#        ${CMAKE_SOURCE_DIR}/src/shaders
+#        ${CMAKE_BINARY_DIR}/shaders)

@@ -76,8 +76,9 @@ namespace am
         std::vector<cv::Mat> depths, indices;
         triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
                                                 /*  in: */ cols, rows, intrinsics_, pose, mesh,
-                                                /* depths[0] scale: */ 10001.f );
+                                                /* depths[0] scale: */ 1.f );
         depths[0].copyTo( zBufMat );
+        float zMax = 10.1f;
 
 #elif 1
 
@@ -103,14 +104,14 @@ namespace am
         // DepthMap (dump)
         {
             cv::Mat zBufMat8;
-            zBufMat.convertTo( zBufMat8, CV_8UC1, 255.f / 10001.f );
+            zBufMat.convertTo( zBufMat8, CV_8UC1, 255.f / zMax );
             cv::imwrite( outDir + "/zBufMat8" + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", zBufMat8 );
         }
 
         // BLEND (dump)
         cv::Mat blended;
         {
-            am::util::blend( blended, zBufMat, 10001.f, rgb8, 255.f );
+            am::util::blend( blended, zBufMat, zMax, rgb8, 255.f );
             cv::imshow( "blended", blended);
             cv::waitKey(10);
             cv::imwrite( outDir + "/blended"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", blended );
@@ -126,6 +127,8 @@ namespace am
             params.range_sigma = 0.1;
             params.kernel_range = 5;
             params.yang_iterations = 10;
+            params.yang_iterations = 3;
+            params.L = 40;
 
             pcl::console::parse_argument( argc, argv, "--spatial_sigma"   , params.spatial_sigma    );
             pcl::console::parse_argument( argc, argv, "--range_sigma"     , params.range_sigma      );
@@ -139,8 +142,13 @@ namespace am
         // Filtered (dump)
         cv::Mat filtered8;
         {
-            filtered.convertTo( filtered8, CV_8UC1, 255.f/10001.f);
+            filtered.convertTo( filtered8, CV_8UC1, 255.f/zMax);
             cv::imwrite( outDir + "/zBufMat8"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + "_filtered.png", filtered8 );
+        }
+
+        if ( (filtered.type() != CV_32FC1) || (zBufMat.type() != CV_32FC1) )
+        {
+            std::cerr << "went back to short too soon..." << std::endl;
         }
 
         // Diff
@@ -149,7 +157,7 @@ namespace am
             for ( int y = 0; y < filtered.rows; ++y )
                 for ( int x = 0; x < filtered.cols; ++x )
                 {
-                    diff.at<ushort>( y, x ) = 10001U + filtered.at<ushort>(y,x) - zBufMat.at<ushort>(y,x);
+                    diff.at<ushort>( y, x ) = 10001U + (ushort)round((filtered.at<float>(y,x) - zBufMat.at<float>(y,x)) * 10001.f/zMax);
                 }
             cv::imwrite( outDir + "/zBufMat_diff16UC1"  + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "") + ".png", diff );
         }
@@ -163,10 +171,27 @@ namespace am
             std::cout << "polyMeshViewer.MeshPtr(): mesh->cloud.size: " << subdivMeshPtr->cloud.width << "x" <<  subdivMeshPtr->cloud.height << std::endl;
             meshRayCaster.enhanceMesh( enhancedMeshPtr, filtered, subdivMeshPtr, pose, 3.f / 640.f );
 #else
+            //meshRayCaster.enhanceMesh2( enhancedMeshPtr, filtered, mesh, pose, depths, indices );
+            {
+                   double minVal, maxVal;
+                   cv::minMaxIdx( zBufMat, &minVal, &maxVal );
+                   std::cout << "minVal(zBufMat): " << minVal << ", "
+                             << "maxVal(zBufMat): " << maxVal << std::endl;
+            }
+            {
+                   double minVal, maxVal;
+                   cv::minMaxIdx( filtered, &minVal, &maxVal );
+                   std::cout << "minVal(filtered): " << minVal << ", "
+                             << "maxVal(filtered): " << maxVal << std::endl;
+            }
             meshRayCaster.enhanceMesh2( enhancedMeshPtr, filtered, mesh, pose, depths, indices );
 #endif
             std::cout << "OK..." << std::endl;
         }
+
+        /*PolyMeshViewer polyMeshViewer2( intrinsics_, cols, rows );
+        polyMeshViewer2.initViewer( "UpScaling outputMesh" );
+        polyMeshViewer2.showMesh( enhancedMeshPtr, pose );*/
 
         // SAVE
         {
@@ -178,6 +203,9 @@ namespace am
 #endif
             std::cout << "...OK..." << std::endl;
         }
+
+        //polyMeshViewer2.VisualizerPtr()->spin();
+        system( ("meshlab " + outName + " &").c_str() );
 
         std::cout << "UpScaling::run(): FINISHED..." << std::endl;
     }

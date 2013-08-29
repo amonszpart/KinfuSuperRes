@@ -431,13 +431,91 @@ namespace am
             for ( int x = 0; x < width_; ++x )
             {
                 // copy one channel only
-                float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step] ) * alpha;
+                float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step ] ) * alpha;
                 distances.at<float>( y, x ) = val;
                 float ind = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step + sizeof(float)] );
                 indices.at<float>( y, x) = ind;
             }
         }
     }
+
+    void TriangleRenderer::setupBuffers( int width, int height )
+    {
+        if ( !inited_ ) { std::cerr << "GLRenderer::setupBuffers(): cannot run, buffers not inited!" << std::endl; return; }
+
+        if (       textureHandles_[0] != INVALID_OGL_VALUE ) glDeleteTextures    ( 2,  textureHandles_          );
+        if ( depthRenderBufferHandle_ != INVALID_OGL_VALUE ) glDeleteTextures    ( 1, &depthRenderBufferHandle_ );
+        if (       framebufferHandle_ != INVALID_OGL_VALUE ) glDeleteFramebuffers( 1, &framebufferHandle_       );
+
+        glGenFramebuffers( 1, &framebufferHandle_ );
+        glBindFramebuffer(GL_FRAMEBUFFER, framebufferHandle_ );
+        {
+            glGenTextures( 3, textureHandles_ );
+            glBindTexture( GL_TEXTURE_2D, textureHandles_[0] );
+
+            glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureHandles_[0], 0 );
+        }
+
+        // Create the texture object for the primitive information buffer
+        {
+            glBindTexture(GL_TEXTURE_2D, textureHandles_[1] );
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI, width, height, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, NULL );
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, textureHandles_[1], 0 );
+            //glReadPixels(x, y, 1, 1, GL_RGB_INTEGER, GL_UNSIGNED_INT, &Pixel);
+        }
+
+        {
+            glBindTexture( GL_TEXTURE_2D, textureHandles_[2] );
+
+            glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, textureHandles_[2], 0 );
+        }
+
+        // The depth buffer
+        {
+            glGenRenderbuffers(1, &depthRenderBufferHandle_);
+            glBindRenderbuffer(GL_RENDERBUFFER, depthRenderBufferHandle_);
+            glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height );
+            glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderBufferHandle_ );
+        }
+
+        // Set the list of draw buffers.
+        GLenum DrawBuffers[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+        glDrawBuffers( 3, DrawBuffers ); // "1" is the size of DrawBuffers
+
+        // Always check that our framebuffer is ok
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if(status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            std::cout << "Framebuffer: Incomplete framebuffer (";
+            switch(status){
+                case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                    std::cout << "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+                    break;
+                case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                    std::cout << "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+                    break;
+                case GL_FRAMEBUFFER_UNSUPPORTED:
+                    std::cout << "GL_FRAMEBUFFER_UNSUPPORTED";
+                    break;
+            }
+            std::cout << ")" << std::endl;
+        }
+    }
+
 
     /*
      *\brief    Read framebuffer object's vertex and triangle index data
@@ -449,6 +527,7 @@ namespace am
     {
         glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
         glReadBuffer( GL_COLOR_ATTACHMENT1 );
+        glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE);
         glReadPixels( 0, 0, width_, height_, GL_RGB_INTEGER, GL_UNSIGNED_INT, ids );
         glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
@@ -489,9 +568,9 @@ namespace am
           depthRenderBufferHandle_( INVALID_OGL_VALUE ), framebufferHandle_( INVALID_OGL_VALUE ),
           inited_(false)
     {
-        textureHandles_[0] = textureHandles_[1] = INVALID_OGL_VALUE;
-        vertexFileName = "../../TriangleTracing/build/shaders/triangles.vert";
-        fragmentFileName = "../../TriangleTracing/build/shaders/triangles.frag";
+        textureHandles_[0] = textureHandles_[1] = textureHandles_[2] = INVALID_OGL_VALUE;
+        vertexFileName = "../../TriangleTracing/src/shaders/triangles.vert";
+        fragmentFileName = "../../TriangleTracing/src/shaders/triangles.frag";
     }
 
     TriangleRenderer::~TriangleRenderer()
@@ -538,6 +617,10 @@ namespace am
 
         glEnable( GL_DEPTH_TEST );
         glClearColor( 0.0, 0.0, 0.0, 1.0 );
+
+        glClampColor( GL_CLAMP_READ_COLOR, GL_FALSE );
+        glClampColor( GL_CLAMP_VERTEX_COLOR, GL_FALSE );
+        glClampColor( GL_CLAMP_FRAGMENT_COLOR, GL_FALSE );
 
         shader_program             = setupShaders();
         meshes_.vertexShaderLoc    = vertexLoc;
@@ -610,57 +693,6 @@ namespace am
     }
 
 
-    void TriangleRenderer::setupBuffers( int width, int height )
-    {
-        if ( !inited_ ) { std::cerr << "GLRenderer::setupBuffers(): cannot run, buffers not inited!" << std::endl; return; }
-
-        if (       textureHandles_[0] != INVALID_OGL_VALUE ) glDeleteTextures    ( 2,  textureHandles_          );
-        if ( depthRenderBufferHandle_ != INVALID_OGL_VALUE ) glDeleteTextures    ( 1, &depthRenderBufferHandle_ );
-        if (       framebufferHandle_ != INVALID_OGL_VALUE ) glDeleteFramebuffers( 1, &framebufferHandle_       );
-
-        glGenFramebuffers( 1, &framebufferHandle_ );
-        glBindFramebuffer(GL_FRAMEBUFFER, framebufferHandle_ );
-        {
-            glGenTextures( 2, textureHandles_ );
-            glBindTexture( GL_TEXTURE_2D, textureHandles_[0] );
-
-            glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-            glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureHandles_[0], 0 );
-        }
-
-        // Create the texture object for the primitive information buffer
-        {
-            glBindTexture(GL_TEXTURE_2D, textureHandles_[1] );
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI, width, height, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, NULL );
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-            glFramebufferTexture2D (GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, textureHandles_[1], 0 );
-            //glReadPixels(x, y, 1, 1, GL_RGB_INTEGER, GL_UNSIGNED_INT, &Pixel);
-        }
-
-        // The depth buffer
-        {
-            glGenRenderbuffers(1, &depthRenderBufferHandle_);
-            glBindRenderbuffer(GL_RENDERBUFFER, depthRenderBufferHandle_);
-            glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height );
-            glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderBufferHandle_ );
-        }
-
-        // Set the list of draw buffers.
-        GLenum DrawBuffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-        glDrawBuffers( 2, DrawBuffers ); // "1" is the size of DrawBuffers
-
-        // Always check that our framebuffer is ok
-        if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cerr << "FrameBufferStatus error..." << std::endl;
-    }
-
     void TriangleRenderer::setUniforms()
     {
         // must be called after glUseProgram
@@ -691,8 +723,9 @@ namespace am
 
         // set render target
         glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
-        glDrawBuffers( 2, textureHandles_ );
+        glDrawBuffers( 3, textureHandles_ );
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        glClampColor( GL_CLAMP_READ_COLOR, GL_FALSE );
         glViewport( 0, 0, width_, height_ ); // Render on the whole framebuffer, complete from the lower left corner to the upper right
 
         // render
@@ -740,6 +773,7 @@ namespace am
 
         glBindFragDataLocation( shader_program, 0, "outputF" );
         glBindFragDataLocation( shader_program, 1, "ids"     );
+        glBindFragDataLocation( shader_program, 2, "dists"     );
         glLinkProgram( shader_program );
         printProgramInfoLog( shader_program );
 

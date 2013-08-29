@@ -86,7 +86,7 @@ namespace am
         protected:
             GLuint depthRenderBufferHandle_;
             GLuint framebufferHandle_;
-            GLuint textureHandles_[2];
+            GLuint textureHandles_[3];
 
             Mesh meshes_;
 

@@ -51,7 +51,8 @@ namespace am {
         YangFiltering yf;
         yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams, path );
 
-        depFC1.convertTo( filteredDep16, CV_16UC1 );
+        if ( dep16.type() == CV_16UC1 ) depFC1.convertTo( filteredDep16, CV_16UC1 );
+        else depFC1.copyTo( filteredDep16 );
     }
 
     // cd ~/rec/testing/ram*/poses/bruteYang &&
