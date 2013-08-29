@@ -187,11 +187,45 @@ namespace am
         std::cout << "MeshRayCaster::enhanceMesh() finished..." << std::endl;
     }
 
+    void addFace( pcl::PolygonMesh::Ptr &meshPtr, std::vector<Eigen::Vector3f> points, std::vector<Eigen::Vector3f> *colors )
+    {
+        int vxId = meshPtr->cloud.width;
+        //std::cout << "vxid: " << vxId << std::endl;
+        meshPtr->cloud.width += 3;
+        meshPtr->cloud.data.resize( meshPtr->cloud.width * meshPtr->cloud.point_step );
+        float* tmp;
+        ::pcl::Vertices face;
+        for ( int pid = 0; pid < 3; ++pid, ++vxId )
+        {
+            face.vertices.push_back( vxId );
+            for ( int i = 0; i < 3; ++i )
+            {
+                tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[i].offset]) );
+                *tmp = points[pid](i);
+            }
+            if ( colors )
+            {
+                tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[ vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[3].offset]) );
+                for ( int i = 0; i < 3; ++i )
+                {
+                    tmp[i] = colors->at(pid)(i);
+                }
+            }
+        }
+
+        meshPtr->polygons.push_back( face );
+        meshPtr->cloud.row_step = meshPtr->cloud.point_step * meshPtr->cloud.width;
+    }
+
     void
     MeshRayCaster::enhanceMesh2( /* out: */ pcl::PolygonMesh::Ptr &outMeshPtr,
                                   /*  in: */ cv::Mat const& dep16, pcl::PolygonMesh::ConstPtr const& inMeshPtr, Eigen::Affine3f const& p_pose,
                                   std::vector<cv::Mat> depths, std::vector<cv::Mat> indices )
     {
+        if ( dep16.type() != CV_32FC1 )
+        {
+            std::cerr << "MeshRaycaster::enhanceMesh2(): wrong dep type...need float" << std::endl;
+        }
         // start
         std::cout << "MeshRayCaster::enhanceMesh2() starting..." << std::endl;
 
@@ -237,7 +271,18 @@ namespace am
         const Eigen::Matrix3f rotation    = p_pose.rotation();
         const Eigen::Vector3f translation = p_pose.translation();
 
-#if 1
+#if 0
+        addFace( outMeshPtr,
+                    (std::vector<Eigen::Vector3f>){
+                        (Eigen::Vector3f){1.f, 1.f, 2.f},
+                        (Eigen::Vector3f){1.f, 5.f, 2.f},
+                        (Eigen::Vector3f){5.f, 5.f, 2.f}
+                    }, NULL);
+        outMeshPtr->polygons.resize( outMeshPtr->polygons.size()+1 );
+        outMeshPtr->polygons.back().vertices.resize( 3 );
+#endif
+
+#if 0
         int vxid = outMeshPtr->cloud.width-3;
         // add place for 3 new vertices
         //outMeshPtr->cloud.width += 3;
@@ -269,15 +314,21 @@ namespace am
         }
 
         // add face
-        outMeshPtr->polygons.push_back( newFace );
+        outMeshPtr->polygons.resize(outMeshPtr->polygons.size()+1);
+        outMeshPtr->polygons.back().vertices.resize(3);
+        outMeshPtr->polygons.back().vertices[0] = newFace.vertices[0];
+        outMeshPtr->polygons.back().vertices[1] = newFace.vertices[1];
+        outMeshPtr->polygons.back().vertices[2] = newFace.vertices[2];
+        outMeshPtr->polygons.resize(outMeshPtr->polygons.size()+1);
+        outMeshPtr->polygons.back().vertices.resize(3);
         //outMeshPtr->cloud.row_step = outMeshPtr->cloud.width * outMeshPtr->cloud.point_step;
 #endif
 
         // clear mesh (we only needed the header from inMeshPtr)
-        /*outMeshPtr->cloud.data.clear();
+        outMeshPtr->cloud.data.clear();
         outMeshPtr->cloud.width = 0;
         outMeshPtr->cloud.height = 1;
-        outMeshPtr->polygons.clear();*/
+        outMeshPtr->polygons.clear();
 
         // triangle index offsets
         std::vector< std::vector<cv::Vec2i> > smalls(2);
@@ -290,7 +341,7 @@ namespace am
             smalls[1].push_back( cv::Vec2i(-1, 1) );
             smalls[1].push_back( cv::Vec2i(-1, 0) );
         }
-#if 0
+#if 1
         // variables
         Eigen::Vector3f pnt3D;
         std::vector<bool> keepFaces( inMeshPtr->polygons.size() );
@@ -308,13 +359,33 @@ namespace am
                     std::vector<cv::Vec2i> offs = smalls[ smid ];
 
                     if (
-                         (indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) > 0)
-                         && indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[1][0],x+offs[1][1])
-                         && indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[2][0],x+offs[2][1]) )
+                         (indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) != 0)
+                         //&& indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[1][0],x+offs[1][1])
+                         //&& indices[1].at<unsigned>(y+offs[0][0],x+offs[0][1]) == indices[1].at<unsigned>(y+offs[2][0],x+offs[2][1])
+                        )
                     {
                         // exclude old face
                         keepFaces[ indices[1].at<unsigned>(y,x) ] = false;
 
+
+                        /*Eigen::Vector2f curr;
+                        curr(0) = x + offs[oid][1];
+                        curr(1) = y + offs[oid][0];
+                        pnt3D = rotation * ( am::util::pcl::point2To3D(curr, intrinsics_) * (float)dep16.at<ushort>(y,x) ) + translation;
+                        */
+                        static bool printed = false;
+                        if ( !printed  && y > 200 && x > 200 )
+                        {
+                            std::cout << "dep16: " << (float)dep16.at<float>(y,x) << std::endl;
+                            printed = true;
+                        }
+                        addFace( outMeshPtr,
+                                 (std::vector<Eigen::Vector3f>){
+                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[0][1],y + offs[0][0]}, intrinsics_) * (float)dep16.at<float>(y,x) ) + translation,
+                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[1][1],y + offs[1][0]}, intrinsics_) * (float)dep16.at<float>(y,x) ) + translation,
+                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[2][1],y + offs[2][0]}, intrinsics_) * (float)dep16.at<float>(y,x) ) + translation,
+                                 }, NULL);
+#if 0
                         // remember vertexid to insert at
                         int vxid = outMeshPtr->cloud.width;
                         // add place for 3 new vertices
@@ -345,6 +416,7 @@ namespace am
 
                         // add face
                         outMeshPtr->polygons.push_back( newFace );
+#endif
                     }
                 }
             }
