@@ -118,6 +118,51 @@ namespace am
                 std::cout << "gamma: " << gamma << " " << gamma * 180.f / M_PI << std::endl;
             }
 
+            void copyCam( ::pcl::visualization::PCLVisualizer::Ptr from,
+                          ::pcl::visualization::PCLVisualizer::Ptr to )
+            {
+                Eigen::Vector3d pos, up, dir;
+                getCam( pos, up, dir, from );
+                setCam( pos, up, dir, to );
+            }
+
+            void setCam( /*  in: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
+                         ::pcl::visualization::PCLVisualizer::Ptr pViewerPtr )
+            {
+                vtkSmartPointer<vtkRendererCollection> rens =
+                        pViewerPtr->getRendererCollection();
+                rens->InitTraversal ();
+                vtkRenderer* renderer = NULL;
+                int it = 0;
+                while ((renderer = rens->GetNextItem ()) != NULL && (it < 1) )
+                {
+                    vtkCamera& camera = *renderer->GetActiveCamera();
+                    camera.SetPosition  ( pos[0], pos[1], pos[2] );
+                    camera.SetViewUp    (  up[0],  up[1],  up[2] );
+                    camera.SetFocalPoint( dir[0], dir[1], dir[2] );
+                    ++it;
+                }
+                pViewerPtr->spinOnce();
+            }
+
+            void getCam( /* out: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
+                         /*  in: */ ::pcl::visualization::PCLVisualizer::Ptr const& pViewerPtr )
+            {
+                vtkSmartPointer<vtkRendererCollection> rens =
+                        pViewerPtr->getRendererCollection();
+                rens->InitTraversal ();
+                vtkRenderer* renderer = NULL;
+                int it = 0;
+                while ((renderer = rens->GetNextItem ()) != NULL && (it < 1) )
+                {
+                    vtkCamera& camera = *renderer->GetActiveCamera ();
+                    camera.GetPosition  ( pos[0], pos[1], pos[2] );
+                    camera.GetViewUp    (  up[0],  up[1],  up[2] );
+                    camera.GetFocalPoint( dir[0], dir[1], dir[2] );
+                    ++it;
+                }
+            }
+
         } // end ns pcl
     } // end ns util
 } // end ns am

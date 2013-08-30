@@ -32,12 +32,11 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
 
     std::cout << "running yang " << params.spatial_sigma << " " << params.range_sigma << " "  << params.kernel_range << std::endl;
 
-    float maxVal = params.MAXRES;
 
     /// parse input
-    // fDep
+    // fDep // scale to 0.f .. MAXRES
     if ( dep16.type() == CV_16UC1 ) { dep16.convertTo( fDep, CV_32FC1 ); std::cerr << "YangFiltering::run(): warning, converting from 16UC1" << std::endl; }
-    else                            dep16.copyTo   ( fDep );
+    else                            { dep16.copyTo   ( fDep ); }
 
     float *fDepArr = NULL;
     toContinuousFloat( fDep, fDepArr );
@@ -84,10 +83,10 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     for ( int it = 0; it < params.yang_iterations; ++it )
     {
         std::cout << "Yang_iteration " << it << std::endl;
-        // set costs to zero
-        runSetKernel2D<float>( d_minC.Get()  , maxVal*maxVal, d_minC.GetWidth(), d_minC.GetHeight() );
-        runSetKernel2D<float>( d_minCm1.Get(), maxVal*maxVal, d_minCm1.GetWidth(), d_minCm1.GetHeight() );
-        runSetKernel2D<float>( d_minCp1.Get(), maxVal*maxVal, d_minCp1.GetWidth(), d_minCp1.GetHeight() );
+        // set costs to maximum
+        runSetKernel2D<float>(   d_minC.Get(), params.MAXRES*params.MAXRES,   d_minC.GetWidth(),   d_minC.GetHeight() );
+        runSetKernel2D<float>( d_minCm1.Get(), params.MAXRES*params.MAXRES, d_minCm1.GetWidth(), d_minCm1.GetHeight() );
+        runSetKernel2D<float>( d_minCp1.Get(), params.MAXRES*params.MAXRES, d_minCp1.GetWidth(), d_minCp1.GetHeight() );
 
         // minmax
         float mx = 0.f, mn = FLT_MAX;
@@ -105,10 +104,10 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         }
 
         const float loop_stop = std::min( mx + params.L * params.ETA + 1.f, params.MAXRES );
-        for ( float d = std::max( 0.f, mn - params.L * params.ETA); d < loop_stop; d += 1.f )
+        for ( float d = std::max( 0.f, mn - params.L * params.ETA); d < loop_stop; d += params.d_step )
         {
             // debug
-            //std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
+            std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
 
             // calculate truncated cost
             squareDiff( /*         in: */ d_fDep,
@@ -151,11 +150,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         imwrite_params.push_back( 0 );
         cv::imwrite( title, dep_out, imwrite_params );
         fDep.convertTo( dep_out, CV_8UC1, 255.f / 10001.f );
-        char title[255];
         sprintf( title, (depPath+"/iteration8_%d.png").c_str(), it );
-        std::vector<int> imwrite_params;
-        imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
-        imwrite_params.push_back( 0 );
         cv::imwrite( title, dep_out, imwrite_params );
     }
 

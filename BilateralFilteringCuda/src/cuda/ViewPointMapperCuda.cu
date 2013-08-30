@@ -200,33 +200,58 @@ template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const
 // Args:
 //   depth_abs - the absolute depth from the kinect.
 //   depth_proj - the projected depth.
-__global__ void cam2WorldKernel( float *out,
+__global__ void cam2WorldKernel( float *out, size_t out_pitch,
                                  int w, int h,
-                                 size_t out_pitch )
+                                 float fx, float fy, float cx, float cy,
+                                 float k1, float k2, float p1, float p2, float k3,
+                                 float alpha )
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= w || y >= h) return;
 
     float3 P_world = cam2World( (float2){x   , y   },
-                                (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
-                                K1_RGB, K2_RGB, P1_RGB, P2_RGB, K3_RGB,
-                                ALPHA_RGB );
-    *(reinterpret_cast<float2*>(&out[ y * out_pitch + 2 * x ])) = (float2){P_world.x, P_world.y};
+                                (float2){fx,fy}, (float2){cx,cy},
+                                k1, k2, p1, p2, k3,
+                                alpha );
+    out[ y * out_pitch + 2 * x     ] = P_world.x;
+    out[ y * out_pitch + 2 * x + 1 ] = P_world.y;
 }
 
 /*
  * \brief "undistort": Gives a mapping from {x, y} to {xn, yn, 1}
  * \param out Out is a (2*w, h) image containing normalised point coordinates (xn, yn)
  */
-void cam2World( int w, int h, GpuDepthMap<float> &out )
+void cam2World( GpuDepthMap<float> &out,
+                int w, int h,
+                float fx = -1.f, float fy = -1.f, float cx = -1.f, float cy = -1.f,
+                float k1 = -1.f, float k2 = -1.f, float p1 = -1.f, float p2 = -1.f, float k3 = -1.f,
+                float alpha = -1.f )
 {
     dim3 gridSize( (w + 16 - 1) / 16,
                    (h + 16 - 1) / 16 );
     dim3 blockSize( 16, 16 );
-    cam2WorldKernel<<< gridSize, blockSize>>>( out.Get(),
+    if ( fx    < 0.f ) fx    = FX_RGB;
+    if ( fy    < 0.f ) fy    = FY_RGB;
+    if ( cx    < 0.f ) cx    = CX_RGB;
+    if ( cy    < 0.f ) cy    = CY_RGB;
+    if ( k1    < 0.f ) k1    = K1_RGB;
+    if ( k2    < 0.f ) k2    = K2_RGB;
+    if ( p1    < 0.f ) p1    = P1_RGB;
+    if ( p2    < 0.f ) p2    = P2_RGB;
+    if ( k3    < 0.f ) k3    = K3_RGB;
+    if ( alpha < 0.f ) alpha = ALPHA_RGB;
+    std::cout << "cam2World: "
+              << fx << " " << fy << " "
+              << cx << " " << cy << " "
+              << k1 << " " << k2 << " "
+              << alpha << " " << alpha << std::endl;
+
+    cam2WorldKernel<<< gridSize, blockSize>>>( out.Get(), out.GetPitch() / sizeof(float),
                                                w, h,
-                                               out.GetPitch() / sizeof(float) );
+                                               fx, fy, cx, cy,
+                                               k1, k2, p1, p2, k3,
+                                               alpha );
 
     // sync host and stop computation timer
     checkCudaErrors( cudaDeviceSynchronize() );

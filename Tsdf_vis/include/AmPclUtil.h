@@ -28,6 +28,17 @@ namespace am
 
             void
             printPose( Eigen::Affine3f const& pose );
+
+            void
+            setCam( /*  in: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
+                    ::pcl::visualization::PCLVisualizer::Ptr pViewerPtr );
+            void
+            getCam( /* out: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
+                    /*  in: */ ::pcl::visualization::PCLVisualizer::Ptr  const& pViewerPtr );
+
+            void copyCam( ::pcl::visualization::PCLVisualizer::Ptr from,
+                          ::pcl::visualization::PCLVisualizer::Ptr to );
+
         } // pcl
     } // util
 } // am

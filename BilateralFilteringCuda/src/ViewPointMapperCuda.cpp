@@ -4,6 +4,7 @@
 #include "AmCudaUtil.h"
 
 #include <iostream>
+#include <eigen3/Eigen/Dense>
 
 /// viewpoint mapping with or without rgb lens distortion
 // extern in ViewPointMapperCuda.cu
@@ -175,8 +176,14 @@ void ViewPointMapperCuda::getIntrinsics( cv::Mat &intrinsics, cv::Mat &distortio
 
 
 /// returns a float2 matrix of normalised 3D coordinates without the homogeneous part
-extern void cam2World( int w, int h, GpuDepthMap<float> &out ); // NOT TESTED!
-void ViewPointMapperCuda::runCam2World( int w, int h, float* out_data )
+extern void cam2World( GpuDepthMap<float> &out, int w, int h,
+                       float fx, float fy, float cx, float cy,
+                       float k1, float k2, float p1, float p2, float k3,
+                       float alpha ); // NOT TESTED!
+void ViewPointMapperCuda::runCam2World( float* out_data, int w, int h,
+                                        float fx, float fy, float cx, float cy,
+                                        float k1, float k2, float p1, float p2, float k3,
+                                        float alpha )
 {
     // check input
     if ( !out_data )
@@ -190,7 +197,10 @@ void ViewPointMapperCuda::runCam2World( int w, int h, float* out_data )
     d_out.Create( DEPTH_MAP_TYPE_FLOAT, w * 2, h ); // two coordinates per pixel
 
     // work
-    cam2World( w, h, d_out );
+    cam2World( d_out, w, h,
+               fx, fy, cx, cy,
+               k1, k2, p1, p2, k3,
+               alpha );
 
     // output
     d_out.CopyDataOut( out_data );
@@ -225,6 +235,41 @@ void ViewPointMapperCuda::runMyCopyKernelTest( cv::Mat const& in, cv::Mat &out )
         continuous2Cv32FC1<float>( tmp, out, in.rows, in.cols );
         delete [] tmp; tmp = NULL;
     }
+}
+
+void testCam2World( int w, int h, Eigen::Matrix3f const& intrinsics )
+{
+    // test
+    float *pixMap = new float[ w * h * 2 ];
+    ViewPointMapperCuda::runCam2World( pixMap, w, h,
+                                       /* fx: */ intrinsics(0,0), /* fy: */ intrinsics(1,1),
+                                       /* cx: */ intrinsics(0,2), /* cy: */ intrinsics(1,2),
+                                       0.f, 0.f, 0.f, 0.f, 0.f, 0.f );
+
+    Eigen::Vector3f pnt3D;
+    // copy inputs
+    for ( int y = 0; y < h; ++y )
+    {
+        for ( int x = 0; x < w; ++x )
+        {
+            pnt3D << (x - intrinsics(0,2)) / intrinsics(0,0),
+                     (y - intrinsics(1,2)) / intrinsics(1,1),
+                      1.f;
+
+            if (     ( pnt3D(0) != pixMap[ (y * w + x) * 2    ] )
+                  || ( pnt3D(1) != pixMap[ (y * w + x) * 2 + 1] )  )
+            {
+                std::cout << "pnt3D: "
+                          << pnt3D(0) << "," << pnt3D(1)
+                          << " != "
+                          << pixMap[ (y * w + x) * 2     ] << ","
+                          << pixMap[ (y * w + x) * 2 + 1 ]
+                          << std::endl;
+            }
+        }
+    }
+
+    delete [] pixMap;
 }
 
 

@@ -2,6 +2,7 @@
 
 #include "tsdf_viewer.h"
 
+#include <vtkCamera.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/common.h>
 
@@ -65,16 +66,17 @@ namespace am
     void depth_viewer3d_mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* cookie)
     {
         // player pointer
-        pcl::visualization::PCLVisualizer::Ptr* pViewerPtr = reinterpret_cast<pcl::visualization::PCLVisualizer::Ptr*>( cookie );
+        DepthViewer3D *p_depthViewer = reinterpret_cast<DepthViewer3D*>( cookie );
 
         // left button release
         if ( mouse_event.getType()   == pcl::visualization::MouseEvent::MouseButtonRelease &&
              mouse_event.getButton() == pcl::visualization::MouseEvent::LeftButton            )
         {
             // read
-            Eigen::Affine3f tmp_pose = (*pViewerPtr)->getViewerPose();
-
+            Eigen::Affine3f tmp_pose = p_depthViewer->ViewerPtr()->getViewerPose();
             am::util::pcl::printPose( tmp_pose );
+
+            p_depthViewer->broadcastPoseOf( p_depthViewer->ViewerPtr() );
         }
     }
 
@@ -95,25 +97,25 @@ namespace am
 
         //boost::function<void (const pcl::visualization::KeyboardEvent&, void*)> func_keyboard = boost::bind (&DepthViewer3D::keyboard_callback, this, _1, _2 );
         viewer_ptr_->registerKeyboardCallback( depth_viewer3d_keyboard_callback, (void*)&viewer_ptr_ );
-        viewer_ptr_->registerMouseCallback   ( depth_viewer3d_mouse_callback   , (void*)&viewer_ptr_ );
+        viewer_ptr_->registerMouseCallback   ( depth_viewer3d_mouse_callback   , (void*)this );
     }
 
     /*
      * \brief Depth image (and registered colour) to point cloud
      */
     void
-    DepthViewer3D::showMats( cv::Mat const& large_dep16, cv::Mat const& rgb8_960, int img_id, std::map<int,Eigen::Affine3f> const& poses,  Eigen::Matrix3f const& intrinsics )
+    DepthViewer3D::showMats( cv::Mat const& large_dep16, cv::Mat const& rgb8_960, int img_id, std::map<int,Eigen::Affine3f> const& poses, Eigen::Matrix3f const& intrinsics )
     {
         // create cloud
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr colorCloudPtr;
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPtr;
         {
-            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, colorCloudPtr, intrinsics, 1.f / 1000.f, false, &(poses.at(img_id)) );
+            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, cloudPtr, intrinsics, 1.f / 1000.f, false, &(poses.at(img_id)) );
         }
 
         // calculate centroid
         Eigen::Vector4f centroid;
         {
-            pcl::compute3DCentroid( *colorCloudPtr, centroid );
+            pcl::compute3DCentroid( *cloudPtr, centroid );
             std::cout << "centroid: " << centroid.transpose() << " "
                       << centroid.cols() << " " << centroid.rows()
                       << centroid.block<3,1>(0,0).transpose() << std::endl;
@@ -122,7 +124,7 @@ namespace am
         // bounding box
         Eigen::Vector4f min_pt, max_pt;
         {
-            pcl::getMinMax3D( *colorCloudPtr, min_pt, max_pt );
+            pcl::getMinMax3D( *cloudPtr, min_pt, max_pt );
             std::cout << "min_pt: " << min_pt.transpose() << std::endl
                       << "max_pt: " << max_pt.transpose() << std::endl;
         }
@@ -139,8 +141,9 @@ namespace am
 
         // show cloud
         {
-            pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( colorCloudPtr );
-            viewer_ptr_->addPointCloud<pcl::PointXYZRGB>( colorCloudPtr, rgb, "colorCloud" );
+            pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( cloudPtr );
+            viewer_ptr_->addPointCloud<pcl::PointXYZRGB>( cloudPtr, rgb, "colorCloud" );
+
             //viewer_ptr_->spinOnce();
             //viewer_ptr_->showCl
             //viewer_ptr_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "colorCloud" );
@@ -158,12 +161,12 @@ namespace am
             //                 Eigen::AngleAxisf(.5f * M_PI,Eigen::Vector3f::UnitZ())  ).matrix();
             pose.translation() = camPos;
             //am::TSDFViewer::setViewerPose( *viewer_ptr_, pose );
-            viewer_ptr_->setCameraPosition( .4,0.6, -1.,//camPos[0], camPos[1], camPos[2],
+            /*viewer_ptr_->setCameraPosition( .4,0.6, -1.,//camPos[0], camPos[1], camPos[2],
                                             //centroid[0], centroid[1], centroid[2],
                                             2,2,2,
-                                            .0, .0, -1. );
+                                            .0, .0, -1. );*/
             //viewer_ptr_->addCoordinateSystem(3.f, camPos[0], camPos[1], camPos[2] );
-            viewer_ptr_->addCoordinateSystem(2.f, -1.f, 1.f, 1.f );
+            //viewer_ptr_->addCoordinateSystem(2.f, -1.f, 1.f, 1.f );
 
             /*Eigen::Matrix4f pose2;
             pose2 << 0.369991, 0.318449, -0.872752, 1.25756,
@@ -177,7 +180,7 @@ namespace am
 
         }
 
-        viewer_ptr_->spin();
+        viewer_ptr_->spinOnce();
     }
 
     void

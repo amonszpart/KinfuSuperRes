@@ -6,6 +6,7 @@
 #include "ViewPointMapperCuda.h"
 #include "BilateralFilterCuda.hpp"
 #include "MyThrustUtil.h"
+#include "YangFiltering.h"
 
 void blend( cv::Mat &blendedUC3, cv::Mat const& dep, float depMax, cv::Mat const& rgb, float rgbMax = 255.f )
 {
@@ -200,6 +201,59 @@ int testBilateralFiltering( cv::Mat const& img16, cv::Mat const& guide )
     return EXIT_SUCCESS;
 }
 
+int runYangCleaned( cv::Mat &filteredDep16, cv::Mat const& dep16, cv::Mat const& rgb8, YangFilteringRunParams yangFilteringRunParams, std::string const& path )
+{
+    // resize
+    cv::Mat dep16_large;
+    if ( rgb8.size() != dep16.size() )
+    {
+        std::cout << "YangFilteringWrapper::runYangCleaned(): upsizing depth to match rgb size... " << rgb8.cols << "x" << rgb8.rows << std::endl;
+
+        cv::resize( dep16, dep16_large, rgb8.size(), 0, 0, cv::INTER_NEAREST );
+    }
+    cv::Mat const& depRef = dep16_large.empty() ? dep16 : dep16_large; // 640 by default
+
+    // to float
+    cv::Mat depFC1; depRef.convertTo( depFC1, CV_32FC1  );
+
+    // bilateral fill
+    BilateralFilterCuda<float> bfc;
+    bfc.setIterations( 2 );
+    bfc.setFillMode( FILL_ONLY_ZEROS );
+    bfc.runBilateralFiltering( depFC1, rgb8, depFC1,
+                               5.f, .1f, 10, 1.f );
+    // Yang
+    YangFiltering yf;
+    yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams, path );
+
+    if ( dep16.type() == CV_16UC1 ) depFC1.convertTo( filteredDep16, CV_16UC1 );
+    else depFC1.copyTo( filteredDep16 );
+}
+
+int testYang( cv::Mat const& dep, cv::Mat const& img )
+{
+    cv::Mat depF, filteredF;
+    dep.convertTo( depF, CV_32FC1 );
+    YangFilteringRunParams params;
+    params.yang_iterations = 1;
+    //params.d_step = 10.f;
+    //params.MAXRES = 255.f;
+
+    runYangCleaned( filteredF, depF, img, params, "./" );
+    cv::imshow( "filteredF", filteredF );
+    char c = 0; while ( (c=cv::waitKey()) != 27 ) ;
+
+    cv::Mat filtered16;
+    filteredF.convertTo( filtered16, CV_16UC1 );
+
+    std::vector<int> imwrite_params;
+    imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
+    imwrite_params.push_back( 0 );
+    cv::imwrite( "filtered16.png", filtered16, imwrite_params );
+
+    system("nautilus . &");
+}
+
 #if CV_MINOR_VERSION < 4
 namespace cv
 {
@@ -345,7 +399,7 @@ int testThrust( cv::Mat const& img16, cv::Mat const& guide )
 int main(int argc, char **argv)
 {
     // --in /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/dep16_00000000.pgm --guide /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/img8_00000000.png
-
+    // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d16.png --guide /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/16.png
     char *image_path = NULL;
     char *guide_path = NULL;
     cv::Mat img16, guide;
@@ -368,7 +422,6 @@ int main(int argc, char **argv)
     {
         getCmdLineArgumentString(argc, (const char **)argv, "guide", &guide_path );
         guide = cv::imread( guide_path, cv::IMREAD_UNCHANGED );
-
     }
     else
     {
@@ -377,7 +430,7 @@ int main(int argc, char **argv)
     }
 
     //return testThrust(img16,guide);
-
+    return testYang( img16, guide );
 #if 1 // VIEWPOINTMAPPING
     return testViewpointMapping( img16, guide );
 #elif 1 // BilateralFiltering

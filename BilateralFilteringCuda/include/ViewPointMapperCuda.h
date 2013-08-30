@@ -35,7 +35,15 @@ class ViewPointMapperCuda
 
         static void runMyCopyKernelTest( cv::Mat const& in, cv::Mat &out );
 
-        static void runCam2World( int w, int h, float* out_data );
+        /*
+         *\brief Fills out_data with mapped homogeneous coordinates
+         *\param out_data   preallocated float2 array of homogeneous coordinates of size [2*w x h], z == 1.f and not returned
+         *\param w          image width
+         *\param h          image height
+         *\param fx         -1.f means fill from RGB header, 0.f means don't use
+         */
+        static void runCam2World( float *out_data, int w, int h, float fx = -1.f, float fy = -1.f, float cx = -1.f, float cy = -1.f,
+                                  float k1 = -1.f, float k2 = -1.f, float p1 = -1.f, float p2 = -1.f, float k3 = -1.f, float alpha = -1.f );
 
         static void getIntrinsics( std::vector<float>& intrinsics, std::vector<float>& distortion_coeffs, INTRINSICS_CAMERA_ID camera );
         static void getIntrinsics( cv::Mat &intrinsics, cv::Mat &distortion_coeffs, INTRINSICS_CAMERA_ID camera, am::viewpoint_mapping::INTRINSICS_SCALE scale );

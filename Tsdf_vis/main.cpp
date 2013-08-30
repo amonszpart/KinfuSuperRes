@@ -125,6 +125,7 @@ void mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* co
 void printUsage()
 {
     std::cout << "Usage:\n\tTSDFVis --in cloud.dat\n" << std::endl;
+    std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply\n" << std::endl;
     std::cout << "\tYang usage: --yangd dir --dep depName --img imgName"
               << " [--spatial_sigma x]"
               << " [--range_sigma x]"
@@ -372,15 +373,58 @@ int main( int argc, char** argv )
         am::MyScreenshotManager::readPoses( poses_path.string(), poses );
     }
 
-    testMesh( inputFilePath, poses[img_id] );
-    return 0;
-
+    // testMesh( inputFilePath, poses[img_id] );
 
     // mats to 3D
-    if ( 0 )
+    if ( pcl::console::find_switch(argc, argv, "--yanged") )
     {
+        // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/filtered16.png
+        // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/filtered16.png --kindep /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d16.png
+        std::string yangedPath;
+        if ( pcl::console::parse_argument(argc, argv, "--yanged", yangedPath) < 0 )
+        {
+            std::cout << "use --yanged with --yanged <yanged_path>" << std::endl;
+            return 1;
+        }
+
+        cv::Mat colour;
+        std::string colorPath;
+        if ( pcl::console::parse_argument(argc, argv, "--rgb", colorPath) < 0 )
+        {
+            colour = cv::imread( colorPath.c_str(), -1 );
+        }
+
+        cv::Mat kinect_dep;
+        std::string kinect_dep_path;
+        if ( pcl::console::parse_argument(argc, argv, "--kindep", kinect_dep_path) < 0 )
+        {
+            std::cout << "kinectdeppath: " << kinect_dep_path << std::endl;
+            std::cout << "you can use --yanged with '--yanged <yanged_path> --rgb <rgb_path> --kindep <kinect_depth_path>'" << std::endl;
+            kinect_dep = cv::imread( kinect_dep_path.c_str(), -1 );
+        }
+
+        cv::Mat dep = cv::imread( yangedPath.c_str(), -1 );
+
         am::DepthViewer3D depthViewer;
-        depthViewer.showMats( large_dep16, rgb8_960, img_id, poses, intrinsics );
+        depthViewer .ViewerPtr()->setSize( 640, 480 );
+        depthViewer .showMats(        dep, colour, img_id, poses, intrinsics );
+        am::DepthViewer3D depthViewer2;
+        depthViewer2.ViewerPtr()->setSize( 640, 480 );
+        depthViewer2.showMats( kinect_dep, colour, img_id, poses, intrinsics );
+
+        cv::imshow( "kindep", kinect_dep );
+        cv::waitKey(20);
+        depthViewer.addListener ( depthViewer2.ViewerPtr() );
+        depthViewer2.addListener( depthViewer.ViewerPtr() );
+
+        std::cout << "spinning" << std::endl;
+        while ( !(   depthViewer .ViewerPtr()->wasStopped()
+                  || depthViewer2.ViewerPtr()->wasStopped())
+                )
+        {
+            depthViewer.ViewerPtr()->spin();
+        }
+        std::cout << "spinning finished" << std::endl;
 
         return 0;
     }

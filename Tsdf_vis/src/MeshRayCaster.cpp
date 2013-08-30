@@ -381,9 +381,9 @@ namespace am
                         }
                         addFace( outMeshPtr,
                                  (std::vector<Eigen::Vector3f>){
-                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[0][1],y + offs[0][0]}, intrinsics_) * (float)dep16.at<float>(y,x) ) + translation,
-                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[1][1],y + offs[1][0]}, intrinsics_) * (float)dep16.at<float>(y,x) ) + translation,
-                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[2][1],y + offs[2][0]}, intrinsics_) * (float)dep16.at<float>(y,x) ) + translation,
+                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[0][1],y + offs[0][0]}, intrinsics_) * (float)dep16.at<float>(y+offs[0][0],x+offs[0][1]) ) + translation,
+                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[1][1],y + offs[1][0]}, intrinsics_) * (float)dep16.at<float>(y+offs[1][0],x+offs[1][1]) ) + translation,
+                                     rotation * ( am::util::pcl::point2To3D((Eigen::Vector2f){x + offs[2][1],y + offs[2][0]}, intrinsics_) * (float)dep16.at<float>(x+offs[2][0],x+offs[2][1]) ) + translation,
                                  }, NULL);
 #if 0
                         // remember vertexid to insert at
