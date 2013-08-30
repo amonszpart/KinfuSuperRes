@@ -20,6 +20,7 @@ namespace am
     Recorder::Recorder( const std::string& recPath, std::string const samplePath )
         : _recPath( recPath ), _sample_path( samplePath ), _altViewpoint( false )
     {
+        CvImageDumper::Instance().setOutputPath( samplePath );
     }
 
     Recorder::~Recorder()
@@ -167,6 +168,12 @@ namespace am
             //CvImageDumper::Instance().dump( cvDepth16, "dep16", true );
 
             c = cv::waitKey(5);
+            if ( c == 32 )
+            {
+                CvImageDumper::Instance().dump( cvImg, "img8", false );
+                CvImageDumper::Instance().dump( cvDepth8, "dep8", false );
+                CvImageDumper::Instance().dump( cvDepth16, "dep16", true );
+            }
         }
 
         return 0;
@@ -180,6 +187,7 @@ namespace am
     void Recorder::setSamplePath( std::string const& samplePath )
     {
         this->_sample_path = samplePath;
+        CvImageDumper::Instance().setOutputPath( samplePath );
     }
 
     int Recorder::manualConfig( int vgaWidth, int irWidth, int vgaHeight, int irHeight )

@@ -164,5 +164,50 @@ namespace am
             }
 
         } // end ns pcl
+
+        namespace os
+        {
+            void get_by_extension_in_dir( std::vector<boost::filesystem::path>& ret,
+                                          boost::filesystem::path const& root,
+                                          std::string const& ext,
+                                          std::string const* beginsWith )
+            {
+                ret.clear();
+                if ( !boost::filesystem::exists(root) )
+                {
+                    std::cerr << "root dir does not exist..." << std::endl;
+                    return;
+                }
+
+                if ( boost::filesystem::is_directory(root) )
+                {
+                    boost::filesystem::directory_iterator it( root );
+                    boost::filesystem::directory_iterator endit;
+                    while ( it != endit )
+                    {
+                        std::cout << "file: " << it->path() << std::endl;
+                        if (    (boost::filesystem::is_regular_file(*it)     )
+                             && (it->path().extension().string().compare(ext)) )
+                        {
+                            if (    (!beginsWith)
+                                || !(it->path().filename().string().compare(0,beginsWith->length(),*beginsWith)) )
+                            {
+                                ret.push_back( it->path().filename() );
+                            }
+                        }
+                        else
+                        {
+                            std::cout << "failed: "
+                                      << it->path().extension().string()
+                                      << "!=" << ext
+                                      << ((it->path().extension().string() == ext) ? "YES" : "NO")
+                                      << ((it->path().extension().string().compare(ext)) ? "YES" : "NO")
+                                      << std::endl;
+                        }
+                        ++it;
+                    }
+                }
+            }
+        }
     } // end ns util
 } // end ns am

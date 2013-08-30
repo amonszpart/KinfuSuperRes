@@ -255,6 +255,8 @@ void testMesh( std::string &path, Eigen::Affine3f const &pose )
     mv2.VisualizerPtr()->spin();
 }
 
+// --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/filtered16.png --kindep /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d16.png
+// --yangd /home/bontius/workspace_local/long640_20130829_1525_200_400/poses --spatial_sigma 1.2 --range_sigma 0.1 --kernel_range 5 --yang_iterations 20 --L 40
 // main
 int main( int argc, char** argv )
 {
@@ -290,27 +292,55 @@ int main( int argc, char** argv )
                     return EXIT_SUCCESS;
                 }
             }
+            boost::filesystem::path p( yangDir );
+            std::cout << "yangDir parent_path: " << p << std::endl;
+
+            std::vector<boost::filesystem::path> dep_paths;
+            std::string beginsWith( "d" );
+            am::util::os::get_by_extension_in_dir( dep_paths, p, "png", &beginsWith );
+            boost::filesystem::path img_name_w_ext, dep_name_w_ext;
+            std::string img_name;
+            for ( auto &dep_path : dep_paths )
+            {
+                dep_name_w_ext = dep_path;
+                img_name_w_ext = boost::filesystem::path( dep_path.string().substr(beginsWith.length(), std::string::npos) );
+                img_name = img_name_w_ext.stem().string();
+                std::cout << "dep_name_w_ext: " << dep_name_w_ext << std::endl;
+                std::cout << "img_name_w_ext: " << img_name_w_ext << std::endl;
+                std::cout << "img_name: " << img_name << std::endl;
+            }
 
             YangFilteringRunParams runParams;
-
+            pcl::console::parse_argument( argc, argv, "--L"               , runParams.L    );
             pcl::console::parse_argument( argc, argv, "--spatial_sigma"   , runParams.spatial_sigma    );
             pcl::console::parse_argument( argc, argv, "--range_sigma"     , runParams.range_sigma      );
             pcl::console::parse_argument( argc, argv, "--kernel_range"    , runParams.kernel_range     );
             pcl::console::parse_argument( argc, argv, "--cross_iterations", runParams.cross_iterations );
-            pcl::console::parse_argument( argc, argv, "--iter"            , runParams.yang_iterations  );
-            if ( runParams.yang_iterations <= 0 ) runParams.yang_iterations = 3;
+            pcl::console::parse_argument( argc, argv, "--yang_iterations" , runParams.yang_iterations  );
+            if ( runParams.yang_iterations <= 0 ) runParams.yang_iterations = 1;
             std::cout << "Running for " << runParams.yang_iterations << std::endl;
             std::cout << "with: " << runParams.spatial_sigma << " " << runParams.range_sigma << " " << runParams.kernel_range << std::endl;
 
             // error check
-            if ( !canDoYang )
+            /*if ( !canDoYang )
             {
                 printUsage();
                 return EXIT_FAILURE;
-            }
+            }*/
 
-            // run
-            am::runYang( yangDir + "/" + depName, yangDir + "/" + imgName, runParams );
+            // run yang
+            boost::filesystem::create_directory( yangDir + "/" + img_name );
+            std::cout << "yanging to " << yangDir + "/" + img_name << std::endl;
+            cv::Mat filtered;
+            am::runYangCleaned( filtered, yangDir + "/" + dep_name_w_ext.string(), yangDir + "/" + img_name_w_ext.string(), runParams, yangDir + "/" + img_name );
+
+            // save png
+            std::cout << "saving to " << yangDir + "/yanged_" + img_name + ".png" << std::endl;
+            std::vector<int> png_params;
+            png_params.push_back(16);
+            png_params.push_back(0);
+            cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered, png_params );
+
             return EXIT_SUCCESS;
         }
         // else TSDF or PLY
@@ -389,7 +419,7 @@ int main( int argc, char** argv )
 
         cv::Mat colour;
         std::string colorPath;
-        if ( pcl::console::parse_argument(argc, argv, "--rgb", colorPath) < 0 )
+        if ( pcl::console::parse_argument(argc, argv, "--rgb", colorPath) >= 0 )
         {
             colour = cv::imread( colorPath.c_str(), -1 );
         }
@@ -398,10 +428,13 @@ int main( int argc, char** argv )
         std::string kinect_dep_path;
         if ( pcl::console::parse_argument(argc, argv, "--kindep", kinect_dep_path) < 0 )
         {
-            std::cout << "kinectdeppath: " << kinect_dep_path << std::endl;
             std::cout << "you can use --yanged with '--yanged <yanged_path> --rgb <rgb_path> --kindep <kinect_depth_path>'" << std::endl;
+        }
+        else
+        {
             kinect_dep = cv::imread( kinect_dep_path.c_str(), -1 );
         }
+        std::cout << "kinectdeppath: " << kinect_dep_path << std::endl;
 
         cv::Mat dep = cv::imread( yangedPath.c_str(), -1 );
 

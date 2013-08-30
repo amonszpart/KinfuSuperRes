@@ -69,8 +69,8 @@ namespace am
         DepthViewer3D *p_depthViewer = reinterpret_cast<DepthViewer3D*>( cookie );
 
         // left button release
-        if ( mouse_event.getType()   == pcl::visualization::MouseEvent::MouseButtonRelease &&
-             mouse_event.getButton() == pcl::visualization::MouseEvent::LeftButton            )
+        if ( mouse_event.getType()   == pcl::visualization::MouseEvent::MouseButtonRelease
+             /*&& mouse_event.getButton() == pcl::visualization::MouseEvent::LeftButton */ )
         {
             // read
             Eigen::Affine3f tmp_pose = p_depthViewer->ViewerPtr()->getViewerPose();
@@ -109,7 +109,7 @@ namespace am
         // create cloud
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPtr;
         {
-            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, cloudPtr, intrinsics, 1.f / 1000.f, false, &(poses.at(img_id)) );
+            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, cloudPtr, intrinsics, 1.f /*/ 1000.f*/, false, NULL/*, &(poses.at(img_id))*/ );
         }
 
         // calculate centroid

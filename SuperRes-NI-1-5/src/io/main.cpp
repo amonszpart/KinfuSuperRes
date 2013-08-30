@@ -9,7 +9,7 @@ int main( int argc, char *argv[] )
 {
     std::cout << "hello AMONI" << std::endl;
 
-    std::string path = util::outputDirectoryNameWithTimestamp( "/home/amonszpart/rec/troll_recordings/prism_kinect");
+    std::string path = util::outputDirectoryNameWithTimestamp( "recording" );
     xnOSCreateDirectory( path.c_str() );
     path += "/amonirecorded.oni";
     std::cout << "path: " << path << std::endl;

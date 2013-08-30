@@ -40,6 +40,14 @@ namespace am
                           ::pcl::visualization::PCLVisualizer::Ptr to );
 
         } // pcl
+
+        namespace os
+        {
+            void get_by_extension_in_dir( std::vector<boost::filesystem::path>& ret,
+                                          boost::filesystem::path const& root,
+                                          std::string const& ext,
+                                          std::string const* beginsWith = NULL );
+        } // end ns os
     } // util
 } // am
 
