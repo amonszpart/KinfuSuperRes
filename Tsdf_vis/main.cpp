@@ -292,12 +292,19 @@ int main( int argc, char** argv )
                     return EXIT_SUCCESS;
                 }
             }
-
-            boost::filesystem::create_directory( yangDir + "/" + img_name );
-            std::cout << "yanging to " << yangDir + "/" + img_name << std::endl;
-
             boost::filesystem::path p( yangDir );
-            std::cout << "yangDir parent_path: " << p << std::endl;
+            std::cout << "yangDir: " << p << std::endl;
+
+            YangFilteringRunParams runParams;
+            pcl::console::parse_argument( argc, argv, "--L"               , runParams.L    );
+            pcl::console::parse_argument( argc, argv, "--spatial_sigma"   , runParams.spatial_sigma    );
+            pcl::console::parse_argument( argc, argv, "--range_sigma"     , runParams.range_sigma      );
+            pcl::console::parse_argument( argc, argv, "--kernel_range"    , runParams.kernel_range     );
+            pcl::console::parse_argument( argc, argv, "--cross_iterations", runParams.cross_iterations );
+            pcl::console::parse_argument( argc, argv, "--yang_iterations" , runParams.yang_iterations  );
+            if ( runParams.yang_iterations <= 0 ) runParams.yang_iterations = 1;
+            std::cout << "Running for " << runParams.yang_iterations << std::endl;
+            std::cout << "with: " << runParams.spatial_sigma << " " << runParams.range_sigma << " " << runParams.kernel_range << std::endl;
 
             std::vector<boost::filesystem::path> dep_paths;
             std::string beginsWith( "d" );
@@ -316,13 +323,19 @@ int main( int argc, char** argv )
                 // error check
                 /*if ( !canDoYang )
                 {
-                printUsage();
-                return EXIT_FAILURE;
+                    printUsage();
+                    return EXIT_FAILURE;
                 }*/
 
                 // run yang
+                boost::filesystem::create_directory( yangDir + "/" + img_name );
+                std::cout << "yanging to " << yangDir + "/" + img_name << std::endl;
                 cv::Mat filtered;
-                am::runYangCleaned( filtered, yangDir + "/" + dep_name_w_ext.string(), yangDir + "/" + img_name_w_ext.string(), runParams, yangDir + "/" + img_name );
+                am::runYangCleaned( filtered,
+                                    yangDir + "/" + dep_name_w_ext.string(),
+                                    yangDir + "/" + img_name_w_ext.string(),
+                                    runParams,
+                                    yangDir + "/" + img_name );
 
                 // save png
                 std::cout << "saving to " << yangDir + "/yanged_" + img_name + ".png" << std::endl;
@@ -330,7 +343,7 @@ int main( int argc, char** argv )
                 png_params.push_back(16);
                 png_params.push_back(0);
                 cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered, png_params );
-                // save png8
+
                 cv::Mat filtered8;
                 filtered.convertTo( filtered8, CV_8UC1, 255.f / 10001.f );
                 cv::imwrite( yangDir + "/yanged8_" + img_name + ".png", filtered8, png_params );
