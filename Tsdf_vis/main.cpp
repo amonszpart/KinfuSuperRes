@@ -126,8 +126,22 @@ void mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* co
 // CLI usage
 void printUsage()
 {
-    std::cout << "Usage:\n\tTSDFVis --in cloud.dat (DEPRECATED)" << std::endl;
     std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply" << std::endl;
+    std::cout << "tsdf_vis --yangd ..../poses"
+              << " [--extension png]"
+              << " [--begins-with d]"
+              << " [--rgb-begins-with '']"
+              << " [--spatial_sigma x]"
+              << " [--range_sigma x]"
+              << " [--kernel_range x]"
+              << " [--cross_iterations x]"
+              << " [--yang_iterations yangIterationCount]"
+              << " [--L lookuprange]"
+              << std::endl;
+    std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply --all-kinect-poses [ --rows 960] [ --cols 1280]" << std::endl;
+    std::cout << "3D viewer usage: ./tsdf_vis --in cloud_mesh.ply --yanged yanged_dep --rgb guide --kindep kinect_depth" << std::endl;
+
+    std::cout << "Usage:\n\tTSDFVis --in cloud.dat (DEPRECATED)" << std::endl;
     std::cout << "\tYang usage: --yangd dir --dep depName --img imgName"
               << " [--brute-force]"
               << std::endl;
@@ -139,16 +153,6 @@ void printUsage()
               << " [--yang_iterations yangIterationCount]"
               << " [--L lookuprange]"
               << std::endl;
-    std::cout << "tsdf_vis --yangd ..../poses"
-              << " [--spatial_sigma x]"
-              << " [--range_sigma x]"
-              << " [--kernel_range x]"
-              << " [--cross_iterations x]"
-              << " [--yang_iterations yangIterationCount]"
-              << " [--L lookuprange]"
-              << std::endl;
-    std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply --all-kinect-poses [ --rows 960] [ --cols 1280]" << std::endl;
-    std::cout << "3D viewer usage: ./tsdf_vis --in cloud_mesh.ply --yanged yanged_dep --rgb guide --kindep kinect_depth" << std::endl;
 }
 
 void addFace( pcl::PolygonMesh::Ptr &meshPtr, std::vector<Eigen::Vector3f> points, std::vector<Eigen::Vector3f> *colors )
@@ -327,15 +331,21 @@ int main( int argc, char** argv )
             std::cout << "Running for " << runParams.yang_iterations << std::endl;
             std::cout << "with: " << runParams.spatial_sigma << " " << runParams.range_sigma << " " << runParams.kernel_range << std::endl;
 
-            std::vector<boost::filesystem::path> dep_paths;
             std::string beginsWith( "d" );
-            am::util::os::get_by_extension_in_dir( dep_paths, p, "png", &beginsWith );
+            pcl::console::parse_argument( argc, argv, "--begins-with", beginsWith  );
+            std::string rgbBeginsWith( "" );
+            pcl::console::parse_argument( argc, argv, "--rgb-begins-with", rgbBeginsWith  );
+            std::string extension ( "png" );
+            pcl::console::parse_argument( argc, argv, "--extension", extension  );
+
+            std::vector<boost::filesystem::path> dep_paths;
+            am::util::os::get_by_extension_in_dir( dep_paths, p, extension, &beginsWith );
             boost::filesystem::path img_name_w_ext, dep_name_w_ext;
             std::string img_name;
             for ( auto &dep_path : dep_paths )
             {
                 dep_name_w_ext = dep_path;
-                img_name_w_ext = boost::filesystem::path( dep_path.string().substr(beginsWith.length(), std::string::npos) );
+                img_name_w_ext = boost::filesystem::path( rgbBeginsWith + dep_path.string().substr(beginsWith.length(), std::string::npos) );
                 img_name = img_name_w_ext.stem().string();
                 std::cout << "dep_name_w_ext: " << dep_name_w_ext << std::endl;
                 std::cout << "img_name_w_ext: " << img_name_w_ext << std::endl;
@@ -365,6 +375,7 @@ int main( int argc, char** argv )
                     png_params.push_back(16);
                     png_params.push_back(0);
                     cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered, png_params );
+                    am::util::savePFM( filtered, yangDir + "/yanged_" + img_name + ".pfm" );
 
                     cv::Mat filtered8;
                     filtered.convertTo( filtered8, CV_8UC1, 255.f / 10001.f );
