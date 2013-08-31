@@ -59,6 +59,17 @@ MESSAGE( STATUS "CUDA_INCLUDE_DIRECTORIES: " ${CUDA_INCLUDE_DIRECTORIES})
 MESSAGE( STATUS "CUDA_LIBRARY_DIRS: " ${CUDA_LIBRARY_DIRS} )
 MESSAGE( STATUS "CUDA_INC_PATH: " ${CUDA_INC_PATH} )
 
+
+##############################################
+### AMUtil
+
+add_library ( libAMUtil STATIC IMPORTED)
+set_property( TARGET libAMUtil PROPERTY
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/build/libAMUtil.a )
+
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/include/ )
+##############################################
+
 # INCLUDES
 SET( MY_INCLUDES
     inc/
@@ -156,5 +167,5 @@ SOURCE_GROUP( "CUDA Source Files" FILES ${CUFILES} )
 cuda_add_library( cu${PROJECT_NAME} ${CCFILES} ${CUFILES} ${HEADERS_LIST} )
 
 # LINK
-TARGET_LINK_LIBRARIES( cu${PROJECT_NAME} ${MY_LIBRARIES} )
+TARGET_LINK_LIBRARIES( cu${PROJECT_NAME} libAMUtil ${MY_LIBRARIES} )
 

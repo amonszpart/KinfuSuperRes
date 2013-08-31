@@ -2,6 +2,7 @@
 
 #include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
+#include "AMUtil2.h"
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -146,6 +147,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         fDep.convertTo( dep_out, CV_16UC1 );
         char title[255];
         sprintf( title, (depPath+"/iteration16_%d.png").c_str(), it );
+
         // write "iteration"
         std::vector<int> imwrite_params;
         imwrite_params.push_back( 16 /*cv::IMWRITE_PNG_COMPRESSION */ );
@@ -154,6 +156,9 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         fDep.convertTo( dep_out, CV_8UC1, 255.f / 10001.f );
         sprintf( title, (depPath+"/iteration8_%d.png").c_str(), it );
         cv::imwrite( title, dep_out, imwrite_params );
+
+        sprintf( title, (depPath+"/iteration16_%d.pfm").c_str(), it );
+        am::util::savePFM( fDep, title );
 
         if ( !fDepPrev.empty() )
         {
