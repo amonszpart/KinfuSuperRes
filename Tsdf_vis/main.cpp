@@ -1,4 +1,5 @@
 #include "tsdf_viewer.h"
+#include "TriangleRenderer.h"
 
 #include "DepthViewer3D.h"
 #include "MeshRayCaster.h"
@@ -12,6 +13,7 @@
 #include "my_screenshot_manager.h"
 
 #include "MaUtil.h"
+#include "AMUtil2.h"
 
 #include <pcl/io/vtk_lib_io.h>
 #include <pcl/console/parse.h>
@@ -124,15 +126,29 @@ void mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* co
 // CLI usage
 void printUsage()
 {
-    std::cout << "Usage:\n\tTSDFVis --in cloud.dat\n" << std::endl;
-    std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply\n" << std::endl;
+    std::cout << "Usage:\n\tTSDFVis --in cloud.dat (DEPRECATED)" << std::endl;
+    std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply" << std::endl;
     std::cout << "\tYang usage: --yangd dir --dep depName --img imgName"
+              << " [--brute-force]"
+              << std::endl;
+    std::cout << "\tYang usage: --yangd dir --dep depName --img imgName (todo, fix this branch)"
               << " [--spatial_sigma x]"
               << " [--range_sigma x]"
               << " [--kernel_range x]"
               << " [--cross_iterations x]"
-              << " [--iter yangIterationCount]"
+              << " [--yang_iterations yangIterationCount]"
+              << " [--L lookuprange]"
               << std::endl;
+    std::cout << "tsdf_vis --yangd ..../poses"
+              << " [--spatial_sigma x]"
+              << " [--range_sigma x]"
+              << " [--kernel_range x]"
+              << " [--cross_iterations x]"
+              << " [--yang_iterations yangIterationCount]"
+              << " [--L lookuprange]"
+              << std::endl;
+    std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply --all-kinect-poses [ --rows 960] [ --cols 1280]" << std::endl;
+    std::cout << "3D viewer usage: ./tsdf_vis --in cloud_mesh.ply --yanged yanged_dep --rgb guide --kindep kinect_depth" << std::endl;
 }
 
 void addFace( pcl::PolygonMesh::Ptr &meshPtr, std::vector<Eigen::Vector3f> points, std::vector<Eigen::Vector3f> *colors )
@@ -260,6 +276,11 @@ void testMesh( std::string &path, Eigen::Affine3f const &pose )
 // main
 int main( int argc, char** argv )
 {
+    if ( pcl::console::find_switch(argc, argv, "--help" ) )
+    {
+        printUsage();
+        return 0;
+    }
 
     // test intrinsics
     Eigen::Matrix3f intrinsics;
@@ -338,15 +359,17 @@ int main( int argc, char** argv )
                                     yangDir + "/" + img_name );
 
                 // save png
-                std::cout << "saving to " << yangDir + "/yanged_" + img_name + ".png" << std::endl;
-                std::vector<int> png_params;
-                png_params.push_back(16);
-                png_params.push_back(0);
-                cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered, png_params );
+                {
+                    std::cout << "saving to " << yangDir + "/yanged_" + img_name + ".png" << std::endl;
+                    std::vector<int> png_params;
+                    png_params.push_back(16);
+                    png_params.push_back(0);
+                    cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered, png_params );
 
-                cv::Mat filtered8;
-                filtered.convertTo( filtered8, CV_8UC1, 255.f / 10001.f );
-                cv::imwrite( yangDir + "/yanged8_" + img_name + ".png", filtered8, png_params );
+                    cv::Mat filtered8;
+                    filtered.convertTo( filtered8, CV_8UC1, 255.f / 10001.f );
+                    cv::imwrite( yangDir + "/yanged8_" + img_name + ".png", filtered8, png_params );
+                }
             }
 
             return EXIT_SUCCESS;
@@ -365,6 +388,7 @@ int main( int argc, char** argv )
         printUsage();
         return 1;
     }
+    boost::filesystem::path the_path = boost::filesystem::path(inputFilePath).parent_path();
 
     // flag yes, if PLY input
     bool ply_no_tsdf = false;
@@ -378,7 +402,7 @@ int main( int argc, char** argv )
     pcl::console::parse_argument (argc, argv, "--img_id", img_id );
     std::cout << "Running for img_id " << img_id << std::endl;
 
-        // read DEPTH
+    // read DEPTH
     cv::Mat dep16, large_dep16;
     {
         boost::filesystem::path dep_path = boost::filesystem::path(inputFilePath).parent_path()
@@ -409,6 +433,50 @@ int main( int argc, char** argv )
                                              / "poses.txt";
 
         am::MyScreenshotManager::readPoses( poses_path.string(), poses );
+    }
+
+    // save all poses?
+    if ( pcl::console::find_switch(argc, argv, "--all-kinect-poses") )
+    {
+        int rows = 960, cols = 1280;
+        pcl::console::parse_argument(argc, argv, "--rows", rows );
+        pcl::console::parse_argument(argc, argv, "--cols", cols );
+        std::cout << "running --all-kinect-poses with size: " << rows << "x" << cols << std::endl;
+
+        pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
+        pcl::io::loadPolygonFile( inputFilePath, *meshPtr );
+
+        am::TriangleRenderer triangleRenderer;
+        std::vector<cv::Mat> depths, indices;
+
+        for ( auto it = poses.begin(); it != poses.end(); ++it )
+        {
+            Eigen::Affine3f &pose = it->second;
+            triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
+                                                    /*  in: */ cols, rows, intrinsics, pose, meshPtr,
+                                                    /* depths[0] scale: */ 1.f );
+
+            char fname[255];
+            sprintf( fname, "depth_kinect_pose_%d.pfm", it->first );
+            am::util::savePFM( depths[0], the_path.string() + "/" + fname );
+
+            cv::Mat indices0F;
+            am::util::cv::unsignedIntToFloat( indices0F, indices[0] );
+            sprintf( fname, "vxids_kinect_pose_%d.ppm", it->first );
+            am::util::savePFM( indices0F, the_path.string() + "/" + fname );
+
+            cv::Mat indices1F;
+            am::util::cv::unsignedIntToFloat( indices1F, indices[1] );
+            sprintf( fname, "faceids_kinect_pose_%d.ppm", it->first );
+            am::util::savePFM( indices1F, the_path.string() + "/" + fname );
+
+            cv::Mat indices2F;
+            am::util::cv::unsignedIntToFloat( indices2F, indices[2] );
+            sprintf( fname, "flat_faceids_kinect_pose_%d.ppm", it->first );
+            am::util::savePFM( indices2F, the_path.string() + "/" + fname );
+
+        }
+        return 0;
     }
 
     // testMesh( inputFilePath, poses[img_id] );

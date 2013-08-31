@@ -80,6 +80,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     // allocate
     float *tmpFDep = new float[ len ];
 
+    cv::Mat fDepPrev;
     for ( int it = 0; it < params.yang_iterations; ++it )
     {
         std::cout << "Yang_iteration " << it << std::endl;
@@ -107,7 +108,8 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         for ( float d = std::max( 0.f, mn - params.L * params.ETA); d < loop_stop; d += params.d_step )
         {
             // debug
-            std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
+            if ( !((int)d % (int)(params.d_step*500.f)) )
+                std::cout << "d: " << d << "/" << mx + params.L + 1<< " of it(" << it << ")" << std::endl;
 
             // calculate truncated cost
             squareDiff( /*         in: */ d_fDep,
@@ -152,8 +154,21 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         fDep.convertTo( dep_out, CV_8UC1, 255.f / 10001.f );
         sprintf( title, (depPath+"/iteration8_%d.png").c_str(), it );
         cv::imwrite( title, dep_out, imwrite_params );
-    }
 
+        if ( !fDepPrev.empty() )
+        {
+            float accum = 0.f;
+            for ( int y = 0; y < fDep.rows; ++y )
+            {
+                for ( int x = 0; x < fDep.cols; ++x )
+                {
+                    accum += fabs( fDep.at<float>(y,x) - fDepPrev.at<float>(y,x) );
+                }
+            }
+            std::cout << "avgchange: " << accum/fDep.cols /fDep.rows << std::endl;
+        }
+        fDep.copyTo( fDepPrev );
+    }
 
     // copy out
     d_fDep.CopyDataOut( fDepArr );

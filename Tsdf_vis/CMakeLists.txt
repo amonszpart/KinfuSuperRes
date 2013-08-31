@@ -38,7 +38,14 @@ set_property( TARGET libTriangleTracing PROPERTY
               IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../TriangleTracing/build/libTriangleTracing.a )
 
 INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../TriangleTracing/include/ )
-#INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/src/ )
+
+### AMUtil
+
+add_library ( libAMUtil STATIC IMPORTED)
+set_property( TARGET libAMUtil PROPERTY
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/build/libAMUtil.a )
+
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/include/ )
 
 
 ####################
@@ -88,6 +95,7 @@ ADD_EXECUTABLE( ${TSDF_VIS_NAME} ${TSDF_VIS_SRC_LIST} ${TSDF_VIS_HEADER_LIST} )
 # LINK
 TARGET_LINK_LIBRARIES( ${TSDF_VIS_NAME}
     libTriangleTracing
+    libAMUtil
     GL
     GLEW
     glut
