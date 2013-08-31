@@ -449,6 +449,9 @@ int main( int argc, char** argv )
         am::TriangleRenderer triangleRenderer;
         std::vector<cv::Mat> depths, indices;
 
+        boost::filesystem::path outPath = the_path / "kinect_poses";
+        boost::filesystem::create_directory( outPath );
+
         for ( auto it = poses.begin(); it != poses.end(); ++it )
         {
             Eigen::Affine3f &pose = it->second;
@@ -458,22 +461,22 @@ int main( int argc, char** argv )
 
             char fname[255];
             sprintf( fname, "depth_kinect_pose_%d.pfm", it->first );
-            am::util::savePFM( depths[0], the_path.string() + "/" + fname );
+            am::util::savePFM( depths[0], outPath.string() + "/" + fname );
 
             cv::Mat indices0F;
             am::util::cv::unsignedIntToFloat( indices0F, indices[0] );
-            sprintf( fname, "vxids_kinect_pose_%d.ppm", it->first );
-            am::util::savePFM( indices0F, the_path.string() + "/" + fname );
+            sprintf( fname, "vxids_kinect_pose_%d.pfm", it->first );
+            am::util::savePFM( indices0F, outPath.string() + "/" + fname );
 
             cv::Mat indices1F;
             am::util::cv::unsignedIntToFloat( indices1F, indices[1] );
-            sprintf( fname, "faceids_kinect_pose_%d.ppm", it->first );
-            am::util::savePFM( indices1F, the_path.string() + "/" + fname );
+            sprintf( fname, "faceids_kinect_pose_%d.pfm", it->first );
+            am::util::savePFM( indices1F, outPath.string() + "/" + fname );
 
             cv::Mat indices2F;
             am::util::cv::unsignedIntToFloat( indices2F, indices[2] );
-            sprintf( fname, "flat_faceids_kinect_pose_%d.ppm", it->first );
-            am::util::savePFM( indices2F, the_path.string() + "/" + fname );
+            sprintf( fname, "flat_faceids_kinect_pose_%d.pfm", it->first );
+            am::util::savePFM( indices2F, outPath.string() + "/" + fname );
 
         }
         return 0;

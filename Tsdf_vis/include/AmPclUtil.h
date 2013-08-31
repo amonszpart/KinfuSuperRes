@@ -5,6 +5,7 @@
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include <opencv2/core/core.hpp>
+#include <boost/filesystem.hpp>
 
 namespace am
 {
