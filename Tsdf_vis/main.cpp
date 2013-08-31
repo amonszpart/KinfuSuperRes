@@ -347,6 +347,7 @@ int main( int argc, char** argv )
                 dep_name_w_ext = dep_path;
                 img_name_w_ext = boost::filesystem::path( rgbBeginsWith + dep_path.string().substr(beginsWith.length(), std::string::npos) );
                 img_name = img_name_w_ext.stem().string();
+                img_name_w_ext = img_name + ".png";
                 std::cout << "dep_name_w_ext: " << dep_name_w_ext << std::endl;
                 std::cout << "img_name_w_ext: " << img_name_w_ext << std::endl;
                 std::cout << "img_name: " << img_name << std::endl;
@@ -468,7 +469,7 @@ int main( int argc, char** argv )
             Eigen::Affine3f &pose = it->second;
             triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
                                                     /*  in: */ cols, rows, intrinsics, pose, meshPtr,
-                                                    /* depths[0] scale: */ 1.f );
+                                                    /* depths[0] scale: */ 100.f );
 
             char fname[255];
             sprintf( fname, "depth_kinect_pose_%d.pfm", it->first );
