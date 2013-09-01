@@ -39,6 +39,22 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     if ( dep16.type() == CV_16UC1 ) { dep16.convertTo( fDep, CV_32FC1 ); std::cerr << "YangFiltering::run(): warning, converting from 16UC1" << std::endl; }
     else                            { dep16.copyTo   ( fDep ); }
 
+
+    {
+        double maxVal, minVal;
+        cv::minMaxIdx( fDep, &minVal, &maxVal );
+        if ( maxVal < 100.f )
+        {
+            fDep *= 100.f;
+            std::cout << "maxVal: " << maxVal << " so multiplying by 100.f" << std::endl;
+        }
+        else if ( maxVal < 1000.f )
+        {
+            fDep *= 10.f;
+            std::cout << "maxVal: " << maxVal << " so multiplying by 10.f" << std::endl;
+        }
+    }
+
     float *fDepArr = NULL;
     toContinuousFloat( fDep, fDepArr );
     // move to device

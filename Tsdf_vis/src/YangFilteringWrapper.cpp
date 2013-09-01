@@ -8,14 +8,29 @@
 #include <boost/filesystem.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <boost/filesystem.hpp>
+#include "AMUtil2.h"
 
 namespace am {
 
     int runYangCleaned( /* out: */ cv::Mat &filteredDep16,
                         /*  in: */ std::string depPath, std::string imgPath, YangFilteringRunParams yangFilteringRunParams, std::string const& path )
     {
+        cv::Mat dep16;
         // read
-        cv::Mat dep16       = cv::imread( depPath, -1 );
+        if ( depPath.find("png") == std::string::npos )
+        {
+            if ( depPath.find("pfm") == std::string::npos )
+            {
+                std::cerr << "not png, not pfm, what is it??" << std::endl;
+                return 1;
+            }
+
+            am::util::loadPFM( dep16, depPath );
+        }
+        else
+        {
+            dep16 = cv::imread( depPath, -1 );
+        }
         cv::Mat rgb8        = cv::imread( imgPath, -1 );
         if ( dep16.empty() || rgb8.empty() )
         {
