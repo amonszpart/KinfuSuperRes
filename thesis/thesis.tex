@@ -1,0 +1,246 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+
+\usepackage[]{natbib}
+
+\author{Aron Monszpart}
+\title{Super-resolution hand-held scanning}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+	ABSTRACT
+\end{abstract}
+
+\section{Summary}
+	SUMMARY
+
+\tableofcontents
+
+\section{Introduction}
+	\begin{itemize}	
+		\item Motivation
+		\item Overview of approach
+		\begin{itemize}
+			\item Calibration
+			\item Low resolution 3D reconstruction
+			\item Pose estimation of new input
+			\item Mesh subdivision and 2D projection
+			\item Depth upsampling
+			\item Mesh enhancement by backprojection
+		\end{itemize}
+	\end{itemize}
+
+\section{Related work}
+	\begin{enumerate}
+		\item 3D reconstruction using Multi-view stereo
+		\begin{itemize}
+			\item Curless and Levoy
+			\item Rusinkiewicz
+			\item Szeliski
+			\item Agarwal
+			\item Snavely
+			\item Seitz
+			\item Furukawa and Ponce
+			\item Strecha
+			\item etc. from literature review (got good marks for it)
+			\item Kim et al: Scene reconstruction from High Spatio-Angular Resolution Light Fields (Siggraph '13)
+		\end{itemize}
+
+		\item 3D reconstruction using RGB-D
+		\begin{itemize}
+			\item Voxelgrid based
+			\begin{itemize}
+				\item Newcombe: Kinect fusion
+				\item Whelan: Kintinuous and other loop closure papers
+				\item Vladlen: Dense scene reconstruction with points of interest
+				\item etc.
+			\end{itemize}
+
+			\item Height-field based, layered
+			\begin{itemize}
+				\item Adaptive voxelgrid based, scene scale aware (Freiburg)
+				\item etc.
+			\end{itemize}
+
+			\item Point based
+			\begin{itemize}
+				\item Damien Lefloch
+				\item etc.
+			\end{itemize}
+
+			
+		\end{itemize}
+			
+ 		\item Pose estimation
+		\begin{itemize}
+			\item some ICP references
+			\item Gyro papers
+			\item MVS already earlier
+		\end{itemize}
+		
+		\item Upsampling
+		\begin{itemize}
+			\item RGB superresolution
+			\item Depth superresolution
+			\begin{itemize}
+				\item Non-guided
+				\begin{itemize}
+					\item Learning based
+						\begin{itemize}
+							\item Mac Aodha et al. '12
+							\item etc.
+						\end{itemize}
+					\item Other
+					\begin{itemize}
+						\item Hornacek et al.: Depth Super Resolution by Rigid Body Self-Similarity in 3D, CVPR '13
+						\item etc.
+					\end{itemize}
+				\end{itemize}
+				
+				\item Guided
+				\begin{itemize}
+					\item Joint Bilateral
+					\begin{itemize}
+						\item Yang '07
+						\item etc.
+					\end{itemize}
+					\item MRF based
+					\begin{itemize}
+						\item Diebel and Thrun
+						\item Schuon et al.
+						\item Park et al. '11
+						\item Choi et al. '12
+						\item Shen and Cheung CVPR '13 (Layer Depth Denoising and Completion for Structured-Light RGB-D Cameras)
+						\item etc.
+					\end{itemize}
+					
+					\item Spatio-temporal filtering
+					
+				\end{itemize}
+			\end{itemize}
+		\end{itemize}
+		
+		\item Commercial 3D scanners
+		\begin{itemize}
+			\item MVS based: Photosynth, Adobe, etc.
+			\item Laser scanner systems (industrial)
+			\item Kinect based: Scanec, Reva, ReconstructMe, ...
+		\end{itemize}
+		
+		\item Seen/used calibration references
+		\item Subdivision references
+		\item Efficient raycasting references
+		\item (+ Categorize all the ref e-mails from Gabriel, Oisin, Reading groups, etc.)
+	
+	\end{enumerate}
+
+\include{mysystem}
+
+\section{System plan}
+	\begin{itemize}
+		\item Calibration
+			\begin{itemize}
+				\item Depth image based
+				\item IR image based
+				\item Undistort
+			\end{itemize}
+		\item Low resolution 3D reconstruction
+			\begin{itemize}
+				\item Multi View Stereo (VSFM, Bundler, Photosynth, etc.)
+				\item Kinect Fusion, PCL::Kinfu
+			\end{itemize}
+		\item Pose estimation of new input
+			\begin{itemize}
+				\item VSFM ( for RGB input )
+				\item ICP ( for RGB-D input )
+				\item Gyro+IMU (a noisy graph of acquired data)
+			\end{itemize}
+		\item Mesh subdivision (Linear, Butterfly, Catmull-Clark)
+		\item 2D projection
+			\begin{itemize}
+ 				\item Raycasting using Octree
+				\item GLSL projection
+			\end{itemize}
+		\item Yang filtering
+			\begin{itemize}
+				\item Iterative Cross Bilateral filtering
+				\item Subpixel accurracy
+			\end{itemize}
+		\item Mesh enhancement by backprojection
+	\end{itemize}
+	
+\section{System design}
+	\begin{itemize}
+		\item Implementation details and takeaway experience of "System plan" elements
+		\item Merge into previous?
+	\end{itemize}
+	
+\section{Evaluation}
+	\begin{itemize}
+ 	\item Experiments
+		\begin{itemize}
+			\item Calibration
+				\begin{itemize}
+					\item Kinect built in calibration
+					\item Bogouet calibration with and without lens distortion (PARAMETERS explained)
+					\item Undistort effectivity (project undistorted depth map to 3D)
+				\end{itemize}
+				
+			\item Filtering
+				\begin{itemize}
+					\item CrossBilateral filter vs. Bilateral
+					\item Yang vs. CrossBilateral (PARAMETERS explained)
+					\item Trilateral, Guided, Pixel Weighted Average Strategy (Garcia et al,ImProc, 2010) - {\bf IF there's time}
+				\end{itemize}
+			\item Kinect fusion related
+			\begin{itemize}
+				\item Kinfu vs. Kinfu w/ filtering turned OFF
+				\item Kinfu voxel grid resolution ($386^3$,$512^3$,$640^3$)
+				\item Kinfu + Yang( original kinect depth frames )
+				\item Kinfu + Yang( "arbitrary pose" )
+			\end{itemize}
+		\end{itemize}
+	\item Existing libraries used
+	\item Data capturing details
+	\item No existing datasets compared (no time)
+
+	\end{itemize}
+
+\section{Results}
+\begin{itemize}
+	\item Upsampling with original depth frames
+	\item Upsampling with simulated "arbitrary pose"
+	\item Upsampling with real "arbitrary pose" using VSFM pose est. {\bf IF there's time}
+	
+	\item So, Yang is is not suitable for this resolution, it only could improve, when the input was much noisier
+	\item Different approaches can be plugged in to this framework to enhance depth
+\end{itemize}
+\section{Conclusions, Future work}
+	\begin{itemize}
+		\item 3D reconstruction improvements
+			\begin{itemize}
+				\item Improve on smoothing effect of voxel grid weights
+				\item Pose estimation improvements
+			\end{itemize}
+		\item RGB high-resolution capture, vsfm pose estimation 
+		\item Enhancement by best pose selection from input image collection for given pixel/region
+	\end{itemize}
+
+\section{References}
+	...
+	
+\cite{Lowe04}
+
+\bibliographystyle{plainnat}
+\bibliography{litrev}
+	
+\end{document}
+
+
