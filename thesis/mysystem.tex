@@ -9,3 +9,96 @@ cuda mapping\\
 Ir image with and without projector\\
 large checkerboard vs. small checkerboard\\
 all positions (mosaic image?)\\
+
+\subsection{Yang}
+\subsection{Kinect Fusion}
+\subsection{Put together}
+
+
+\subsection{Gabe's stuff}
+
+I'm not in the same situation
+
+Yang is a good idea, but does it still apply?
+    - 1 raw
+    - Kinfu
+    so, this it apply?
+    
+    - why use kinfu? - new rgb?
+    - so, it would not matter use yang before ,since I can show it ( future work:  yang, consistent through time - point to unstructured lumigraph paper, best point of view)
+    
+- Kinfu and Yang state of the art methods incorporated
+my text is about: Yes, A is a good idea, B is a good idea maybe, A and B is interesting, it has + and -, and in fact, there is now a more complicated outcome, because I'm in a position to (or show) that I can get a closer RGB 
+
+(random noise, or brighter is closer)
+flat depth + checkerboard rgb?
+
+so look, this was there, Kinfu could-ve used it, it didn't, and I still can improve with this closeup rgb
+- it does create new depths? - show that
+- if it doesn't: A, B, A+B --> conclusions, possible, but it's not desirable. If you have RGB, and you want better, you have to have a better alrogithm, yes, cross bilt does more, but it's not amazing, because it is still filtering, (better algorithm: 
+
+so suppress gradient, or create new ones? DECIDE
+
+future work: object recognition on rgb, and introduce new depth
+
+so is it suppression, or not?
+
+future work: I advocate Yang for the following reasons, or I discourage, stince...or in some situations this, than that
+
+- pose estimation =?= calibration
+
+so if Kinfu is not reliable, say it! so if it does not work (pose) than 
+
+so sample the space of pose estimates, and look up paper
+    or particle filter
+    or anything
+    show, that you can see, when it's off ,and show, that the edges are off
+    
+Limitations section
+    - misalignment, few frames later, it's great
+    - calibration
+    
+    
+    
+/ sections
+simplest version: abstract, intro, related work, 
+3 revisiting depth superresolution (or depth super resolution in a multi view framework, or "depth sr for kinect data"), 
+3.0 overview - aiming for, diagram, (make use of kinfu, than yang, so that we can apply the detaills from various intensity images to imrpove the depth)
+    - we have to recreate the system of yang
+    - and we have to farm parts of the kinfu system
+3.1 Yang
+    - blank depth experiment
+3.2 Kinfu
+    - kinfu default overlay
+3.3 My combined pipleine ( this is what I did, to get the data fro mhere to there. Draw attention to GPU implementations (get credit for it) )
+4. Validation / experiments
+    - controlled experiments, testing one variable, NOT really the problems brought attention to earlier
+    - ...
+    - blank image
+5. discussion/conclusion
+    - come back to 3's experiments
+    - interpret experiments
+    - did you notice, that 2 were good, and 3rd was abd, remember what I sadi in 3.2, that kinfu does it's calibration...well ,that's crap here (threshold), it happend to be good for 2 seque3nces, but not ther thireds
+    5.x limitations
+        - obvious (Yang on chessboard, it still does)
+        - summarizing what I discovered
+    5.x1 future work
+        
+chapter: depth image, super resolution 
+
+
+experiments:
+    yang on checkerboard
+    yang on original yang dataset
+    overlay of original vs. kinfu pose (pose estimation error)
+    
+    
+results:
+1. 3D different point of view
+2. sparse 3D of different view from this viewpoint
+3. dense 3D
+
+    
+reference calibration alignment algorithms (rgb to depth)
+
+random noise or brighter is closer assumptions / papers doing a better job hallucinating

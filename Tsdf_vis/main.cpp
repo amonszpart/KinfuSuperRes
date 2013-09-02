@@ -16,6 +16,7 @@
 #include "AMUtil2.h"
 
 #include <pcl/io/vtk_lib_io.h>
+#include <pcl/io/ply_io.h>
 #include <pcl/console/parse.h>
 
 #include <opencv2/core/core.hpp>
@@ -155,37 +156,7 @@ void printUsage()
               << std::endl;
 }
 
-void addFace( pcl::PolygonMesh::Ptr &meshPtr, std::vector<Eigen::Vector3f> points, std::vector<Eigen::Vector3f> *colors )
-{
-    int vxId = meshPtr->cloud.width;
-    std::cout << "vxid: " << vxId << std::endl;
-    meshPtr->cloud.width += 3;
-    meshPtr->cloud.data.resize( meshPtr->cloud.width * meshPtr->cloud.point_step );
-    float* tmp;
-    ::pcl::Vertices face;
-    for ( int pid = 0; pid < 3; ++pid, ++vxId )
-    {
-        face.vertices.push_back( vxId );
-        for ( int i = 0; i < 3; ++i )
-        {
-            tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[i].offset]) );
-            *tmp = points[pid](i);
-        }
-        if ( colors )
-        {
-            tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[ vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[3].offset]) );
-            for ( int i = 0; i < 3; ++i )
-            {
-                tmp[i] = colors->at(pid)(i);
-            }
-        }
-    }
-
-    meshPtr->polygons.push_back( face );
-    meshPtr->cloud.row_step = meshPtr->cloud.point_step * meshPtr->cloud.width;
-}
-
-void testMesh( std::string &path, Eigen::Affine3f const &pose )
+void testMeshModifications( std::string &path, Eigen::Affine3f const &pose )
 {
     pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
     pcl::io::loadPolygonFile( path, *meshPtr );
@@ -247,24 +218,24 @@ void testMesh( std::string &path, Eigen::Affine3f const &pose )
     //meshPtr->cloud.height = 1;
     //meshPtr->polygons.clear();
 
-    addFace( meshPtr,
-             (std::vector<Eigen::Vector3f>){
-                 (Eigen::Vector3f){1.f, 1.f, 2.f},
-                 (Eigen::Vector3f){1.f, 5.f, 2.f},
-                 (Eigen::Vector3f){5.f, 5.f, 2.f}
-             }, NULL);
-    addFace( meshPtr,
-             (std::vector<Eigen::Vector3f>){
-                 (Eigen::Vector3f){0.f, 0.f, 4.f},
-                 (Eigen::Vector3f){1.f, 1.f, 4.f},
-                 (Eigen::Vector3f){1.f, 0.f, 4.f}
-             }, NULL);
-    addFace( meshPtr,
-             (std::vector<Eigen::Vector3f>){
-                 (Eigen::Vector3f){0.f, 0.f, 6.f},
-                 (Eigen::Vector3f){2.f, 1.f, 6.f},
-                 (Eigen::Vector3f){1.f, 5.f, 6.f}
-             }, NULL);
+    am::util::pcl::addFace( meshPtr,
+                            (std::vector<Eigen::Vector3f>){
+                                (Eigen::Vector3f){1.f, 1.f, 2.f},
+                                (Eigen::Vector3f){1.f, 5.f, 2.f},
+                                (Eigen::Vector3f){5.f, 5.f, 2.f}
+                            }, NULL);
+    am::util::pcl::addFace( meshPtr,
+                            (std::vector<Eigen::Vector3f>){
+                                (Eigen::Vector3f){0.f, 0.f, 4.f},
+                                (Eigen::Vector3f){1.f, 1.f, 4.f},
+                                (Eigen::Vector3f){1.f, 0.f, 4.f}
+                            }, NULL);
+    am::util::pcl::addFace( meshPtr,
+                            (std::vector<Eigen::Vector3f>){
+                                (Eigen::Vector3f){0.f, 0.f, 6.f},
+                                (Eigen::Vector3f){2.f, 1.f, 6.f},
+                                (Eigen::Vector3f){1.f, 5.f, 6.f}
+                            }, NULL);
     //meshPtr->polygons.resize( meshPtr->polygons.size()+1 );
     //meshPtr->polygons.back().vertices.resize( 3 );
 
@@ -289,8 +260,8 @@ int main( int argc, char** argv )
     // test intrinsics
     Eigen::Matrix3f intrinsics;
     intrinsics << 521.7401 * 2.f, 0             , 323.4402 * 2.f,
-                  0             , 522.1379 * 2.f, 258.1387 * 2.f,
-                  0             , 0             , 1             ;
+            0             , 522.1379 * 2.f, 258.1387 * 2.f,
+            0             , 0             , 1             ;
 
     //// YANG /////////////////////////////////////////////////////////////////////////////////////////////////////////
     {
@@ -339,7 +310,14 @@ int main( int argc, char** argv )
             pcl::console::parse_argument( argc, argv, "--extension", extension  );
 
             std::vector<boost::filesystem::path> dep_paths;
-            am::util::os::get_by_extension_in_dir( dep_paths, p, extension, &beginsWith );
+            if ( canDoYang ) // single run
+            {
+                dep_paths.push_back( boost::filesystem::path(depName) );
+            }
+            else // entire directory
+            {
+                am::util::os::get_by_extension_in_dir( dep_paths, p, extension, &beginsWith );
+            }
             boost::filesystem::path img_name_w_ext, dep_name_w_ext;
             std::string img_name;
             for ( auto &dep_path : dep_paths )
@@ -414,29 +392,6 @@ int main( int argc, char** argv )
     pcl::console::parse_argument (argc, argv, "--img_id", img_id );
     std::cout << "Running for img_id " << img_id << std::endl;
 
-    // read DEPTH
-    cv::Mat dep16, large_dep16;
-    {
-        boost::filesystem::path dep_path = boost::filesystem::path(inputFilePath).parent_path()
-                                           / std::string("poses")
-                                           / (std::string("d") + boost::lexical_cast<std::string> (img_id) + std::string(".png"));
-        dep16 = cv::imread( dep_path.c_str(), -1 );
-        cv::resize( dep16, large_dep16, dep16.size() * 2, 0, 0, CV_INTER_NN );
-    }
-
-    // read RGB
-    cv::Mat rgb8, rgb8_960;
-    {
-        boost::filesystem::path rgb8_path = boost::filesystem::path(inputFilePath).parent_path()
-                                            / std::string("poses")
-                                            / (boost::lexical_cast<std::string> (std::max(0,img_id-1)) + std::string(".png"));
-        rgb8 = cv::imread( rgb8_path.c_str(), -1 );
-
-        cv::Mat large_rgb8;
-        cv::resize( rgb8, large_rgb8, large_dep16.size(), 0, 0, CV_INTER_NN );
-        ViewPointMapperCuda::undistortRgb( rgb8_960, large_rgb8, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
-    }
-
     // read poses
     std::map<int,Eigen::Affine3f> poses;
     {
@@ -469,7 +424,7 @@ int main( int argc, char** argv )
             Eigen::Affine3f &pose = it->second;
             triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
                                                     /*  in: */ cols, rows, intrinsics, pose, meshPtr,
-                                                    /* depths[0] scale: */ 100.f );
+                                                    /* depths[0] scale: */ 1000.f );
 
             char fname[255];
             sprintf( fname, "depth_kinect_pose_%d.pfm", it->first );
@@ -494,68 +449,233 @@ int main( int argc, char** argv )
         return 0;
     }
 
-    // testMesh( inputFilePath, poses[img_id] );
-
     // mats to 3D
     if ( pcl::console::find_switch(argc, argv, "--yanged") )
     {
         // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/filtered16.png
         // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/filtered16.png --kindep /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d16.png
-        std::string yangedPath;
-        if ( pcl::console::parse_argument(argc, argv, "--yanged", yangedPath) < 0 )
+        // ~/KinfuSuperRes/Tsdf_vis/build/tsdf_vis --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/yanged_14.pfm --kindep /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d14.png --img_id 14 --kinfudep /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/depth_kinect_pose_14.pfm --rgb /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/14.png
+
+        // Yanged depth
+        std::string yanged_path;
+        cv::Mat     yanged_depth;
+        if ( pcl::console::parse_argument(argc, argv, "--yanged", yanged_path) < 0 )
         {
             std::cout << "use --yanged with --yanged <yanged_path>" << std::endl;
             return 1;
         }
-
-        cv::Mat colour;
-        std::string colorPath;
-        if ( pcl::console::parse_argument(argc, argv, "--rgb", colorPath) >= 0 )
+        if      ( yanged_path.find("png") != std::string::npos ) yanged_depth = cv::imread( yanged_path.c_str(), -1 );
+        else if ( yanged_path.find("pfm") != std::string::npos ) am::util::loadPFM( yanged_depth, yanged_path );
+        if ( yanged_depth.empty() )
         {
-            colour = cv::imread( colorPath.c_str(), -1 );
+            std::cerr << "yanged_depth empty..." << std::endl;
+            return 1;
         }
 
-        cv::Mat kinect_dep;
-        std::string kinect_dep_path;
-        if ( pcl::console::parse_argument(argc, argv, "--kindep", kinect_dep_path) < 0 )
+        // Colour guide
+        std::string colour_path;
+        cv::Mat     colour;
+        if ( pcl::console::parse_argument(argc, argv, "--rgb", colour_path) >= 0 )
+        {
+            colour = cv::imread( colour_path.c_str(), -1 );
+        }
+
+        // Kinect depth (original depth)
+        std::string kinect_depth_path;
+        cv::Mat     kinect_depth;
+        if ( pcl::console::parse_argument(argc, argv, "--kindep", kinect_depth_path) < 0 )
         {
             std::cout << "you can use --yanged with '--yanged <yanged_path> --rgb <rgb_path> --kindep <kinect_depth_path>'" << std::endl;
         }
         else
         {
-            kinect_dep = cv::imread( kinect_dep_path.c_str(), -1 );
+            if      ( kinect_depth_path.find("png") != std::string::npos ) kinect_depth = cv::imread( kinect_depth_path.c_str(), -1 );
+            else if ( kinect_depth_path.find("pfm") != std::string::npos ) am::util::loadPFM( kinect_depth, kinect_depth_path );
+
+            if ( kinect_depth.size() != yanged_depth.size() )
+            {
+                std::cerr << "main: resizing kinect_depth to match yanged resolution..." << std::endl;
+                cv::Mat tmp;
+                cv::resize( kinect_depth, tmp, yanged_depth.size(), 0, 0, cv::INTER_NEAREST );
+                tmp.copyTo( kinect_depth );
+            }
         }
-        std::cout << "kinectdeppath: " << kinect_dep_path << std::endl;
+        std::cout << "kinectdeppath: " << kinect_depth_path << std::endl;
 
-        cv::Mat dep = cv::imread( yangedPath.c_str(), -1 );
+        // Kinfu depth
+        std::string kinfu_depth_path;
+        cv::Mat     kinfu_depth;
+        if ( pcl::console::parse_argument(argc, argv, "--kinfudep", kinfu_depth_path) < 0 )
+        {
+            std::cout << "you can use --yanged with '--yanged <yanged_path> --rgb <rgb_path> --kindep <kinect_depth_path> --kinfudep <kinfu_depth_path>'" << std::endl;
+        }
+        else
+        {
+            if      ( kinfu_depth_path.find("png") != std::string::npos ) kinfu_depth = cv::imread( kinfu_depth_path.c_str(), -1 );
+            else if ( kinfu_depth_path.find("pfm") != std::string::npos ) am::util::loadPFM( kinfu_depth, kinfu_depth_path );
 
-        am::DepthViewer3D depthViewer;
-        depthViewer .ViewerPtr()->setSize( 640, 480 );
-        depthViewer .showMats(        dep, colour, img_id, poses, intrinsics );
-        am::DepthViewer3D depthViewer2;
-        depthViewer2.ViewerPtr()->setSize( 640, 480 );
-        depthViewer2.showMats( kinect_dep, colour, img_id, poses, intrinsics );
+            if ( kinfu_depth.size() != yanged_depth.size() )
+            {
+                std::cerr << "main: resizing kinfu_depth to match yanged resolution..." << std::endl;
+                cv::Mat tmp;
+                cv::resize( kinfu_depth, tmp, yanged_depth.size(), 0, 0, cv::INTER_NEAREST );
+                tmp.copyTo( kinfu_depth );
+            }
 
-        cv::imshow( "kindep", kinect_dep );
-        cv::waitKey(20);
-        depthViewer.addListener ( depthViewer2.ViewerPtr() );
-        depthViewer2.addListener( depthViewer.ViewerPtr() );
+            // rescale from 10.1f to 10001.f
+            {
+                double minVal, maxVal;
+                cv::minMaxLoc( kinfu_depth, &minVal, &maxVal );
+
+                cv::Mat tmp;
+                if ( maxVal < 11.f )
+                {
+                    std::cerr << "main: multiplying kinfu_depth by 1000.f" << std::endl;
+                    cv::Mat tmp;
+                    kinfu_depth.convertTo( tmp, CV_32FC1, 1000.f );
+
+                }
+                else if ( maxVal < 110.f )
+                {
+                    std::cerr << "main: multiplying kinfu_depth by 100.f" << std::endl;
+                    kinfu_depth.convertTo( tmp, CV_32FC1, 100.f );
+                }
+                else if ( maxVal < 1100.f )
+                {
+                    std::cerr << "main: multiplying kinfu_depth by 10.f" << std::endl;
+                    kinfu_depth.convertTo( tmp, CV_32FC1, 10.f );
+                }
+
+                tmp.copyTo( kinfu_depth );
+            }
+        }
+#if 0
+        // Load TSDF or MESH
+        am::TSDFViewer *tsdfViewer = new am::TSDFViewer( true );
+        // init pointer
+        tsdfViewer->MeshPtr() = pcl::PolygonMesh::Ptr( new pcl::PolygonMesh() );
+        // load mesh
+        pcl::io::loadPolygonFile( inputFilePath, *tsdfViewer->MeshPtr() );
+        tsdfViewer->setViewerPose( *tsdfViewer->getCloudViewer(), poses[img_id] );
+
+        // show mesh
+        tsdfViewer->showMesh( poses[img_id], tsdfViewer->MeshPtr() );
+
+        // dump zbuffer
+        //tsdfViewer->fetchVtkZBuffer( zBuffer, w, h );
+        am::util::pcl::fetchViewerZBuffer( kinfu_depth, tsdfViewer->getCloudViewer(), 0.001, 10.01 );
+
+#elif 1
+        {
+            pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
+            pcl::io::loadPolygonFile( inputFilePath, *meshPtr );
+            am::TriangleRenderer triangleRenderer;
+            std::vector<cv::Mat> depths, indices;
+            triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
+                                                    /*  in: */ yanged_depth.cols, yanged_depth.rows, intrinsics, poses[img_id], meshPtr,
+                                                    /* depths[0] scale: */ 1.f );
+            depths[0].copyTo( kinfu_depth );
+        }
+#endif
+        std::cout << "kinfu_dep_path: " << kinfu_depth_path << std::endl;
+        double kinfuDepMaxVal;
+        {
+            double minVal;
+            cv::minMaxIdx( kinfu_depth, &minVal, &kinfuDepMaxVal );
+            std::cout << "minVal(kinfu_depth): " << minVal << ", "
+                      << "maxVal(kinfu_depth): " << kinfuDepMaxVal << std::endl;
+        }
+
+        cv::imshow( "kinfu_depth", kinfu_depth / kinfuDepMaxVal );
+
+        {
+            char c = cv::waitKey();
+            if ( c == 27 ) return 0;
+        }
+
+        // debug
+        if ( !yanged_depth.empty() )
+        {
+            double minVal, maxVal;
+            cv::minMaxLoc( yanged_depth, &minVal, &maxVal );
+            std::cout << "yanged_depth minVal: " << minVal << std::endl;
+            std::cout << "yanged_depth maxVal: " << maxVal << std::endl;
+
+            //if ( maxVal > 10001.f ) yanged_depth /= 1000.f;
+        }
+
+        // show 3D viewers
+        am::DepthViewer3D depViewerYang;
+        depViewerYang .ViewerPtr()->setSize( 640, 480 );
+        depViewerYang .showMats( yanged_depth, colour, img_id, poses, intrinsics );
+        std::string yanged_mesh_name = (boost::filesystem::path(yanged_path).parent_path() / "yanged_").string()
+                                       + boost::lexical_cast<std::string>(img_id)
+                                       + "_mesh.ply";
+        pcl::io::savePLYFile( yanged_mesh_name, *depViewerYang.CloudPtr() );
+
+        am::DepthViewer3D depViewerKinect;
+        depViewerKinect.ViewerPtr()->setSize( 640, 480 );
+        depViewerKinect.showMats( kinect_depth, colour, img_id, poses, intrinsics );
+        std::string kindep_mesh_name = (boost::filesystem::path(kinect_depth_path).parent_path() / "kinect_depth_").string()
+                                       + boost::lexical_cast<std::string>(img_id)
+                                       + "_mesh.ply";
+        pcl::io::savePLYFile( kindep_mesh_name, *depViewerKinect.CloudPtr() );
+
+        am::DepthViewer3D depViewerKinfu;
+        depViewerKinfu.ViewerPtr()->setSize( 640, 480 );
+        depViewerKinfu.showMats( kinfu_depth, colour, img_id, poses, intrinsics );
+        std::string kinfudep_mesh_name = (boost::filesystem::path(kinfu_depth_path).parent_path() / "kinfu_depth_").string()
+                                       + boost::lexical_cast<std::string>(img_id)
+                                       + "_mesh.ply";
+        pcl::io::savePLYFile( kinfudep_mesh_name, *depViewerKinfu.CloudPtr() );
+return 0;
+        depViewerYang  .addListener( depViewerKinfu .ViewerPtr() );
+        depViewerYang  .addListener( depViewerKinect.ViewerPtr() );
+        depViewerKinfu .addListener( depViewerYang  .ViewerPtr() );
+        depViewerKinfu .addListener( depViewerKinect.ViewerPtr() );
+        depViewerKinect.addListener( depViewerYang  .ViewerPtr() );
+        depViewerKinect.addListener( depViewerKinfu .ViewerPtr() );
 
         std::cout << "spinning" << std::endl;
-        while ( !(   depthViewer .ViewerPtr()->wasStopped()
-                  || depthViewer2.ViewerPtr()->wasStopped())
-                )
+        while ( !(   depViewerYang .ViewerPtr()->wasStopped()
+                     || depViewerKinfu.ViewerPtr()->wasStopped()) )
         {
-            depthViewer.ViewerPtr()->spin();
+            depViewerYang.ViewerPtr()->spin();
         }
         std::cout << "spinning finished" << std::endl;
 
         return 0;
     }
 
-    am::UpScaling upScaling( intrinsics );
-    upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id, -1, -1, argc, argv );
-    return 0;
+    // read DEPTH
+    cv::Mat dep16, large_dep16;
+    {
+        boost::filesystem::path dep_path = boost::filesystem::path(inputFilePath).parent_path()
+                                           / std::string("poses")
+                                           / (std::string("d") + boost::lexical_cast<std::string> (img_id) + std::string(".png"));
+        dep16 = cv::imread( dep_path.c_str(), -1 );
+        cv::resize( dep16, large_dep16, dep16.size() * 2, 0, 0, CV_INTER_NN );
+    }
+
+    // read RGB
+    cv::Mat rgb8, rgb8_960;
+    {
+        boost::filesystem::path rgb8_path = boost::filesystem::path(inputFilePath).parent_path()
+                                            / std::string("poses")
+                                            / (boost::lexical_cast<std::string> (std::max(0,img_id-1)) + std::string(".png"));
+        rgb8 = cv::imread( rgb8_path.c_str(), -1 );
+
+        cv::Mat large_rgb8;
+        cv::resize( rgb8, large_rgb8, large_dep16.size(), 0, 0, CV_INTER_NN );
+        ViewPointMapperCuda::undistortRgb( rgb8_960, large_rgb8, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
+    }
+
+    {
+        am::UpScaling upScaling( intrinsics );
+        upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id, -1, -1, argc, argv );
+        return 0;
+    }
+
     // process mesh
     cv::Mat rcDepth16;
     pcl::PolygonMesh::Ptr enhancedMeshPtr;
@@ -709,22 +829,3 @@ int main( int argc, char** argv )
     }
 
 } // end main
-
-#if 0
-    Eigen::Affine3f pose;
-    pose.linear() <<  0.999154,  -0.0404336, -0.00822448,
-            0.0344457,    0.927101,   -0.373241,
-            0.0227151,    0.372638,    0.927706;
-    pose.translation() << 1.63002,
-            1.46289,
-            0.227635;
-
-    // 224
-    //Eigen::Affine3f pose;
-    myPlayer.Pose().translation() << 1.67395, 1.69805, -0.337846;
-
-    myPlayer.Pose().linear() <<
-                     0.954062,  0.102966, -0.281364,
-                    -0.16198,  0.967283, -0.195268,
-                    0.252052,  0.231873,  0.939525;
-#endif

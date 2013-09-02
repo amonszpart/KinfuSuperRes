@@ -5,6 +5,7 @@
 
 #include <pcl/visualization/pcl_visualizer.h>
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include "AmPclUtil.h"
 
 #include <map>
@@ -59,10 +60,12 @@ namespace am
             showAllPoses();
 
             pcl::visualization::PCLVisualizer::Ptr ViewerPtr() { return viewer_ptr_; }
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr CloudPtr()  { return cloud_ptr_;  }
 
         protected:
             // FIELDS
             pcl::visualization::PCLVisualizer::Ptr viewer_ptr_;
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr_;
 
     };
 
@@ -74,19 +77,40 @@ namespace am
                              /* depth scale: */ float alpha, bool useColour,
                              Eigen::Affine3f const* const pose )
     {
+        cv::Mat imgResized;
         // check input
-        if ( (!img.empty()) && (dep.size() != img.size()) )
+        if ( !img.empty() )
         {
-            std::cerr << "matsTo3D(): dep and rgb need the same size! "
-                      << dep.rows << "x" << dep.cols << ", "
-                      << img.rows << "x" << img.cols << std::endl;
-            return;
+            if ( dep.size() != img.size() )
+            {
+                std::cerr << "matsTo3D(): dep and rgb need the same size! "
+                          << dep.rows << "x" << dep.cols << ", "
+                          << img.rows << "x" << img.cols << std::endl;
+                std::cerr << "resizing color..." << std::endl;
+                cv::resize( img, imgResized, dep.size(), 0, 0, cv::INTER_LANCZOS4 );
+            }
+            else
+            {
+                img.copyTo( imgResized );
+            }
         }
+
         if ( (!img.empty()) && (img.channels() != 3) )
         {
             std::cerr << "matsTo3D(): rgb should be 3 channels! " << img.channels() << std::endl;
             return;
         }
+
+#if 0
+        {
+            double minVal, maxVal;
+            cv::minMaxIdx( dep, &minVal, &maxVal );
+            if      ( maxVal > 1000.f ) { std::cout << "matsTo3D(): dividing by 1000.f" << std::endl; dep /= 1000.f; }
+            else if ( maxVal > 100.f  ) { std::cout << "matsTo3D(): dividing by 100.f"  << std::endl; dep /= 100.f;  }
+            else if ( maxVal > 10.f   ) { std::cout << "matsTo3D(): dividing by 10.f"   << std::endl; dep /= 10.f;   }
+        }
+#endif
+
 
         // allocate ouptut
         cloudPtr = pcl::PointCloud<pcl::PointXYZRGB>::Ptr( new pcl::PointCloud<pcl::PointXYZRGB> );
@@ -112,9 +136,11 @@ namespace am
         {
             for ( int x = 0; x < dep.cols; ++x )
             {
-                /*pnt3D = am::util::pcl::point2To3D( (Eigen::Vector2f){x,y},
-                                                   intrinsics            );
-                if (     ( pnt3D(0) != pixMap[ (y * dep.cols + x) * 2    ] )
+#if 0
+                pnt3D = am::util::pcl::point2To3D( (Eigen::Vector2f){x,y},
+                                                   intrinsics            )
+                        * (float)dep.at<depT>( y,x ) * alpha;
+                /*if (     ( pnt3D(0) != pixMap[ (y * dep.cols + x) * 2    ] )
                       || ( pnt3D(1) != pixMap[ (y * dep.cols + x) * 2 + 1] )  )
                 {
                     std::cout << "pnt3D: "
@@ -124,11 +150,12 @@ namespace am
                               << pixMap[ (y * dep.cols + x) * 2 + 1 ]
                               << std::endl;
                 }*/
+#else
                 pnt3D = (Eigen::Vector3f)
                 { pixMap[ (y * dep.cols + x) * 2     ],
                   pixMap[ (y * dep.cols + x) * 2 + 1 ],
                   1.f } * ( (float)dep.at<depT>( y,x ) * alpha );
-
+#endif
                 if ( pose )
                 {
                     pnt3D = rotation * pnt3D + translation;
@@ -139,11 +166,11 @@ namespace am
                 point.y = pnt3D(1); //point.y = (y - intrinsics(1,2)) / intrinsics(1,1) * dep.at<depT>( y,x ) * alpha;
                 point.z = pnt3D(2); //point.z = dep.at<depT>( y,x ) * alpha;
 
-                if ( !img.empty() )
+                if ( !imgResized.empty() )
                 {
-                    rgb = (static_cast<uint32_t>(img.at<uchar>(y, x * img.channels() + 2)) << 16 |
-                           static_cast<uint32_t>(img.at<uchar>(y, x * img.channels() + 1)) << 8  |
-                           static_cast<uint32_t>(img.at<uchar>(y, x * img.channels()    ))        );
+                    rgb = (static_cast<uint32_t>(imgResized.at<uchar>(y, x * imgResized.channels() + 2)) << 16 |
+                           static_cast<uint32_t>(imgResized.at<uchar>(y, x * imgResized.channels() + 1)) << 8  |
+                           static_cast<uint32_t>(imgResized.at<uchar>(y, x * imgResized.channels()    ))        );
                 }
 
                 point.rgb = *reinterpret_cast<float*>( &rgb );

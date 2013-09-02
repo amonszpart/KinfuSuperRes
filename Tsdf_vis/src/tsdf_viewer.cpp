@@ -160,7 +160,7 @@ namespace am
 
 
         // Compute the vertical field of view based on the focal length and image height
-        double fovy = 2.0 * atan(intr_.cy / 2.f / intr_.fy) * 180.0 / M_PI;
+        double fovy = 2.0 * atan(intr_.cy / intr_.fy) * 180.0 / M_PI;
         std::cout << "fovy: " << fovy << std::endl;
 
         vtkSmartPointer<vtkRendererCollection> rens = cloud_viewer_->getRendererCollection();

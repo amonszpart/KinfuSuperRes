@@ -203,11 +203,11 @@ namespace am
     void TriangleRenderer::renderDepthAndIndices( std::vector<cv::Mat> &depths, std::vector<cv::Mat> &indices,
                                                   int w, int h, Eigen::Matrix3f const& intrinsics,
                                                   Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr const& meshPtr,
-                                                  float alpha )
+                                                  float alpha, bool showWindow )
     {
 
 
-        if ( !inited_ ) init( w, h );
+        if ( !inited_ ) init( w, h, showWindow );
 
         setIntrinsics( intrinsics, 0.001, 10.01 );
         setCamera    ( pose );
@@ -215,16 +215,25 @@ namespace am
         // model
         meshes_.loadMesh( meshPtr );
 
-        //glutMainLoopEvent();
-        //glutMainLoop();
-        renderScene();
+        if ( showWindow_ )
+        {
+            //glutMainLoopEvent();
+            std::cout << "calling glutMainLoop()" << std::endl;
+            glutMainLoop();
+            std::cout << "glutMainLoop() finished" << std::endl;
+        }
+        else
+        {
+            renderScene();
+        }
 
         depths.resize(2);
         indices.resize(3);
         readDepthToFC1( depths[0], alpha, depths[1] );
         readIds( indices[0], indices[1], indices[2] );
+        std::cout << "rendering finished" << std::endl;
         return;
-
+        /*
         std::vector<unsigned> vxIds( indices[1].cols * indices[1].rows );
         for ( int y = 0; y < indices[1].rows; ++y )
         {
@@ -392,7 +401,7 @@ namespace am
             std::cerr << "OK" << std::endl;
 
 
-        delete [] triangleCounts;
+        delete [] triangleCounts;*/
     }
 
     /*
@@ -401,12 +410,12 @@ namespace am
     void TriangleRenderer::renderDepthAndIndices( std::vector<cv::Mat> &depths, std::vector<cv::Mat> &indices,
                                                   int w, int h, Eigen::Matrix3f const& intrinsics,
                                                   Eigen::Affine3f const& pose, std::string const& meshPath,
-                                                  float alpha )
+                                                  float alpha, bool showWindow )
     {
         pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
         pcl::io::loadPolygonFile( meshPath, *meshPtr );
 
-        renderDepthAndIndices( depths, indices, w, h, intrinsics, pose, meshPtr, alpha );
+        renderDepthAndIndices( depths, indices, w, h, intrinsics, pose, meshPtr, alpha, showWindow );
     }
 
     /*
@@ -415,10 +424,44 @@ namespace am
      *\param[IN]  alpha     scales distances
      *\param[OUT] indices   contains unusable (clamped) Ids // FIXME scale to 0..1.f by vertexcount in ".frag"
      */
-    void TriangleRenderer::readDepthToFC1( cv::Mat &distances, float alpha, cv::Mat &indices )
+    void TriangleRenderer::readDepthToFC1( cv::Mat &distances, float alpha, cv::Mat &indices, cv::Mat *zBuf )
     {
-        const int pixels_point_step = sizeof(float) * 4;
+        const int pixels_point_step = sizeof(float) /* *4 */;
 
+        glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
+        //glReadBuffer( GL_COLOR_ATTACHMENT0 );
+        glReadBuffer( GL_DEPTH_COMPONENT );
+        glClampColor( GL_CLAMP_READ_COLOR, GL_FALSE );
+        glReadPixels( 0, 0, width_, height_, GL_DEPTH_COMPONENT, GL_FLOAT, pixels );
+        glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+        distances.create( height_, width_, CV_32FC1 );
+        indices.create( height_, width_, CV_32FC1 );
+        //float* pixel = static_cast<float*>( imageData->GetScalarPointer(x,y,0) );
+
+        const float zFar = 10.01f;
+        const float zNear = 0.001f;
+        // [10]: (-zFar - zNear) / (zFar - zNear)
+        // [14]: -2.f * zFar * zNear / (zFar - zNear),
+        // v = [14] / ([10] - 2.0*v + 1.0);
+
+        for ( int y = 0; y < height_; ++y )
+        {
+            for ( int x = 0; x < width_; ++x )
+            {
+                // copy one channel only
+                float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step ] ) * alpha;
+
+                float d = 2.0 * zNear * zFar / (zFar + zNear - val * (zFar - zNear)) * 1000.f;
+                distances.at<float>( height_ - y - 1, x ) = (d > 10000.f) ? 0.f : d;
+                //distances.at<float>( height_ - y - 1, x ) = val;
+
+                float ind = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step + sizeof(float)] );
+                indices.at<float>( y, x) = ind;
+            }
+        }
+
+#if 0 // original working
         glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
         glReadBuffer( GL_COLOR_ATTACHMENT0 );
         glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE );
@@ -433,18 +476,55 @@ namespace am
             {
                 // copy one channel only
                 float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step ] ) * alpha;
-                distances.at<float>( y, x ) = val;
+                distances.at<float>( height_ - y - 1, x ) = val;
                 float ind = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step + sizeof(float)] );
                 indices.at<float>( y, x) = ind;
             }
         }
+#endif
+
+#if 0 // test eye
+        std::cout << "eye: ";
+        glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
+        glReadBuffer( GL_COLOR_ATTACHMENT0 );
+        glClampColor( GL_CLAMP_READ_COLOR, GL_FALSE );
+        glReadPixels( 0, 0, 10, 10, GL_RGBA, GL_FLOAT, pixels );
+        float val = *reinterpret_cast<float*>( &pixels[0] );
+        std::cout << val << ",";
+        val = *reinterpret_cast<float*>( &pixels[4] );
+        std::cout << val << ",";
+        val = *reinterpret_cast<float*>( &pixels[8] );
+        std::cout << val << std::endl;
+
+#endif
+#if 0
+        // read zbuffer as well
+        if ( !zBuf ) return;
+
+        glBindFramebuffer( GL_FRAMEBUFFER, framebufferHandle_ );
+        glReadBuffer( GL_DEPTH_ATTACHMENT );
+        glClampColor( GL_CLAMP_READ_COLOR, GL_FALSE );
+        glReadPixels( 0, 0, width_, height_, GL_DEPTH, GL_FLOAT, pixels );
+        glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+
+        zBuf->create( height_, width_, CV_32FC1 );
+        for ( int y = 0; y < height_; ++y )
+        {
+            for ( int x = 0; x < width_; ++x )
+            {
+                // copy one channel only
+                float val = *reinterpret_cast<float*>( &pixels[(y * width_ + x) * pixels_point_step ] ) * alpha;
+                distances.at<float>( y, x ) = val;
+            }
+        }
+#endif
     }
 
     void TriangleRenderer::setupBuffers( int width, int height )
     {
         if ( !inited_ ) { std::cerr << "GLRenderer::setupBuffers(): cannot run, buffers not inited!" << std::endl; return; }
 
-        if (       textureHandles_[0] != INVALID_OGL_VALUE ) glDeleteTextures    ( 2,  textureHandles_          );
+        if (       textureHandles_[0] != INVALID_OGL_VALUE ) glDeleteTextures    ( 3,  textureHandles_          );
         if ( depthRenderBufferHandle_ != INVALID_OGL_VALUE ) glDeleteTextures    ( 1, &depthRenderBufferHandle_ );
         if (       framebufferHandle_ != INVALID_OGL_VALUE ) glDeleteFramebuffers( 1, &framebufferHandle_       );
 
@@ -454,7 +534,8 @@ namespace am
             glGenTextures( 3, textureHandles_ );
             glBindTexture( GL_TEXTURE_2D, textureHandles_[0] );
 
-            glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+            //glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+            glTexImage2D( GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_LUMINANCE, GL_FLOAT, 0);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -489,7 +570,7 @@ namespace am
         {
             glGenRenderbuffers(1, &depthRenderBufferHandle_);
             glBindRenderbuffer(GL_RENDERBUFFER, depthRenderBufferHandle_);
-            glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height );
+            glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, width, height );
             glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRenderBufferHandle_ );
         }
 
@@ -504,13 +585,13 @@ namespace am
             std::cout << "Framebuffer: Incomplete framebuffer (";
             switch(status){
                 case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-                    std::cout << "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+                    std::cerr << "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
                     break;
                 case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
-                    std::cout << "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+                    std::cerr << "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
                     break;
                 case GL_FRAMEBUFFER_UNSUPPORTED:
-                    std::cout << "GL_FRAMEBUFFER_UNSUPPORTED";
+                    std::cerr << "GL_FRAMEBUFFER_UNSUPPORTED";
                     break;
             }
             std::cout << ")" << std::endl;
@@ -567,7 +648,7 @@ namespace am
           pixels( new GLubyte[width_*height_*sizeof(float   ) * 4] ),
           ids   ( new GLuint [width_*height_*sizeof(unsigned) * 3] ),
           depthRenderBufferHandle_( INVALID_OGL_VALUE ), framebufferHandle_( INVALID_OGL_VALUE ),
-          inited_(false)
+          inited_(false), showWindow_(false)
     {
         textureHandles_[0] = textureHandles_[1] = textureHandles_[2] = INVALID_OGL_VALUE;
         vertexFileName = "../../TriangleTracing/src/shaders/triangles.vert";
@@ -588,8 +669,9 @@ namespace am
         glDeleteShader ( fragment_shader );
     }
 
-    void TriangleRenderer::init( int w, int h )
+    void TriangleRenderer::init( int w, int h, bool showWindow )
     {
+        showWindow_ = showWindow;
         //Display *dpy;
         //dpy = XOpenDisplay(":0");
 
@@ -600,12 +682,17 @@ namespace am
         glutInit( &myargc, myargv );
 
         glutInitDisplayMode( GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA );
-        ///glutInitWindowPosition(100,100);
-        //glutInitWindowSize( gInst.W(), gInst.H() );
         int windowHandle = glutCreateWindow("GLRendererGlutApp");
+        if ( showWindow_ )
+        {
+            std::cout << "setting up callbacks" << std::endl;
+            glutInitWindowPosition(100,100);
+            glutInitWindowSize( w, h );
+            glutDisplayFunc( TriangleRenderer::displayFuncCallback );
+            glutIdleFunc( TriangleRenderer::displayFuncCallback );
+        }
 
-        ///glutDisplayFunc(renderScene);
-        ///glutIdleFunc(renderScene);
+        //glutIdleFunc(renderScene);
         //glutReshapeFunc(changeSize);
         //glutKeyboardFunc(processNormalKeys);
 
@@ -667,9 +754,9 @@ namespace am
         viewMatrix_[8]  = right[2];
         viewMatrix_[12] = 0.0f;
 
-        viewMatrix_[1]  = -up[0];
-        viewMatrix_[5]  = -up[1];
-        viewMatrix_[9]  = -up[2];
+        viewMatrix_[1]  = up[0];
+        viewMatrix_[5]  = up[1];
+        viewMatrix_[9]  = up[2];
         viewMatrix_[13] = 0.0f;
 
         viewMatrix_[2]  = -dir[0];
@@ -699,7 +786,7 @@ namespace am
         // must be called after glUseProgram
         glUniformMatrix4fv(projMatrixLoc,  1, false,  projMatrix );
         glUniformMatrix4fv(viewMatrixLoc,  1, false,  viewMatrix_ );
-        glUniformMatrix4fv(modelMatrixLoc, 1, false, modelMatrix_ );
+        glUniformMatrix4fv(modelMatrixLoc, 1, false,  modelMatrix_ );
         glUniform3f( eyeLoc, eyePosition_[0], eyePosition_[1], eyePosition_[2] );
     }
 
@@ -716,6 +803,7 @@ namespace am
 
     void TriangleRenderer::renderScene()
     {
+        std::cout << "renderScene..." << std::endl;
         if ( !inited_                  ) { std::cerr << "GLRenderer::renderScene(): cannot run, buffers not inited!" << std::endl; return; }
         if ( !meshes_.NumberOfMeshes() ) { std::cerr << "GLRenderer::renderScene(): cannot run, no meshes!"          << std::endl; return; }
 
@@ -737,11 +825,14 @@ namespace am
         glDrawBuffers( 1, tmpBuff );
         glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-        // render again
-        //glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-        //meshes_.Render();
+        if ( showWindow_ )
+        {
+            // render again
+            glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+            meshes_.Render();
 
-        //glutSwapBuffers();
+            glutSwapBuffers();
+        }
     }
 
     GLuint TriangleRenderer::setupShaders()
@@ -802,6 +893,7 @@ namespace am
                             0.f             ,  2.f * K(1,1) / h,                  0.f,                                   0.f,
                             0.f             , ( w - 2.f * K(0,2) + 2.f * x0) / w, (-zFar - zNear) / (zFar - zNear)    , -1.f,
                             0.f             , (-h + 2.f * K(1,2) + 2.f * y0) / h, -2.f * zFar * zNear / (zFar - zNear),  0.f };
+
 
         memcpy( projMatrix, proj, 16 * sizeof(float) );
     }

@@ -45,14 +45,14 @@ namespace am
                 }
 
                 // output
-                zBufMat.create( dims[1], dims[0], CV_16UC1 );
+                zBufMat.create( dims[1], dims[0], CV_32FC1 );
                 for ( int y = 0; y < dims[1]; ++y )
                 {
                     for ( int x = 0; x < dims[0]; ++x )
                     {
                         float* pixel = static_cast<float*>( imageData->GetScalarPointer(x,y,0) );
-                        ushort d = round(2.0 * zNear * zFar / (zFar + zNear - pixel[0] * (zFar - zNear)) * 1000.f);
-                        zBufMat.at<ushort>( dims[1] - y - 1, x ) = (d > 10001) ? 0 : d;
+                        float d = round(2.0 * zNear * zFar / (zFar + zNear - pixel[0] * (zFar - zNear)) * 1000.f);
+                        zBufMat.at<float>( dims[1] - y - 1, x ) = (d > 10000.f) ? 0.f : d;
 
                         //data[ z * dims[1] * dims[0] + (dims[1] - y - 1) * dims[0] + x ] = pixel[0];//(pixel[0] == 10001) ? 0 : pixel[0];
                     }
@@ -76,8 +76,8 @@ namespace am
                 Eigen::Vector3f up_vector      = viewer_pose.rotation () * Eigen::Vector3f (0, -1, 0);
                 viewer.setCameraPosition(
                             pos_vector[0], pos_vector[1], pos_vector[2],
-                            look_at_vector[0], look_at_vector[1], look_at_vector[2],
-                            up_vector[0], up_vector[1], up_vector[2] );
+                        look_at_vector[0], look_at_vector[1], look_at_vector[2],
+                        up_vector[0], up_vector[1], up_vector[2] );
             }
 
             Eigen::Vector3f
@@ -85,8 +85,8 @@ namespace am
             {
                 Eigen::Vector3f pnt3D;
                 pnt3D << (pnt2(0) - intrinsics(0,2)) / intrinsics(0,0),
-                         (pnt2(1) - intrinsics(1,2)) / intrinsics(1,1),
-                         1.f;
+                        (pnt2(1) - intrinsics(1,2)) / intrinsics(1,1),
+                        1.f;
                 return pnt3D;
             }
 
@@ -118,16 +118,18 @@ namespace am
                 std::cout << "gamma: " << gamma << " " << gamma * 180.f / M_PI << std::endl;
             }
 
-            void copyCam( ::pcl::visualization::PCLVisualizer::Ptr from,
-                          ::pcl::visualization::PCLVisualizer::Ptr to )
+            void
+            copyCam( ::pcl::visualization::PCLVisualizer::Ptr from,
+                     ::pcl::visualization::PCLVisualizer::Ptr to )
             {
                 Eigen::Vector3d pos, up, dir;
                 getCam( pos, up, dir, from );
                 setCam( pos, up, dir, to );
             }
 
-            void setCam( /*  in: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
-                         ::pcl::visualization::PCLVisualizer::Ptr pViewerPtr )
+            void
+            setCam( /*  in: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
+                    ::pcl::visualization::PCLVisualizer::Ptr pViewerPtr )
             {
                 vtkSmartPointer<vtkRendererCollection> rens =
                         pViewerPtr->getRendererCollection();
@@ -145,8 +147,9 @@ namespace am
                 pViewerPtr->spinOnce();
             }
 
-            void getCam( /* out: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
-                         /*  in: */ ::pcl::visualization::PCLVisualizer::Ptr const& pViewerPtr )
+            void
+            getCam( /* out: */ Eigen::Vector3d &pos, Eigen::Vector3d &up, Eigen::Vector3d &dir,
+                    /*  in: */ ::pcl::visualization::PCLVisualizer::Ptr const& pViewerPtr )
             {
                 vtkSmartPointer<vtkRendererCollection> rens =
                         pViewerPtr->getRendererCollection();
@@ -161,6 +164,37 @@ namespace am
                     camera.GetFocalPoint( dir[0], dir[1], dir[2] );
                     ++it;
                 }
+            }
+
+            void
+            addFace( ::pcl::PolygonMesh::Ptr &meshPtr, std::vector<Eigen::Vector3f> points, std::vector<Eigen::Vector3f> *colors )
+            {
+                int vxId = meshPtr->cloud.width;
+                std::cout << "vxid: " << vxId << std::endl;
+                meshPtr->cloud.width += 3;
+                meshPtr->cloud.data.resize( meshPtr->cloud.width * meshPtr->cloud.point_step );
+                float* tmp;
+                ::pcl::Vertices face;
+                for ( int pid = 0; pid < 3; ++pid, ++vxId )
+                {
+                    face.vertices.push_back( vxId );
+                    for ( int i = 0; i < 3; ++i )
+                    {
+                        tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[i].offset]) );
+                        *tmp = points[pid](i);
+                    }
+                    if ( colors )
+                    {
+                        tmp = reinterpret_cast<float*>( &(meshPtr->cloud.data[ vxId * meshPtr->cloud.point_step + meshPtr->cloud.fields[3].offset]) );
+                        for ( int i = 0; i < 3; ++i )
+                        {
+                            tmp[i] = colors->at(pid)(i);
+                        }
+                    }
+                }
+
+                meshPtr->polygons.push_back( face );
+                meshPtr->cloud.row_step = meshPtr->cloud.point_step * meshPtr->cloud.width;
             }
 
         } // end ns pcl
@@ -187,10 +221,10 @@ namespace am
                     {
                         std::cout << "file: " << it->path() << std::endl;
                         if (    (boost::filesystem::is_regular_file(*it)     )
-                             && (it->path().extension().string().compare(ext)) )
+                                && (it->path().extension().string().compare(ext)) )
                         {
                             if (    (!beginsWith)
-                                || !(it->path().filename().string().compare(0,beginsWith->length(),*beginsWith)) )
+                                    || !(it->path().filename().string().compare(0,beginsWith->length(),*beginsWith)) )
                             {
                                 ret.push_back( it->path().filename() );
                             }

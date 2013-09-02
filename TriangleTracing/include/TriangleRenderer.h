@@ -28,15 +28,15 @@ namespace am
              *\param[IN]  meshPtr   input mesh pointer to render
              *\param[IN]  alpha     scales the depths[0] output
              */
-            void renderDepthAndIndices( std::vector<cv::Mat> &depth, std::vector<cv::Mat> &indices,
-                                       int w, int h, Eigen::Matrix3f const& intrinsics,
-                                       Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr const& meshPtr, float alpha = 10001.f );
+            void renderDepthAndIndices(std::vector<cv::Mat> &depth, std::vector<cv::Mat> &indices,
+                                        int w, int h, Eigen::Matrix3f const& intrinsics,
+                                        Eigen::Affine3f const& pose, pcl::PolygonMesh::Ptr const& meshPtr, float alpha = 10001.f, bool showWindow = false );
             /*
              *\brief Loads mesh from path, and calls renderDepthAndIndices with the filled meshPtr
              */
             void renderDepthAndIndices( std::vector<cv::Mat> &depth, std::vector<cv::Mat> &indices,
                                         int w, int h, Eigen::Matrix3f const& intrinsics,
-                                        Eigen::Affine3f const& pose, std::string const& meshPath, float alpha = 10001.f );
+                                        Eigen::Affine3f const& pose, std::string const& meshPath, float alpha = 10001.f, bool showWindow = false );
 
             /*
              *\brief    Read framebuffer object's distance data
@@ -44,14 +44,13 @@ namespace am
              *\param[IN]  alpha     scales distances
              *\param[OUT] indices   contains unusable (clamped) Ids // FIXME scale to 0..1.f by vertexcount in ".frag"
              */
-            void readDepthToFC1( cv::Mat &distances, float alpha, cv::Mat &indices );
+            void readDepthToFC1( cv::Mat &distances, float alpha, cv::Mat &indices, cv::Mat *zBuf = NULL );
             /*
              *\brief    Read framebuffer object's vertex and triangle index data
              *\param[OUT] vertexIds   contains vertex indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
              *\param[OUT] triangleIDs contains triangle indices as unsigned integers stored in a CV_8UC4 format, read with ".at<unsigned>(y,x)"
              */
             void readIds( cv::Mat &vertexIds, cv::Mat &triangleIds, cv::Mat &triangleIds2 );
-
 
             TriangleRenderer();
             ~TriangleRenderer();
@@ -68,7 +67,7 @@ namespace am
             GLuint setupShaders();
             void setupBuffers( int width, int height );
             void setSize( int w, int h );
-            void init(int w, int h);
+            void init( int w, int h, bool showWindow = false );
             void loadMesh( std::string const& mesh_path );
 
             // projection matrix
@@ -82,8 +81,22 @@ namespace am
             void setUniforms();
             void renderScene( void );
 
+            static TriangleRenderer&
+            Instance()
+            {
+                static TriangleRenderer instance;
+
+                return instance;
+            }
+            static void displayFuncCallback()
+            {
+                Instance().renderScene();
+            }
+
 
         protected:
+            bool showWindow_;
+
             GLuint depthRenderBufferHandle_;
             GLuint framebufferHandle_;
             GLuint textureHandles_[3];

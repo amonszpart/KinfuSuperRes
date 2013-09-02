@@ -3,10 +3,10 @@
 uniform mat4 viewMatrix, projMatrix, modelMatrix;
 
 in vec4 position;
-in vec3 normal;   // <vxid, fid, bulk>
+in vec3 normal;  // NOT normal, <vertexxid, faceid, empty>
 
 out vec4 position_in_world_space;
-out vec3 frag_vxid_fid; // <vxid, fid, bulk>
+out vec3 frag_vxid_fid; // <vertexid, faceid, empty>
 flat out uint flat_fid;
 
 void main()

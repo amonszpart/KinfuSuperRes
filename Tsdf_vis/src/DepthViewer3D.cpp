@@ -5,6 +5,8 @@
 #include <vtkCamera.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/common.h>
+#include <pcl/io/ply_io.h>
+
 
 #include "AmPclUtil.h"
 
@@ -16,6 +18,7 @@ namespace am
         pcl::visualization::PCLVisualizer::Ptr* pViewerPtr = reinterpret_cast<pcl::visualization::PCLVisualizer::Ptr*>( cookie );
 
         int key = e.getKeyCode ();
+
         Eigen::Affine3f tmp_pose = (*pViewerPtr)->getViewerPose();
         if ( e.keyUp () )
         {
@@ -51,7 +54,6 @@ namespace am
 
                 case 'g':
                     tmp_pose.linear() *= Eigen::AngleAxisf( -.25f * M_PI, Eigen::Vector3f::UnitZ() ).matrix();
-
                     break;
 
                 default:
@@ -93,7 +95,7 @@ namespace am
 //        viewer_ptr_->addCoordinateSystem(5.f, 0, 1, 0 );
 //        viewer_ptr_->addCoordinateSystem(3.f, 0, 0, 1 );
 //        viewer_ptr_->addCoordinateSystem(1.f, 0, 0, 0 );
-        viewer_ptr_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3 );
+        //viewer_ptr_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3 );
 
         //boost::function<void (const pcl::visualization::KeyboardEvent&, void*)> func_keyboard = boost::bind (&DepthViewer3D::keyboard_callback, this, _1, _2 );
         viewer_ptr_->registerKeyboardCallback( depth_viewer3d_keyboard_callback, (void*)&viewer_ptr_ );
@@ -104,18 +106,32 @@ namespace am
      * \brief Depth image (and registered colour) to point cloud
      */
     void
-    DepthViewer3D::showMats( cv::Mat const& large_dep16, cv::Mat const& rgb8_960, int img_id, std::map<int,Eigen::Affine3f> const& poses, Eigen::Matrix3f const& intrinsics )
+    DepthViewer3D::showMats( cv::Mat const& large_dep16, cv::Mat const& rgb8_960,
+                             int img_id, std::map<int,Eigen::Affine3f> const& poses, Eigen::Matrix3f const& intrinsics )
     {
-        // create cloud
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPtr;
+        if ( large_dep16.empty() )
         {
-            DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, cloudPtr, intrinsics, 1.f /*/ 1000.f*/, false, NULL/*, &(poses.at(img_id))*/ );
+            std::cerr << "DepthViewer3D::showMats(): depth image empty, exiting" << std::endl;
+            return;
+        }
+
+
+        // create cloud
+        {
+            if ( large_dep16.type() == CV_32FC1 )
+            {
+                DepthViewer3D::matsTo3D<float>( large_dep16, rgb8_960, cloud_ptr_, intrinsics, 1.f /*/ 1000.f*/, true, &(poses.at(img_id)) );
+            }
+            else
+            {
+                DepthViewer3D::matsTo3D<ushort>( large_dep16, rgb8_960, cloud_ptr_, intrinsics, 1.f /*/ 1000.f*/, true, &(poses.at(img_id)) );
+            }
         }
 
         // calculate centroid
         Eigen::Vector4f centroid;
         {
-            pcl::compute3DCentroid( *cloudPtr, centroid );
+            pcl::compute3DCentroid( *cloud_ptr_, centroid );
             std::cout << "centroid: " << centroid.transpose() << " "
                       << centroid.cols() << " " << centroid.rows()
                       << centroid.block<3,1>(0,0).transpose() << std::endl;
@@ -124,7 +140,7 @@ namespace am
         // bounding box
         Eigen::Vector4f min_pt, max_pt;
         {
-            pcl::getMinMax3D( *cloudPtr, min_pt, max_pt );
+            pcl::getMinMax3D( *cloud_ptr_, min_pt, max_pt );
             std::cout << "min_pt: " << min_pt.transpose() << std::endl
                       << "max_pt: " << max_pt.transpose() << std::endl;
         }
@@ -141,8 +157,8 @@ namespace am
 
         // show cloud
         {
-            pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( cloudPtr );
-            viewer_ptr_->addPointCloud<pcl::PointXYZRGB>( cloudPtr, rgb, "colorCloud" );
+            pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb( cloud_ptr_ );
+            viewer_ptr_->addPointCloud<pcl::PointXYZRGB>( cloud_ptr_, rgb, "colorCloud" );
 
             //viewer_ptr_->spinOnce();
             //viewer_ptr_->showCl
@@ -177,8 +193,8 @@ namespace am
             //am::util::pcl::printPose( viewer_ptr_->getViewerPose() );
             //am::util::pcl::setViewerPose( *viewer_ptr_, pose2 );
             am::util::pcl::printPose( viewer_ptr_->getViewerPose() );
-
         }
+
 
         viewer_ptr_->spinOnce();
     }

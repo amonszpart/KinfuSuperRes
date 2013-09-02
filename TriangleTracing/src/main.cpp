@@ -15,6 +15,7 @@ using namespace std;
 
 #include "mesh.h"
 #include "TriangleRenderer.h"
+#include "AMUtil2.h"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -22,12 +23,14 @@ using namespace std;
 #include <pcl/io/vtk_lib_io.h>
 #include <eigen3/Eigen/Dense>
 
+#include <iomanip>
+
 
 int main( int argc, char **argv )
 {
-    am::TriangleRenderer rendererInstance;
-    float w = 640.f;
-    float h = 480.f;
+    //am::TriangleRenderer rendererInstance;
+    float w = 1280.f;
+    float h = 960.f;
 
     // projection
     Eigen::Matrix3f intrinsics;
@@ -40,17 +43,39 @@ int main( int argc, char **argv )
 
     // view
     Eigen::Affine3f pose; pose.linear()
-            << 1.f, 0.f, 0.f,
-               0.f, 1.f, 0.f,
-               0.f, 0.f, 1.f;
-    pose.translation() << 1.5f, 1.5f, -0.3f;
+            <<  0.997822f,-0.0618835f,-0.0228414f,
+               0.0633844f,0.995374f,0.072196f,
+               0.018268f,-0.0734866f,0.997129f;
+    pose.translation() << 1.51232, 1.49073, -0.211046;
+    //pose.translation() << 1.51232, 2.49073, -0.211046;
+
+    //0.997822,-0.0618835,-0.0228414,1.51232,
+    //0.0633844,0.995374,0.072196,1.49073,
+    //0.018268,-0.0734866,0.997129,-0.211046,0,0,0,1
 
     std::vector<cv::Mat> depths, indices;
     cv::Mat depthFC1, indices32UC1;
-    rendererInstance.renderDepthAndIndices( depths, indices, w, h, intrinsics, pose, "/home/bontius/workspace/rec/testing/cloud_mesh.ply", 10001.f );
+    am::TriangleRenderer::Instance().renderDepthAndIndices( depths, indices, w, h, intrinsics, pose,
+                                                            "/home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply", 1.f, /* showWindow: */ false );
 
     depthFC1     = depths[0];  // depths
     indices32UC1 = indices[0]; // vertex ids
+
+    double minVal, maxVal;
+    {
+        cv::minMaxIdx( depthFC1, &minVal, &maxVal );
+        std::cout << "minVal(depthFC1): " << std::setprecision(32) << minVal << ", "
+                  << "maxVal(depthFC1): " << std::setprecision(32) << maxVal << std::endl;
+    }
+
+    am::util::savePFM( depthFC1, "kinfu.pfm" );
+    cv::Mat tmp;
+    depthFC1.convertTo( tmp, CV_8UC1, 255.f / maxVal );
+    cv::imwrite( "kinfu8.png", tmp );
+
+    cv::imshow( "depth", depthFC1 / maxVal );
+
+    cv::waitKey();
     return 0;
 
     cv::imshow( "depth", depthFC1 / 5001.f );

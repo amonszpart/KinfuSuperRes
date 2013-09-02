@@ -7,6 +7,12 @@ INCLUDE( ../commonLibLocations.cmake )
 aux_source_directory(./src/shaders SHADERS_LIST )
 file (GLOB H_LIST "include/*.h")
 
+### AMUtil
+add_library ( libAMUtil STATIC IMPORTED)
+set_property( TARGET libAMUtil PROPERTY
+              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/build/libAMUtil.a )
+INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/include/ )
+
 SET( SRC_LIST
         src/math_3d.cpp
         src/mesh.cpp
@@ -21,6 +27,7 @@ INCLUDE_DIRECTORIES( ${MY_INCLUDES} include )
 add_library( ${PROJECT_NAME} ${H_LIST} ${SRC_LIST} ${SHADERS_LIST} )
 
 TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
+    libAMUtil
     GL
     GLEW
     glut

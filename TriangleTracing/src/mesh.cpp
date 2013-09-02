@@ -137,17 +137,6 @@ void Mesh::initMesh( pcl::PolygonMesh::Ptr const& meshPtr )
                                                                 /* polygonId: */ fid+1,
                                                                 /*    unused: */ 1.f))
                     );
-
-        if ( fid == 71935 )
-        {
-            std::cout << "pid: " << pid
-                      << " vxid: " << pid / point_step
-                      << " fid: " << fid
-                      << " vertices: "
-                      << meshPtr->polygons[fid].vertices[0] << ","
-                      << meshPtr->polygons[fid].vertices[1] << ","
-                      << meshPtr->polygons[fid].vertices[2] << std::endl;
-        }
         //std::cout << pid/point_step << ": "
         //          << meshPtr->polygons[pid/point_step/3].vertices[0] << "," << meshPtr->polygons[pid/point_step/3].vertices[1] << "," << meshPtr->polygons[pid/point_step/3].vertices[2] << std::endl;
 
@@ -178,10 +167,27 @@ void Mesh::initMesh( pcl::PolygonMesh::Ptr const& meshPtr )
     }
     std::cout << "maxfaceID: " << maxFaceId << std::endl;
     std::cout << "verticescount: " << vertices.size() << std::endl;
+#if 0
+    vertices.clear();
+    indices.clear();
+    int vxid = vertices.size();
+    vertices.push_back( Vertex(Vector3f(0.f, 0.f, 4.f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(0.f, 3.f, 1.f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(3.f, 3.f, 1.f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(3.f, 3.f, 4.f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(3.f, 0.f, 4.f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(0.f, 0.f, 4.f), Vector3f(vxid++, 0.f, 1.f)) );
 
+    vertices.push_back( Vertex(Vector3f(2.1f, 2.1f, 4.05f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(2.1f, 2.2f, 4.05f), Vector3f(vxid++, 0.f, 1.f)) );
+    vertices.push_back( Vertex(Vector3f(2.2f, 2.2f, 4.f), Vector3f(vxid++, 0.f, 1.f)) );
+    for ( int vxid = vertices.size()-9; vxid < vertices.size(); ++vxid )
+        indices.push_back( vxid );
+#endif
     m_Entries.push_back( MeshEntry() );
     m_Entries.back().Init( vertices, indices );
 #endif
+
 #if 0
     // test
     float fid = 0.f;
