@@ -424,25 +424,25 @@ int main( int argc, char** argv )
             Eigen::Affine3f &pose = it->second;
             triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
                                                     /*  in: */ cols, rows, intrinsics, pose, meshPtr,
-                                                    /* depths[0] scale: */ 1000.f );
+                                                    /* depths[0] scale: */ 1.f );
 
             char fname[255];
-            sprintf( fname, "depth_kinect_pose_%d.pfm", it->first );
+            sprintf( fname, "kinfu_depth_%d.pfm", it->first );
             am::util::savePFM( depths[0], outPath.string() + "/" + fname );
 
             cv::Mat indices0F;
             am::util::cv::unsignedIntToFloat( indices0F, indices[0] );
-            sprintf( fname, "vxids_kinect_pose_%d.pfm", it->first );
+            sprintf( fname, "vxids_kinfu_%d.pfm", it->first );
             am::util::savePFM( indices0F, outPath.string() + "/" + fname );
 
             cv::Mat indices1F;
             am::util::cv::unsignedIntToFloat( indices1F, indices[1] );
-            sprintf( fname, "faceids_kinect_pose_%d.pfm", it->first );
+            sprintf( fname, "faceids_kinfu_%d.pfm", it->first );
             am::util::savePFM( indices1F, outPath.string() + "/" + fname );
 
             cv::Mat indices2F;
             am::util::cv::unsignedIntToFloat( indices2F, indices[2] );
-            sprintf( fname, "flat_faceids_kinect_pose_%d.pfm", it->first );
+            sprintf( fname, "flat_faceids_kinfu_%d.pfm", it->first );
             am::util::savePFM( indices2F, outPath.string() + "/" + fname );
 
         }

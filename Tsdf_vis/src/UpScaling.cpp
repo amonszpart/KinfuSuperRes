@@ -72,9 +72,9 @@ namespace am
 #if 1
         std::cout << "UpScaling::run(): showing mesh using trianglerenderer...";
 
-        am::TriangleRenderer triangleRenderer;
+        //am::TriangleRenderer triangleRenderer;
         std::vector<cv::Mat> depths, indices;
-        triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
+        am::TriangleRenderer::Instance().renderDepthAndIndices( /* out: */ depths, indices,
                                                 /*  in: */ cols, rows, intrinsics_, pose, mesh,
                                                 /* depths[0] scale: */ 1.f );
         depths[0].copyTo( zBufMat );

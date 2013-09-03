@@ -56,7 +56,7 @@ int main( int argc, char **argv )
     std::vector<cv::Mat> depths, indices;
     cv::Mat depthFC1, indices32UC1;
     am::TriangleRenderer::Instance().renderDepthAndIndices( depths, indices, w, h, intrinsics, pose,
-                                                            "/home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply", 1.f, /* showWindow: */ false );
+                                                            "/mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/cloud_mesh.ply", 1.f, /* showWindow: */ false );
 
     depthFC1     = depths[0];  // depths
     indices32UC1 = indices[0]; // vertex ids
