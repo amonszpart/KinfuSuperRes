@@ -4,6 +4,7 @@
 //#include "../../BilateralFilteringCuda/include/YangFiltering.h"
 
 #include "BilateralFilterCuda.hpp"
+#include "ViewPointMapperCuda.h"
 
 #include <boost/filesystem.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -31,18 +32,37 @@ namespace am {
         {
             dep16 = cv::imread( depPath, -1 );
         }
+#if 0 // FLAT depth
+        std::cerr << "flattening depth" << std::endl;
+        dep16.setTo( 2000.f );
+#endif
+
         cv::Mat rgb8        = cv::imread( imgPath, -1 );
+        std::cout << "YangFilteringWrapper: undistorting rgb with size: "
+                  << rgb8.rows << "x" << rgb8.cols
+                  << " with intrinsics: 1280x1024"
+                  << std::endl;
+        cv::Mat tmp;
+        ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
+                                           /*  in: */ rgb8,
+                                           am::viewpoint_mapping::INTR_RGB_1280_1024,
+                                           am::viewpoint_mapping::INTR_RGB_1280_1024 );
+        tmp.copyTo( rgb8 );
+
+
         if ( dep16.empty() || rgb8.empty() )
         {
             std::cerr << "YangFilteringWrapper::runYang(): dep16 or rgb8 empty...exiting..." << std::endl;
             return EXIT_FAILURE;
         }
 
-        runYangCleaned( filteredDep16, dep16, rgb8, yangFilteringRunParams, path );
+        return runYangCleaned( filteredDep16, dep16, rgb8, yangFilteringRunParams, path );
     }
 
     int runYangCleaned( cv::Mat &filteredDep16, cv::Mat const& dep16, cv::Mat const& rgb8, YangFilteringRunParams yangFilteringRunParams, std::string const& path )
     {
+        int res = EXIT_SUCCESS;
+
         // resize
         cv::Mat dep16_large;
         if ( rgb8.size() != dep16.size() )
@@ -64,11 +84,13 @@ namespace am {
                                    5.f, .1f, 10, 1.f );
         // Yang
         YangFiltering yf;
-        yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams, path );
+        res += yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams, path );
 
         //if ( dep16.type() == CV_16UC1 ) depFC1.convertTo( filteredDep16, CV_16UC1 );
         //else
         depFC1.copyTo( filteredDep16 );
+
+        return res;
     }
 
     // cd ~/rec/testing/ram*/poses/bruteYang &&

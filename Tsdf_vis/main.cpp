@@ -341,11 +341,17 @@ int main( int argc, char** argv )
                 boost::filesystem::create_directory( yangDir + "/" + img_name );
                 std::cout << "yanging to " << yangDir + "/" + img_name << std::endl;
                 cv::Mat filtered;
-                am::runYangCleaned( filtered,
+                int res = am::runYangCleaned( filtered,
                                     yangDir + "/" + dep_name_w_ext.string(),
                                     yangDir + "/" + img_name_w_ext.string(),
                                     runParams,
                                     yangDir + "/" + img_name );
+                if ( res )
+                {
+                    std::cerr << "runYangCleaned error, exiting" << std::endl;
+                    return res;
+                }
+
 
                 // save png
                 {
@@ -353,7 +359,7 @@ int main( int argc, char** argv )
                     std::vector<int> png_params;
                     png_params.push_back(16);
                     png_params.push_back(0);
-                    cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered, png_params );
+                    cv::imwrite( yangDir + "/yanged_" + img_name + ".png", filtered/10001.f, png_params );
                     am::util::savePFM( filtered, yangDir + "/yanged_" + img_name + ".pfm" );
 
                     cv::Mat filtered8;
@@ -478,6 +484,11 @@ int main( int argc, char** argv )
         if ( pcl::console::parse_argument(argc, argv, "--rgb", colour_path) >= 0 )
         {
             colour = cv::imread( colour_path.c_str(), -1 );
+            std::cout << "undistorting colour..." << std::endl;
+            cv::Mat tmp;
+            ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
+                                               /*  in: */ colour, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
+            tmp.copyTo(colour);
         }
 
         // Kinect depth (original depth)
@@ -546,7 +557,7 @@ int main( int argc, char** argv )
                     kinfu_depth.convertTo( tmp, CV_32FC1, 10.f );
                 }
 
-                tmp.copyTo( kinfu_depth );
+                if ( !tmp.empty() ) tmp.copyTo( kinfu_depth );
             }
         }
 #if 0
@@ -565,7 +576,7 @@ int main( int argc, char** argv )
         //tsdfViewer->fetchVtkZBuffer( zBuffer, w, h );
         am::util::pcl::fetchViewerZBuffer( kinfu_depth, tsdfViewer->getCloudViewer(), 0.001, 10.01 );
 
-#elif 1
+#elif 0
         {
             pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
             pcl::io::loadPolygonFile( inputFilePath, *meshPtr );
@@ -589,8 +600,8 @@ int main( int argc, char** argv )
         cv::imshow( "kinfu_depth", kinfu_depth / kinfuDepMaxVal );
 
         {
-            char c = cv::waitKey();
-            if ( c == 27 ) return 0;
+            //char c = cv::waitKey();
+            //if ( c == 27 ) return 0;
         }
 
         // debug
