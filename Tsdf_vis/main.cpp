@@ -128,6 +128,7 @@ void mouse_callback (const pcl::visualization::MouseEvent& mouse_event, void* co
 void printUsage()
 {
     std::cout << "Usage:\n\tTSDFVis --in cloud_mesh.ply" << std::endl;
+    std::cout << "Render usage: --render --dep full_dep_path --img full_rgb_path" << std::cout;
     std::cout << "tsdf_vis --yangd ..../poses"
               << " [--extension png]"
               << " [--begins-with d]"
@@ -146,13 +147,14 @@ void printUsage()
     std::cout << "\tYang usage: --yangd dir --dep depName --img imgName"
               << " [--brute-force]"
               << std::endl;
-    std::cout << "\tYang usage: --yangd dir --dep depName --img imgName (todo, fix this branch)"
+    std::cout << "\tYang usage: --yangd dir --dep depName --img imgName"
               << " [--spatial_sigma x]"
               << " [--range_sigma x]"
               << " [--kernel_range x]"
               << " [--cross_iterations x]"
               << " [--yang_iterations yangIterationCount]"
               << " [--L lookuprange]"
+              << " [--allow_scale true]"
               << std::endl;
 }
 
@@ -263,6 +265,68 @@ int main( int argc, char** argv )
             0             , 522.1379 * 2.f, 258.1387 * 2.f,
             0             , 0             , 1             ;
 
+    //// RENDER /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    if ( pcl::console::find_switch(argc, argv, "--render") )
+    {
+        std::string depPath;
+        if ( pcl::console::parse_argument (argc, argv, "--dep", depPath) < 0 )
+        {
+            std::cerr << "render usage: --render --dep full_dep_path --img full_rgb_path [ --scale 1.f]" << std::endl;
+            return 1;
+        }
+        cv::Mat dep;
+        if ( am::util::cv::imread(dep, depPath) ) { std::cerr << "render can't read depth..." << std::endl; return EXIT_FAILURE; }
+        // make sure it's float
+        if ( dep.type() == CV_16UC1 )
+        {
+            cv::Mat tmp;
+            dep.convertTo( tmp, CV_32FC1 );
+            tmp.copyTo( dep );
+        }
+
+        std::string rgbPath;
+        if (pcl::console::parse_argument (argc, argv, "--img", rgbPath) < 0 )
+        {
+            std::cerr << "render usage: --render --dep full_dep_path --img full_rgb_path [ --scale 1.f]" << std::endl;
+        }
+        cv::Mat rgb;
+        if ( !rgbPath.empty() )
+        {
+            if ( am::util::cv::imread(rgb, rgbPath) )
+            {
+                std::cerr << "render can't read rgb..." << std::endl;
+                return EXIT_FAILURE;
+            }
+        }
+
+        float scale = 1.f;
+        pcl::console::parse_argument( argc, argv, "--scale", scale );
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr;
+
+        // render gray
+        am::DepthViewer3D::matsTo3D<float>( dep, cv::Mat(), cloud_ptr, intrinsics, scale, false, NULL );
+        boost::filesystem::path p( depPath );
+        std::string mesh_name = (p.parent_path() / p.stem()).string()
+                                + "_mesh.ply";
+        std::cout << "saving " << mesh_name;
+        pcl::io::savePLYFile( mesh_name, *cloud_ptr );
+        std::cout << "...OK" << std::endl;
+
+        // render colour
+        if ( !rgb.empty() )
+        {
+            am::DepthViewer3D::matsTo3D<float>( dep, rgb, cloud_ptr, intrinsics, scale, true, NULL );
+            mesh_name = (p.parent_path() / p.stem()).string()
+                        + "_mesh_colour.ply";
+
+            std::cout << "saving " << mesh_name;
+            pcl::io::savePLYFile( mesh_name, *cloud_ptr );
+            std::cout << "...OK" << std::endl;
+        }
+
+    }
+
     //// YANG /////////////////////////////////////////////////////////////////////////////////////////////////////////
     {
         bool canDoYang = true;
@@ -292,12 +356,15 @@ int main( int argc, char** argv )
             std::cout << "yangDir: " << p << std::endl;
 
             YangFilteringRunParams runParams;
-            pcl::console::parse_argument( argc, argv, "--L"               , runParams.L    );
+            pcl::console::parse_argument( argc, argv, "--L"               , runParams.L                );
             pcl::console::parse_argument( argc, argv, "--spatial_sigma"   , runParams.spatial_sigma    );
             pcl::console::parse_argument( argc, argv, "--range_sigma"     , runParams.range_sigma      );
             pcl::console::parse_argument( argc, argv, "--kernel_range"    , runParams.kernel_range     );
             pcl::console::parse_argument( argc, argv, "--cross_iterations", runParams.cross_iterations );
             pcl::console::parse_argument( argc, argv, "--yang_iterations" , runParams.yang_iterations  );
+            pcl::console::parse_argument( argc, argv, "--d_step"          , runParams.d_step           );
+            pcl::console::parse_argument( argc, argv, "--allow_scale"     , runParams.allow_scale      );
+
             if ( runParams.yang_iterations <= 0 ) runParams.yang_iterations = 1;
             std::cout << "Running for " << runParams.yang_iterations << std::endl;
             std::cout << "with: " << runParams.spatial_sigma << " " << runParams.range_sigma << " " << runParams.kernel_range << std::endl;
@@ -404,11 +471,11 @@ int main( int argc, char** argv )
         boost::filesystem::path poses_path = boost::filesystem::path(inputFilePath).parent_path()
                                              / std::string("poses")
                                              / "poses.txt";
-
-        am::MyScreenshotManager::readPoses( poses_path.string(), poses );
+        if ( boost::filesystem::exists(poses_path) ) am::MyScreenshotManager::readPoses( poses_path.string(), poses );
+        else std::cerr << "can't read poses" << std::endl;
     }
 
-    // save all poses?
+    //// ALL-KINECT-POSES //////////////////////////////////////////////////////////////////////////////////////////////////
     if ( pcl::console::find_switch(argc, argv, "--all-kinect-poses") )
     {
         int rows = 960, cols = 1280;
@@ -455,7 +522,7 @@ int main( int argc, char** argv )
         return 0;
     }
 
-    // mats to 3D
+    //// YANGED //////////////////////////////////////////////////////////////////////////////////////////////////
     if ( pcl::console::find_switch(argc, argv, "--yanged") )
     {
         // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /media/Storage/workspace_ubuntu/cpp_projects/KinfuSuperRes/BilateralFilteringCuda/build/filtered16.png
@@ -484,6 +551,7 @@ int main( int argc, char** argv )
         if ( pcl::console::parse_argument(argc, argv, "--rgb", colour_path) >= 0 )
         {
             colour = cv::imread( colour_path.c_str(), -1 );
+
             std::cout << "undistorting colour..." << std::endl;
             cv::Mat tmp;
             ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
@@ -544,19 +612,20 @@ int main( int argc, char** argv )
                     std::cerr << "main: multiplying kinfu_depth by 1000.f" << std::endl;
                     cv::Mat tmp;
                     kinfu_depth.convertTo( tmp, CV_32FC1, 1000.f );
-
+                    tmp.copyTo( kinfu_depth );
                 }
                 else if ( maxVal < 110.f )
                 {
                     std::cerr << "main: multiplying kinfu_depth by 100.f" << std::endl;
                     kinfu_depth.convertTo( tmp, CV_32FC1, 100.f );
+                    tmp.copyTo( kinfu_depth );
                 }
                 else if ( maxVal < 1100.f )
                 {
                     std::cerr << "main: multiplying kinfu_depth by 10.f" << std::endl;
                     kinfu_depth.convertTo( tmp, CV_32FC1, 10.f );
+                    tmp.copyTo( kinfu_depth );
                 }
-
                 if ( !tmp.empty() ) tmp.copyTo( kinfu_depth );
             }
         }
@@ -617,28 +686,37 @@ int main( int argc, char** argv )
 
         // show 3D viewers
         am::DepthViewer3D depViewerYang;
-        depViewerYang .ViewerPtr()->setSize( 640, 480 );
-        depViewerYang .showMats( yanged_depth, colour, img_id, poses, intrinsics );
-        std::string yanged_mesh_name = (boost::filesystem::path(yanged_path).parent_path() / "yanged_").string()
-                                       + boost::lexical_cast<std::string>(img_id)
-                                       + "_mesh.ply";
-        pcl::io::savePLYFile( yanged_mesh_name, *depViewerYang.CloudPtr() );
+        if ( !yanged_depth.empty() )
+        {
+            depViewerYang .ViewerPtr()->setSize( 640, 480 );
+            depViewerYang .showMats( yanged_depth, colour, img_id, poses, intrinsics );
+            std::string yanged_mesh_name = (boost::filesystem::path(yanged_path).parent_path() / "yanged_").string()
+                                           + boost::lexical_cast<std::string>(img_id)
+                                           + "_mesh.ply";
+            pcl::io::savePLYFile( yanged_mesh_name, *depViewerYang.CloudPtr() );
+        }
 
         am::DepthViewer3D depViewerKinect;
-        depViewerKinect.ViewerPtr()->setSize( 640, 480 );
-        depViewerKinect.showMats( kinect_depth, colour, img_id, poses, intrinsics );
-        std::string kindep_mesh_name = (boost::filesystem::path(kinect_depth_path).parent_path() / "kinect_depth_").string()
-                                       + boost::lexical_cast<std::string>(img_id)
-                                       + "_mesh.ply";
-        pcl::io::savePLYFile( kindep_mesh_name, *depViewerKinect.CloudPtr() );
+        if ( !kinect_depth.empty() )
+        {
+            depViewerKinect.ViewerPtr()->setSize( 640, 480 );
+            depViewerKinect.showMats( kinect_depth, colour, img_id, poses, intrinsics );
+            std::string kindep_mesh_name = (boost::filesystem::path(kinect_depth_path).parent_path() / "kinect_depth_").string()
+                                           + boost::lexical_cast<std::string>(img_id)
+                                           + "_mesh.ply";
+            pcl::io::savePLYFile( kindep_mesh_name, *depViewerKinect.CloudPtr() );
+        }
 
         am::DepthViewer3D depViewerKinfu;
-        depViewerKinfu.ViewerPtr()->setSize( 640, 480 );
-        depViewerKinfu.showMats( kinfu_depth, colour, img_id, poses, intrinsics );
-        std::string kinfudep_mesh_name = (boost::filesystem::path(kinfu_depth_path).parent_path() / "kinfu_depth_").string()
-                                       + boost::lexical_cast<std::string>(img_id)
-                                       + "_mesh.ply";
-        pcl::io::savePLYFile( kinfudep_mesh_name, *depViewerKinfu.CloudPtr() );
+        if ( !kinfu_depth.empty() )
+        {
+            depViewerKinfu.ViewerPtr()->setSize( 640, 480 );
+            depViewerKinfu.showMats( kinfu_depth, colour, img_id, poses, intrinsics );
+            std::string kinfudep_mesh_name = (boost::filesystem::path(kinfu_depth_path).parent_path() / "kinfu_depth_").string()
+                                             + boost::lexical_cast<std::string>(img_id)
+                                             + "_mesh.ply";
+            pcl::io::savePLYFile( kinfudep_mesh_name, *depViewerKinfu.CloudPtr() );
+        }
 return 0;
         depViewerYang  .addListener( depViewerKinfu .ViewerPtr() );
         depViewerYang  .addListener( depViewerKinect.ViewerPtr() );
@@ -681,6 +759,7 @@ return 0;
         ViewPointMapperCuda::undistortRgb( rgb8_960, large_rgb8, am::viewpoint_mapping::INTR_RGB_1280_960, am::viewpoint_mapping::INTR_RGB_1280_960 );
     }
 
+    //// UPSCALING //////////////////////////////////////////////////////////////////////////////////////////////////
     {
         am::UpScaling upScaling( intrinsics );
         upScaling.run( inputFilePath, poses[img_id], rgb8_960, img_id, -1, -1, argc, argv );

@@ -19,7 +19,8 @@ struct YangFilteringRunParams
               ETA( .5f ),
               MAXRES( 10001.f ),
               d_step( 1.f ),
-              yang_iterations( 3 )
+              yang_iterations( 3 ),
+              allow_scale(true)
         {}
         // crossFilter params
         float spatial_sigma;    // x,y gaussian falloff
@@ -33,6 +34,7 @@ struct YangFilteringRunParams
         float MAXRES;           // maximum depth to look at (i.e. 255.f, or 10001.f)
         float d_step;           // search step
         int   yang_iterations;  // overall iterations
+        bool  allow_scale;      // allow scaling to 0.f - 10000.f
 };
 
 class YangFiltering

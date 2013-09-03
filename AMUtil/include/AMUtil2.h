@@ -8,16 +8,19 @@ namespace am
 {
     namespace util
     {
-        extern void
+        extern int
         savePFM( cv::Mat const& imgF, std::string path, float scale = -1.f );
 
-        extern void
+        extern int
         loadPFM( cv::Mat & imgF, std::string path );
 
         namespace cv
         {
             extern void
             unsignedIntToFloat( ::cv::Mat & img32FC1, ::cv::Mat const& img32UC1 );
+
+            extern int
+            imread( /* out: */ ::cv::Mat &mat, /*  in: */ std::string const& path );
         }
 
     } // end ns util

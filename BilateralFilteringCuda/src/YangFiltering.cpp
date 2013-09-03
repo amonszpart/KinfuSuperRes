@@ -39,20 +39,33 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
     if ( dep16.type() == CV_16UC1 ) { dep16.convertTo( fDep, CV_32FC1 ); std::cerr << "YangFiltering::run(): warning, converting from 16UC1" << std::endl; }
     else                            { dep16.copyTo   ( fDep ); }
 
-
     {
         double maxVal, minVal;
         cv::minMaxIdx( fDep, &minVal, &maxVal );
-        if ( maxVal < 100.f )
+        float mult = 1.f;
+        if ( maxVal < 10.f )
         {
-            fDep *= 100.f;
-            std::cout << "maxVal: " << maxVal << " so multiplying by 100.f" << std::endl;
+            mult = 1000.f;
+        }
+        else if ( maxVal < 100.f )
+        {
+            mult *= 100.f;
         }
         else if ( maxVal < 1000.f )
         {
-            fDep *= 10.f;
-            std::cout << "maxVal: " << maxVal << " so multiplying by 10.f" << std::endl;
+            mult *= 10.f;
         }
+
+        if ( params.allow_scale )
+        {
+            std::cout << "maxVal: " << maxVal << " so multiplying by " << mult << std::endl;
+            fDep *= mult;
+        }
+        else
+        {
+            std::cout << "maxVal: " << maxVal << " BUT NOT multiplying by " << mult << "(params.allow_scale=false)" << std::endl;
+        }
+
     }
 
     float *fDepArr = NULL;

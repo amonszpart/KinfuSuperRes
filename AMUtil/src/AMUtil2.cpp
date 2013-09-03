@@ -10,13 +10,13 @@ namespace am
 {
     namespace util
     {
-        void
+        int
         savePFM( ::cv::Mat const& imgF, std::string path, float scale )
         {
             if ( imgF.empty() || imgF.type() != CV_32FC1 )
             {
                 std::cerr << "AMUtil::savePFM: expects non-empty image of type CV_32FC1" << std::endl;
-                return;
+                return EXIT_FAILURE;
             }
 
             std::fstream file;
@@ -24,7 +24,7 @@ namespace am
             if ( !file.is_open() )
             {
                 std::cerr << "AMUtil::savePFM: could not open file at path " << path << std::endl;
-                return;
+                return EXIT_FAILURE;
             }
 
             // header
@@ -42,9 +42,11 @@ namespace am
                 file << std::endl;
             }
             file.close();
+
+            return EXIT_SUCCESS;
         }
 
-        void
+        int
         loadPFM( ::cv::Mat & imgF, std::string path )
         {
             std::ifstream file( path.c_str() );
@@ -52,7 +54,7 @@ namespace am
             if ( !file.is_open() )
             {
                 std::cerr << "AMUtil::loadPFM: could not open file at path " << path << std::endl;
-                return;
+                return EXIT_FAILURE;
             }
 
             int lineid = 0;
@@ -68,7 +70,7 @@ namespace am
                     {
                         std::cerr << "Not PFM file..." << std::endl;
                         file.close();
-                        return;
+                        return EXIT_FAILURE;
                     }
                     else if ( lineid == 1 )
                     {
@@ -103,6 +105,8 @@ namespace am
                 ++col;
             }
             file.close();
+
+            return EXIT_SUCCESS;
         }
 
         namespace cv
@@ -119,6 +123,24 @@ namespace am
                     }
                 }
             }
+
+            int
+            imread( /* out: */ ::cv::Mat &mat, /*  in: */ std::string const& path )
+            {
+                int ret = EXIT_SUCCESS;
+
+                if ( path.find("pfm") != std::string::npos )
+                {
+                    ret += am::util::loadPFM( mat, path );
+                }
+                else
+                {
+                    mat = ::cv::imread( path.c_str(), -1 );
+                }
+
+                return ret;
+            }
+
         }
 
     } // end ns util

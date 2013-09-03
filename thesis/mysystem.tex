@@ -1,6 +1,61 @@
+%\documentclass[12pt,a4paper]{article}
+%\usepackage[utf8]{inputenc}
+%\usepackage[english]{babel}
+%\usepackage{amsmath}
+%\usepackage{amsfonts}
+%\usepackage{amssymb}
+%\usepackage{graphicx}
+%\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+%
+%\usepackage[font=footnotesize,labelfont=bf,singlelinecheck=on]{caption}
+%
+%\usepackage[]{natbib}
+%\begin{document}
+%% remove the above
+
+
+
 \section{MySystem}
 
 \subsection{Calibration}
+
+% Input rgb and depth
+\begin{figure}[h!]\centering
+    \begin{minipage}[b]{0.49\linewidth}
+        \includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/img8_00000001.png}
+        \caption{Input RGB}
+    \end{minipage}
+    \begin{minipage}[b]{0.49\linewidth}
+        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep8_00000001.png}
+		\caption{Input depth}
+    \end{minipage}
+\end{figure}
+
+% Simple alignment
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}
+		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000001.png}
+		\caption{No alignment}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}
+		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000000.png}
+		\caption{"Built-in alignment"}
+	\end{minipage}
+\end{figure}
+
+
+\begin{figure}[h!]\centering
+    \begin{minipage}[b]{0.49\linewidth}
+    		\label{fig:ir}
+        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/irAndDep8_00000001.png}
+        \caption{Default IR and depth overlay}
+    \end{minipage}
+    \begin{minipage}[b]{0.49\linewidth}
+        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/offsIrAndDep8_00000001.png}
+        \caption{IR offset by radius of convolution kernel}
+    \end{minipage}
+\end{figure}
+
 default image, built in alignment image, good image\\
 calibration papers, and their comparison of optimisation techniques\\
 calibration with different sources (depth and acryl, ir, ellipses)\\
@@ -13,7 +68,14 @@ all positions (mosaic image?)\\
 \subsection{Yang}
 \subsection{Kinect Fusion}
 \subsection{Put together}
-
+\subsubsection{Pros}
+future work: I advocate Yang for the following reasons, or I discourage, since...or in some situations this, than that \\
+Kinect \\
+Yang \\
+\subsubsection{Limitations}
+so if Kinfu is not reliable, say it! so if it does not work (pose) than \\
+- misalignment, few frames later, it's great \\
+    - calibration \\
 
 \subsection{Gabe's stuff}
 
@@ -43,21 +105,17 @@ future work: object recognition on rgb, and introduce new depth
 
 so is it suppression, or not?
 
-future work: I advocate Yang for the following reasons, or I discourage, stince...or in some situations this, than that
 
 - pose estimation =?= calibration
 
-so if Kinfu is not reliable, say it! so if it does not work (pose) than 
+
 
 so sample the space of pose estimates, and look up paper
     or particle filter
     or anything
     show, that you can see, when it's off ,and show, that the edges are off
     
-Limitations section
-    - misalignment, few frames later, it's great
-    - calibration
-    
+   
     
     
 / sections
@@ -78,7 +136,8 @@ simplest version: abstract, intro, related work,
 5. discussion/conclusion
     - come back to 3's experiments
     - interpret experiments
-    - did you notice, that 2 were good, and 3rd was abd, remember what I sadi in 3.2, that kinfu does it's calibration...well ,that's crap here (threshold), it happend to be good for 2 seque3nces, but not ther thireds
+    - did you notice, that 2 were good, and 3rd was abd, remember what I sadi in
+3.2, that kinfu does it's calibration...well ,that's crap here (threshold), it happend to be good for 2 seque3nces, but not ther thireds
     5.x limitations
         - obvious (Yang on chessboard, it still does)
         - summarizing what I discovered
@@ -102,3 +161,5 @@ results:
 reference calibration alignment algorithms (rgb to depth)
 
 random noise or brighter is closer assumptions / papers doing a better job hallucinating
+
+%\end{document}
