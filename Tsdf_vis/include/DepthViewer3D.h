@@ -55,7 +55,8 @@ namespace am
                                   pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                                   Eigen::Matrix3f const& intrinsics,
                                   float alpha, bool useColour,
-                                  Eigen::Affine3f const* const pose ); /* display scaling of pointcloud */
+                                  Eigen::Affine3f const* const pose,
+                                  std::vector< ::pcl::Vertices> *pFaces = NULL ); /* display scaling of pointcloud */
             static void
             showAllPoses();
 
@@ -75,7 +76,8 @@ namespace am
                              pcl::PointCloud<pcl::PointXYZRGB>::Ptr & cloudPtr,
                              Eigen::Matrix3f const& intrinsics,
                              /* depth scale: */ float alpha, bool useColour,
-                             Eigen::Affine3f const* const pose )
+                             Eigen::Affine3f const* const pose,
+                             std::vector< ::pcl::Vertices> *pFaces )
     {
         cv::Mat imgResized;
         // check input
@@ -131,6 +133,14 @@ namespace am
             rotation = pose->rotation();
             translation = pose->translation();
         }
+
+        if ( pFaces )
+        {
+            pFaces->clear();
+            pFaces->reserve( dep.rows * dep.cols * 2 );
+        }
+
+        int fid = 0;
         // copy inputs
         for ( int y = 0; y < dep.rows; ++y )
         {
@@ -175,6 +185,31 @@ namespace am
 
                 point.rgb = *reinterpret_cast<float*>( &rgb );
                 cloudPtr->points.push_back( point );
+
+                // faces
+                if ( (pFaces) && (y+1 < dep.rows) )
+                {
+                    if ( x > 0 ) // left face
+                    {
+                        pFaces->push_back( ::pcl::Vertices() );
+                        pFaces->back().vertices.resize(3);
+                        pFaces->back().vertices[0] =  y    * dep.cols + x    ; // y,x
+                        pFaces->back().vertices[1] = (y+1) * dep.cols + x - 1; // y+1,x-1
+                        pFaces->back().vertices[2] = (y+1) * dep.cols + x    ; // y+1,x
+
+                        //++fid;
+                    }
+                    if ( x+1 < dep.cols ) // right face
+                    {
+                        pFaces->push_back( ::pcl::Vertices() );
+                        pFaces->back().vertices.resize(3);
+                        pFaces->back().vertices[0] =  y    * dep.cols + x    ; // y,x
+                        pFaces->back().vertices[1] = (y+1) * dep.cols + x    ; // y+1,x
+                        pFaces->back().vertices[2] =  y    * dep.cols + x + 1; // y+1,x+1
+
+                        //++fid;
+                    }
+                }
             }
         }
         cloudPtr->width = (int)cloudPtr->points.size ();

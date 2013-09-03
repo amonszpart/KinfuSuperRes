@@ -18,6 +18,7 @@
 #include <pcl/io/vtk_lib_io.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/console/parse.h>
+#include <pcl/ros/conversions.h>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -303,9 +304,10 @@ int main( int argc, char** argv )
         pcl::console::parse_argument( argc, argv, "--scale", scale );
 
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr;
+        pcl::PolygonMesh::Ptr polyMeshPtr( new pcl::PolygonMesh );
 
         // render gray
-        am::DepthViewer3D::matsTo3D<float>( dep, cv::Mat(), cloud_ptr, intrinsics, scale, false, NULL );
+        am::DepthViewer3D::matsTo3D<float>( dep, cv::Mat(), cloud_ptr, intrinsics, scale, false, NULL, &(polyMeshPtr->polygons) );
         boost::filesystem::path p( depPath );
         std::string mesh_name = (p.parent_path() / p.stem()).string()
                                 + "_mesh.ply";
@@ -313,15 +315,31 @@ int main( int argc, char** argv )
         pcl::io::savePLYFile( mesh_name, *cloud_ptr );
         std::cout << "...OK" << std::endl;
 
+        pcl::toROSMsg( *cloud_ptr, polyMeshPtr->cloud );
+        mesh_name = (p.parent_path() / p.stem()).string()
+                                        + "_polymesh.ply";
+
+        std::cout << "saving " << mesh_name;
+        pcl::io::savePolygonFilePLY( mesh_name, *polyMeshPtr );
+        std::cout << "...OK" << std::endl;
+
         // render colour
         if ( !rgb.empty() )
         {
-            am::DepthViewer3D::matsTo3D<float>( dep, rgb, cloud_ptr, intrinsics, scale, true, NULL );
+            am::DepthViewer3D::matsTo3D<float>( dep, rgb, cloud_ptr, intrinsics, scale, true, NULL, &(polyMeshPtr->polygons) );
             mesh_name = (p.parent_path() / p.stem()).string()
                         + "_mesh_colour.ply";
 
             std::cout << "saving " << mesh_name;
             pcl::io::savePLYFile( mesh_name, *cloud_ptr );
+            std::cout << "...OK" << std::endl;
+
+            pcl::toROSMsg( *cloud_ptr, polyMeshPtr->cloud );
+            mesh_name = (p.parent_path() / p.stem()).string()
+                                            + "_polymesh_colour.ply";
+
+            std::cout << "saving " << mesh_name;
+            pcl::io::savePolygonFilePLY( mesh_name, *polyMeshPtr );
             std::cout << "...OK" << std::endl;
         }
 
