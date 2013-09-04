@@ -143,7 +143,22 @@ Dr. Gabriel Brostow, Dr Neill Campbell, Dr. Oisin Mac Aodha, Fabrizio Pece, Malc
 \label{chp:related_work}
 
 \section{Calibration}
+\label{sec:lit_calib}
+
+One of the initial steps of the setup of every multi-camera system has to be calibration. The expression calibration can be interpreted with several meanings. In this document we refer to calibration as the preprocessing step that captures the characteristics of the physical recording system accounting for, amongst others, inaccuracies in the physical manufacturing processes of the cameras. A successful calibration enables a correspondence to be calculated between data captured at the same time with the different cameras. This correspondence is data dependent in the case of depth cameras, and thus calculated every frame.\\
+A wider interpretation of calibration includes the calculation of a nearly global position of the recording system. It usually is incorporated by the relative position estimation between the observed scene and the recording system, which can be viewed as global in case the global position of the observed scene is known. \\
+
+Most previous works targeting to develop a highly accurate calibration system use the pinhole-camera model. 
+\citep{Zhang00}
+
+$\left(\begin{array}{ccc}
+		f_x & \gamma & c_x \\
+		b & f_y & c_y \\
+ 		0 & 0 & 1 \\
+	    \end{array} \right)$
+
 http://burrus.name/index.php/Research/KinectCalibration
+
 
 \section{Depth upsampling}
 \citep{MatsuoFI13} \\
@@ -261,9 +276,11 @@ In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segment
 \label{chp:my_system}
 
 \section{Calibration}
+\label{sec:calibration}
 
-What is calibration, pinhole camera model, different notations (oulu, etc.), 
+What is calibration, pinhole camera model, different notations (oulu, \citep{Zhang00}, etc.), 
 with IR, without IR
+USB bus problems, overlayed image
 
 % Input rgb and depth
 \begin{figure}[h!]\centering
