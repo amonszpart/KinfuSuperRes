@@ -11,6 +11,7 @@
 \usepackage[square]{natbib}
 
 \usepackage[font=footnotesize,labelfont=bf,singlelinecheck=on]{caption}
+\usepackage[hyphens]{url}
 
 \usepackage{amsmath}
 % Uncomment this to activate the TikZ library, which is useful for fancy block-diagrams.
@@ -78,6 +79,7 @@
 %Malcolm added some custom commands here - you can make your own!
 \newcommand{\vect}[1]{\boldsymbol{#1}}
 \newcommand{\figref}[1]{(Fig. \ref{#1})}
+\newcommand{\secref}[1]{(Section \ref{#1})}
 \def\etal{{et~al.}}
 \def\ie{{\it i.e.,\ }}
 \def\etc{{\it etc.,\ }}
@@ -86,7 +88,7 @@
 %%
 
 \author{Aron Monszpart}
-\title{Super-resolution hand-held scanning}
+\title{Hand-held Scanning of Surface Details}
 \def \supervisor {Dr. Gabriel Brostow}
 \date{September 2013}
 
@@ -125,6 +127,9 @@ Dr. Gabriel Brostow, Dr Neill Campbell, Dr. Oisin Mac Aodha, Fabrizio Pece, Malc
 \pagestyle{plain}
 
 \chapter{Introduction and Background} 
+
+\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:SFM}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccurracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models.
+
 \label{chp:background}
 	\begin{itemize}	
 		\item Motivation
@@ -146,28 +151,149 @@ Dr. Gabriel Brostow, Dr Neill Campbell, Dr. Oisin Mac Aodha, Fabrizio Pece, Malc
 \label{sec:lit_calib}
 
 One of the initial steps of the setup of every multi-camera system has to be calibration. The expression calibration can be interpreted with several meanings. In this document we refer to calibration as the preprocessing step that captures the characteristics of the physical recording system accounting for, amongst others, inaccuracies in the physical manufacturing processes of the cameras. A successful calibration enables a correspondence to be calculated between data captured at the same time with the different cameras. This correspondence is data dependent in the case of depth cameras, and thus calculated every frame.\\
+
 A wider interpretation of calibration includes the calculation of a nearly global position of the recording system. It usually is incorporated by the relative position estimation between the observed scene and the recording system, which can be viewed as global in case the global position of the observed scene is known. \\
 
-Most previous works targeting to develop a highly accurate calibration system use the pinhole-camera model. 
-\citep{Zhang00}
+Most previous works targeting to develop a highly accurate calibration system agree on the computational parameter model called pinhole-camera model \figref{eq:pinhole}. The model specifies the parameters: focal length ($f_x$, $f_y$), principal point ($c_x$, $c_y$) and skew ($\gamma$).
 
-$\left(\begin{array}{ccc}
-		f_x & \gamma & c_x \\
-		b & f_y & c_y \\
- 		0 & 0 & 1 \\
-	    \end{array} \right)$
+\begin{figure}[h!]
+\begin{equation}
+\lambda
+\underbrace{
+	\left[\begin{array}{ccc}
+	    x \\
+	    y \\
+	    1 \\
+	\end{array} \right]
+}_{
+	{\bf \tilde{x}}_{image}
+}
+%
+=
+%
+\underbrace{
+	\left[\begin{array}{cccc}
+			f_x & \gamma & c_x & 0 \\
+			0   & f_y    & c_y & 0 \\
+	 		0   & 0      & 1   & 0 \\
+	\end{array} \right]
+}_{
+	\left[\begin{array}{cc}
+		\bf{\Lambda} & \bf{0}
+	\end{array} \right]
+}
+%
+\underbrace{
+	\left[\begin{array}{cccc}
+	    r_{1,1} & r_{1,2} & r_{1,3} & t_1 \\
+	    r_{2,1} & r_{2,2} & r_{2,3} & t_2 \\
+	    r_{3,1} & r_{3,2} & r_{3,3} & t_3 \\
+	    0       & 0       & 0       & 1 \\
+	\end{array} \right]
+}_{
+	\left[\begin{array}{cc}
+		\bf{\Omega}     & \bf{\tau} \\
+		\bf{0}^{\it{T}} 	& 1		      \\
+	\end{array} \right]
+}
+%
+\underbrace{
+	\left[\begin{array}{c}
+	    u \\
+	    v \\
+	    w \\
+	    1 \\
+	\end{array} \right]
+}_{
+	{\bf \tilde{x}}_{world}
+}
+\end{equation}
+\caption{Correspondence between a point in global world coordinates (X,Y,Z) and camera image coordinates (u,v) according to the pinhole camera model. Source: UCL 2012 Machine Vision lecture notes. }
+\label{eq:pinhole}
+\end{figure}
 
-http://burrus.name/index.php/Research/KinectCalibration
+Initial works \citep{Melen:1994}, \citep{Weng:1992} use the combination of linear, and non-linear minimisation techniques to calculate physically based camera parameters. In [9] non-physical implicit parameters are used in a two-step optimisation approach. The baseline calibration technique used in this project relies on the four-step calibration approach presented by \citep{Heikkila:1997}. They introduced a technique to estimate a four component set of distortion parameters in addition to the intrinsics of the pinhole camera. These parameters account for the radial ($k_1$, $k_2$) and tangential ($p_1$, $p_2$) distortion of the camera model. In parallel \citep{Zhang00} published a different camera calibration method only relying on two radial distortion parameters. A widely used implementation of the theoretical achievements of the above works is incorporated in Jean-Yves Bouguet's "Camera Calibration Toolbox for Matlab" \citep{calibration_bouguet}. Here a third order radial distortion parameter $k_3$ is introduced for higher accurracy. The computational model optimised for is described in \figref{eq:distortion}.
+
+\begin{figure}[h!]
+    \begin{equation*}
+	\left[\begin{array}{c}
+		u_{camera} \\
+		v_{camera} \\
+		w_{camera} \\
+	\end{array} \right]
+	=
+    	\left[\begin{array}{c|c}
+	    	{\bf \Omega} & {\bf \tau}
+	\end{array} \right]
+	\left[\begin{array}{c}
+	    u \\
+	    	v \\
+	    w \\
+	\end{array} \right]
+    \end{equation*}
+    
+    \begin{equation*}
+	{\bf x}_{normalized} = 
+ 	\left[\begin{array}{c}
+	    \frac{ u_{camera} }{ w_{camera} } \\
+	    \frac{ v_{camera} }{ w_{camera} } \\
+	\end{array} \right]; 
+	~r = length(	{\bf x}_{normalized} )
+    \end{equation*}
+
+    \begin{equation*}
+	{\bf x}_{undistorted}
+	=
+	(1 + k_1 r^2 + k_2 r^4 + k_3 r^6 ) {\bf x}_{normalized} 
+	~+~ 
+	\left[\begin{array}{c}
+	    2 p_1 {\bf x}_{normalized,x} {\bf x}_{normalized,y} + p_2 ( r^2 + 2{\bf x}_{normalized,x}^2) \\
+	    p_1(r^2+2{\bf x}_{normalized,y}^2) + 2 p_2 {\bf x}_{normalized,x} {\bf x}_{normalized,y}\\
+	\end{array} \right]
+	\end{equation*}
+    \begin{equation*}
+		{\bf \tilde{x}}_{image} = {\bf\Lambda} ~ {\bf \tilde{x}}_{undistorted}
+    \end{equation*}
+    
+    \caption{Distortion parameters in the pinhole camera model}
+    \label{eq:distortion}
+\end{figure}
+
+The achievements of the toolbox were further developed in Intel's \citep{calibration_opencv} package . Additionally, the Graphics and Media Lab of the Lomonosov Moscow State University published a C++ and Matlab calibration toolbox known as \citep{calibration_gml}.
+\citep{calibration_rgbdemo}
+
+herrera 13
+
+
+%http://burrus.name/index.php/Research/KinectCalibration
+%vrui
+%ros http://wiki.ros.org/kinect\_node/Calibration
+%ellipses
+
 
 
 \section{Depth upsampling}
 \citep{MatsuoFI13} \\
+\citep{} TUVienna paper of selfsimilarities
 
 In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segmentation, use RANSAC and implement cross bilateral filtering
 
 \section{Kinect fusion papers}
+\label{sec:kinfu}
+
+%vladlen:
+\citep{Zhou:2013}
+% mr siggraph 13 kinfu:
 \citep{Chen:2013:Scalable_volumetric}
-\section{planned}
+% kintinous 2
+\citep{Whelan13iros}
+% Kintinuous1
+\citep{Whelan12rssw}
+
+Pose estimation improvement: \citep{Whelan13icra}
+Multi scale depth: \citep{Fuhrmann:2011}
+
+\section{<planned>}
 
 	\begin{enumerate}
 		\item 3D reconstruction using Multi-view stereo
@@ -275,10 +401,29 @@ In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segment
 \chapter{MySystem} 
 \label{chp:my_system}
 
+\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:SFM}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccuracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models. \\
+
+\par The system designed acknowledges the power of SLAM performed on the dense model incorporated in the areas of RGB-D based methods. We also recognize the power of other research areas, where inter-sensory information is used to enhance output quality. We hypothesize that there is information collected by the capturing system but is discarded too early in the reconstruction pipeline of a standard RGB-D system. We looked for methods that enable this information to be reintegrated into the results of the reconstruction at later processing steps. The solution was designed based on the alleged potential of iterative, cost-volume based joint bilateral filtering with sub-pixel accuracy in \citep{cvpr-07-qingxiong-yang}. \\
+
+//TODO: What problem does my system solve?
+!any RGB pose refinement!
+//TODO: Pipeline image
+
+\section{Assumptions}
+\label{sec:assumptions}
+
+\par When designing a system solving a specific problem, it is important to firmly decide what assumptions are made about the input, what problems are targeted to be solved and what problems are out of the scope of the planned method. We target to design a system, that reconstructs fine surface details of static scenes with mostly Lambertian surfaces allowing offline post-processing. \\
+
+\par The fine surface details of a static scene are to be reconstructed. The problems arising when dealing with dynamic scenes are out of scope for this solution. Rigidity is a common assumption in the field of 3D reconstruction both for multi-view stereo and structured lighting methods. An essential building block of our concept is the possibility to later acquire new data about missing details and integrate it into the reconstruction. Since pose estimation of latter acquisitions is a substantial problem on its own, the assumption about static scenes seems reasonable to make. \\
+
+\par Surfaces with close-to Lambertian reflectivity are considered. During experiments refractive and reflective surfaces appeared in the scene, but the main focus of the system development addresses problems emerging around fine details on mostly Lambertian surfaces. \\
+
+\par The solution will perform post-processing offline. The planned key contribution of the work is to acquire surface details at a finer level than current state-of-the art solutions are capable of. As generally in all fields of computer science, a trade-off between quality and speed has to be made. Thus, the planned solutions operate using offline processing and refinement steps. Precedence in similar projects of using offline processing as capabilities of cloud computing has been observed in applications as Adobe Catch \citep{AdobeCatch} or Microsoft Photosynth \citep{Photosynth}. State-of-the art large-scale RGB-D reconstruction algorithms also may operate off-line, as \citep{Zhou:2013}. \\
+
 \section{Calibration}
 \label{sec:calibration}
 
-What is calibration, pinhole camera model, different notations (oulu, \citep{Zhang00}, etc.), 
+What is calibration, pinhole camera model, different notations (oulu, etc.), 
 with IR, without IR
 USB bus problems, overlayed image
 
@@ -334,6 +479,24 @@ cuda mapping\\
 Ir image with and without projector\\
 large checkerboard vs. small checkerboard\\
 all positions (mosaic image?)\\
+checkerboard sze 
+All the squares must be clearly visible (unoccluded).
+Use a tripod
+Take 25 images and more
+Use a paper size ".3" and more
+Square size is 3-5 cm
+The chessboard on the images must be located in the all places of the camera matrix
+
+\section{3D reconstruction}
+
+
+rewrite intro from newcombe
+
+why not sparse, dtam, slam?
+\par An easy to operate, hand-held scanning device is used. The developed system will most likely use a smartphone with built in inertial measurement unit, gyroscope, magnetometer and GPS sensor. Alternatively a camera with mounted and calibrated motion and orientation sensors can be used. The performance of structured lighting devices as Microsoft Kinect \cite{Kinect} or Asus Xtion PRO \cite{XtionPro} will also be explored. Eventually a higher resolution device as Leap-motion's gesture recognition solution \cite{LeapMotion} will be evaluated. To ensure interchangeability of the sensors, and to get these systems to cooperate to the highest level possible, a well designed framework needs to be developed. The extensibility of the KinectFusion SDK will be tested once it get's released as part of the Windows 8 SDK as promised \cite{SDKKinectFusion}. Alternatives, as the implementation of a Kinect Fusion like functionality in the Point Cloud Library ("Kinfu") will also be tested \cite{KinFu}.
+\par The commercial accessibility of the used sensor setup has a slightly increased emphasis at this stage of the project. Low cost and out of the box operability would open the possibilities for crowd sourcing in follow-up projects, something that has been targeted by many other research labs as Microsoft (at Techfest 2013) or the University of Washington (Photocity, Pointcraft).
+
+PCL steps short description
 
 \section{Yang}
 
@@ -396,10 +559,26 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
 
 \end{lstlisting}
 
-\section{Kinect Fusion}
-
 \section{Combined pipeline}
 My combined pipleine ( this is what I did, to get the data fro mhere to there. Draw attention to GPU implementations (get credit for it) )
+
+Depth, and RGB
+[move depth to RGB space]
+[cross filter to fill holes]
+kinfu
+acquire new rgb
+estimate pose
+render kinfu model from pose
+upsample
+
+\section{Implementation details}
+\subsection{Drivers}
+\subsection{Third-party libraries}
+simultaneous rgb and IR problems
+NVIDIA bilateralfiltering sample
+PCL
+ pcl bilateral upsampling
+ \citep{DCBGridStereo}
 
 %%% CHAPTER 5 %%%
 \chapter{Validation / experiments}
@@ -433,7 +612,7 @@ My combined pipleine ( this is what I did, to get the data fro mhere to there. D
 \end{figure}
 
 %%% SECTION %%%
-\section{Iterative joint bilateral upsampling with subpixel accurracy}
+\section{Iterative joint bilateral upsampling with sub-pixel accuracy}
 \label{sec:yang}
 
 \begin{figure}[h!]\centering 
@@ -442,28 +621,55 @@ My combined pipleine ( this is what I did, to get the data fro mhere to there. D
         \label{fig:yang_checkerboard}
 \end{figure}
 
-In \figref{fig:yang_checkerboard} 
+In \figref{fig:yang_checkerboard}
 
+Yang reproductions
 
+Yang does not introduce new depths
 
-\chapter{Discussion} \label{chp:discussion}
+%%% SECTION %%%
+\section{Results}
+\label{sec:results}
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard_192_final.png}
+    \caption{Close up rendering of keyboard upsampled from skew view angle}
+    \label{fig:keyboard_192}
+\end{figure}
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard2_192_final.png}
+    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle}
+    \label{fig:keyboard2_192}
+\end{figure}
+
+See meshes on CD
+
+\chapter{Discussion} 
+\label{chp:discussion}
     - come back to 3's experiments\\
     - interpret experiments\\
     - did you notice, that 2 were good, and 3rd was abd, remember what I sadi in 3.2, that kinfu does it's calibration...well ,that's crap here (threshold), it happend to be good for 2 sequences, but not their thirds \\
 -     Pros, cons \\
 - PFM format \\
 
-\section{Limitations} \label{sec:limitations}
-	- so if Kinfu is not reliable, say it! so if it does not work (pose) than \\
+\section{Limitations} 
+\label{sec:limitations}
+	- so if Kinfu is not reliable, say it! so if it does not work (pose) than \citep{Whelan13icra} \\
 	- misalignment, few frames later, it's great \\
 	- calibration \\
     - obvious (Yang on chessboard, it still does) \\
     - summarizing what I discovered \\
+    - Kinect RGB quality \\
+    - TODO: aligned kinect-rgb, but misaligned kinfu frame example
     
 \section{Future work}
 - Using segmentation \citep{Silberman:ECCV12} \\
 - Occlusion \citep{Hoiem:2011} \\
 - Learning based alignment and depth \citep{Herrera:LearnedJointMRF} \\
+- put back into mesh (loookup papers!)
+
+This concept fits well into the idea of using a smartphone as sensor in terms of storage space even when recordings of movement sensors' measurements are made. It also fits the concept of an eventual crowd sourcing follow-up project. 
 
 future work: I advocate Yang for the following reasons, or I discourage, since...or in some situations this, than that \\
 Kinect \\
@@ -562,17 +768,8 @@ Grid recordings of monitor\\
 %		\item RGB high-resolution capture, vsfm pose estimation 
 %		\item Enhancement by best pose selection from input image collection for given pixel/region
 %	\end{itemize}
-
-\section{Used libraries}
-NVIDIA bilateralfiltering sample
-PCL
- pcl bilateral upsampling
- \citep{DCBGridStereo}
  
 
-\section{References}
-	...
-	
 \citep{Lowe04}
 
 %\bibliographystyle{plainnat}
