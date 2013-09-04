@@ -289,6 +289,9 @@ In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segment
 \citep{Whelan13iros}
 % Kintinuous1
 \citep{Whelan12rssw}
+% lefloch
+Point based Fusion:
+\citep{keller13realtime}
 
 Pose estimation improvement: \citep{Whelan13icra}
 Multi scale depth: \citep{Fuhrmann:2011}
@@ -489,10 +492,40 @@ The chessboard on the images must be located in the all places of the camera mat
 
 \section{3D reconstruction}
 
+The task of accurate real-time mapping of complex and
+arbitrary indoor scenes in variable lighting conditions was claimed to have been solved by \citep{Newcombe11}. They list using only a
+moving low-cost depth camera and commodity graphics hardware to their contributions as well. There have been made many improvements to the method since it's initial publication detailed in \secref{sec:kinfu}. We base the hypothesis of our work on the claim, that RGB-D reconstruction's attention to the complexity of the scenes can be developed further. Therefore, during the design of the system this algorithm was treated as baseline, its results were reproduced, carefully inspected and an attempt was made to improve upon them. During the extensive research performed to assess the capabilities of derivatives of this algorithm to reconstruct the targeted fine details we did rarely come across projects giving reason to attempt to reproduce their results instead, and treat them as baseline. However, in the future point-based fusion concepts introduced by \citep{keller13realtime} is worth taking into account to improve the starting point of our algorithm.
+
+\myfig
+{fig:kinfu_baseline}
+{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/kinfu_baseline00.png}
+{PCL\'s Kinfu output of scene recorded by us}
+{fig:lefloch}
+{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/lefloch_largescale.png}
+{\citep{keller13realtime}}
+
+The 
+We fuse all of the depth data streamed from a Kinect sensor into
+a single global implicit surface model of the observed scene in
+real-time. The current sensor pose is simultaneously obtained by
+tracking the live depth frame relative to the global model using a
+coarse-to-fine iterative closest point (ICP) algorithm, which uses
+all of the observed depth data available. We demonstrate the advantages
+of tracking against the growing full surface model compared
+with frame-to-frame tracking, obtaining tracking and mapping results
+in constant time within room sized scenes with limited drift
+and high accuracy. We also show both qualitative and quantitative
+results relating to various aspects of our tracking and mapping system.
+Modelling of natural scenes, in real-time with only commodity
+sensor and GPU hardware, promises an exciting step forward
+in augmented reality (AR), in particular, it allows dense surfaces to
+be reconstructed in real-time, with a level of detail and robustness
+beyond any solution yet presented using passive computer vision.
 
 rewrite intro from newcombe
 
 why not sparse, dtam, slam?
+
 \par An easy to operate, hand-held scanning device is used. The developed system will most likely use a smartphone with built in inertial measurement unit, gyroscope, magnetometer and GPS sensor. Alternatively a camera with mounted and calibrated motion and orientation sensors can be used. The performance of structured lighting devices as Microsoft Kinect \cite{Kinect} or Asus Xtion PRO \cite{XtionPro} will also be explored. Eventually a higher resolution device as Leap-motion's gesture recognition solution \cite{LeapMotion} will be evaluated. To ensure interchangeability of the sensors, and to get these systems to cooperate to the highest level possible, a well designed framework needs to be developed. The extensibility of the KinectFusion SDK will be tested once it get's released as part of the Windows 8 SDK as promised \cite{SDKKinectFusion}. Alternatives, as the implementation of a Kinect Fusion like functionality in the Point Cloud Library ("Kinfu") will also be tested \cite{KinFu}.
 \par The commercial accessibility of the used sensor setup has a slightly increased emphasis at this stage of the project. Low cost and out of the box operability would open the possibilities for crowd sourcing in follow-up projects, something that has been targeted by many other research labs as Microsoft (at Techfest 2013) or the University of Washington (Photocity, Pointcraft).
 
