@@ -280,6 +280,7 @@ herrera 13
 
 
 \section{Super-resolution}
+\label{sec:super_resolution}
 
 % not depth:
 Joint bilateral upsampling PCL: \citep{Kopf:2007}
@@ -319,7 +320,8 @@ Point based Fusion:
 \citep{keller13realtime}
 
 Pose estimation improvement: \citep{Whelan13icra}
-Multi scale depth: \citep{Fuhrmann:2011}
+Multi scale depth: \citep{Fuhrmann:2011}  keywords = {depth map integration, hierarchical signed distance field, marching tetrahedra, multi-scale depth map fusion, multi-view stereo depth maps, surface reconstruction},
+}
 
 \section{<planned>}
 
@@ -433,6 +435,12 @@ Multi scale depth: \citep{Fuhrmann:2011}
 
 \par The system designed acknowledges the power of SLAM performed on the dense model incorporated in the areas of RGB-D based methods. We also recognize the power of other research areas, where inter-sensory information is used to enhance output quality. We hypothesize that there is information collected by the capturing system but is discarded too early in the reconstruction pipeline of a standard RGB-D system. We looked for methods that enable this information to be reintegrated into the results of the reconstruction at later processing steps. The solution was designed based on the alleged potential of iterative, cost-volume based joint bilateral filtering with sub-pixel accuracy in \citep{cvpr-07-qingxiong-yang}. \\
 
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/sys_overview.png}
+    \caption{System overview}
+    \label{fig:sys_overview}
+\end{figure}
 //TODO: What problem does my system solve?
 !any RGB pose refinement!
 //TODO: Pipeline image
@@ -558,24 +566,27 @@ moving low-cost depth camera and commodity graphics hardware to their contributi
 \par Upon arrival of new depth data a 3D point vertex and normal map is generated using camera the intrinsics. Correspondence to the stored mesh represented by the stored TSDF is calculated using ray-casting and the point cloud represented by the vertex map is used to estimate the new camera pose with respect to the current model. This is performed using a coarse-to-fine iterative closest point algorithm. 
 \par The point cloud is then regenerated using the new camera pose and the appropriate cells of the voxel grid are updated. A new vertex and normal map is generated to prepare for the next arriving frame. The update method has large impact on our project goals. In \secref{sec:3d_sys_output} the role is discussed further with other parameters of the algorithm. \\
 
+\par By recompiling PCL's Kinfu solution to a stand-alone library we prepared the implementation for future modifications. This allowed us to experiment with the different parameters detailed in the next section. These were hard coded into the solution in order to enable CUDA code to perform optimally. The most important modification besides change of parameters was to turn off the initial bilateral filtering of the input depth to enable higher attention to detail. The effectivity of this modification was suppressed by the averaging nature of the TSDF update method. Since the rest of the implementation assumed filtered depth maps with no missing information, a bilateral filtering step was reintroduced, that fills only pixels with missing data. A more accurate solution would require missing data to be disregarded at later stages of the pipeline.
+
 \subsection{Configuration and system output}
 \label{sec:3d_sys_output}
 
-The results of the reconstruction can be Raytraced vis, marching cubes pointcloud and naive triangle mesh
+The results of the reconstruction stored in the voxel grid as a TSDF volume can be exported to several output formats. A GPU implementation of the classical marching cubes algorithm \citep{Lorensen:1987} exports the mesh into a point cloud. A triangle mesh can also be exported using the same method and connecting neighbouring grid cells to faces. The storage format is greedy storing all three vertices for every face. This introduced algorithmic challenges when performing subdivision on the mesh at later stages of the pipeline. The results can also be visualized using ray-tracing and Phong shading. We used the triangle mesh as output of this system in the pipeline.
 
-As stated earlier, the TSDF update method is an important parameter in terms of the reconstruction quality. In the given implementation, the information conveyed by new measurements are averaged giving each measurement equal weight. On the \citep{KinectFuSDKExample} page they say, that the weight parameter {\it "...controls the temporal averaging of data into the reconstruction volume – increasing makes the system a higher detailed reconstruction, but one which takes longer to average and does not adapt to change. Decreasing it makes the volume respond faster to change in the depth (e.g. objects moving), but is noisier overall."}. The equal weighting of all the measurements transforms the 
+\par Configuration parameters can be used to tweak the system to yield more optimal results, a reconstruction with higher attention to detail. The most important parameters of the Kinect Fusion algorithm are voxel grid resolution, working volume size, truncation distance, maximum movement threshold and weight of new information.
 
-grid resolution
+\par The resolution of the voxel grid and working volume size has the highest impact on the accuracy of fine details in the reconstruction. The parameters used during reconstruction resulted in a spatial resolution of $3 m / 512$ or $3 m / 640$ meaning an average accuracy of 5.85 mm respectively 4.68 mm. This implied a $3m^3$ working volume represented by $512^3$ respectively $640^3$ voxels. Higher values were bounded by hardware constraints (GPU memory size). The quality of the final output of our system was compared relatively to the output of the 3D reconstruction in the \secref{sec:discussion_results}.
 
-working volume
+\par The truncation distance has an impact on the accuracy of cavities and narrow details. The importance of this parameter is relevant when performing the raycasting steps of the algorithm. Since our solution does not need real-time performance this value could be increased to result in results with higher accuracy. Thus the output quality is not limited by this parameter, but by the spatial resolution of the voxel grid.
 
-truncation distance
+\par The maximum movement threshold is relevant to the pose estimation step of the algorithm. This parameter ensures, that the pose estimation algorithm did find a good match between the model and the new frame. By increasing the tolerance for movement between frames, we would allow less accurate pose estimations and faster camera movement. By decreasing the value more information would get discarded.
 
-maximum movement threshold
-
-
+\par As stated earlier, the TSDF update method is an important parameter in terms of the reconstruction quality. In the given implementation, the information conveyed by new measurements are averaged giving each measurement equal weight. On the \citep{KinectFuSDKExample} page they say, that the weight parameter {\it "...controls the temporal averaging of data into the reconstruction volume – increasing makes the system a higher detailed reconstruction, but one which takes longer to average and does not adapt to change. Decreasing it makes the volume respond faster to change in the depth (e.g. objects moving), but is noisier overall."}. The equal weighting of all measurements has a large impact on the output introducing a strong smoothing effect discarding fine surface details and giving place to the hypothesis of our project.
 
 \section{Depth super-resolution}
+
+The base hypothesis of our project states, that there is information recorded by the sensors that is discarded early in the pipeline. We claim, that by identifying and reintegrating this information at later stages, the 
+In \secref{sec:super_resolution} many methods were overviewed.
 
 1 Input
 2 Process: PCL steps short description
@@ -644,10 +655,12 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
 \section{Combined system pipeline}
 My combined pipleine ( this is what I did, to get the data from here to there. Draw attention to GPU implementations (get credit for it) )
 
-Depth, and RGB
+
+Input: Depth (640x480 @ 30 FPS), RGB(1280x1024 @ 15 FPS)
+Transfor
 [move depth to RGB space]
 [cross filter to fill holes]
-kinfu
+kinfu 
 acquire new rgb
 estimate pose
 render kinfu model from pose
