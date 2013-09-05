@@ -34,6 +34,8 @@
 %
 %\usepackage[]{natbib}
 
+% // TODO: add pagenumbers
+
 %% LISTINGS
 \usepackage{color}
 \usepackage{listings}
@@ -85,6 +87,7 @@
 \def\etc{{\it etc.,\ }}
 \def\eg{{\it e.g.,\ }}
 \def\vs{{\it vs.\ }}
+\newcommand{\mytilde}{\raise.17ex\hbox{$\scriptstyle\mathtt{\sim}$}}
 %%
 
 \author{Aron Monszpart}
@@ -146,6 +149,10 @@ Dr. Gabriel Brostow, Dr Neill Campbell, Dr. Oisin Mac Aodha, Fabrizio Pece, Malc
 
 \chapter{Related work} 
 \label{chp:related_work}
+
+\section{Multi view stereo}
+\label{sec:mvs}
+Spatioangular lightfields, disney: \citep{Kim:2013}
 
 \section{Calibration}
 \label{sec:lit_calib}
@@ -272,11 +279,29 @@ herrera 13
 
 
 
-\section{Depth upsampling}
+\section{Super-resolution}
+
+% not depth:
+Joint bilateral upsampling PCL: \citep{Kopf:2007}
+
+The bilateral filter has been used previously for various image pro-
+cessing tasks. Durand and Dorsey [2002] applied the bilateral fil-
+ter to HDR tone mapping and also described a fast approximation,
+which was recently improved upon [Paris and Durand 2006; Weiss
+2006].
+Ramanath and Snyder [2003] used the bilateral filter in the context
+of demosaicking to improve edge sensitivity. Their method is re-
+stricted to Bayer patterns with a fixed small upsampling factor, and
+does not use a guidance image as we do.
+%very close:
+yang
+
 \citep{MatsuoFI13} \\
 \citep{} TUVienna paper of selfsimilarities
 
 In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segmentation, use RANSAC and implement cross bilateral filtering
+
+
 
 \section{Kinect fusion papers}
 \label{sec:kinfu}
@@ -298,108 +323,108 @@ Multi scale depth: \citep{Fuhrmann:2011}
 
 \section{<planned>}
 
-	\begin{enumerate}
-		\item 3D reconstruction using Multi-view stereo
-		\begin{itemize}
-			\item Curless and Levoy
-			\item Rusinkiewicz
-			\item Szeliski
-			\item Agarwal
-			\item Snavely
-			\item Seitz
-			\item Furukawa and Ponce
-			\item Strecha
-			\item etc. from literature review (got good marks for it)
-			\item Kim et al: Scene reconstruction from High Spatio-Angular Resolution Light Fields (Siggraph '13)
-		\end{itemize}
-
-		\item 3D reconstruction using RGB-D
-		\begin{itemize}
-			\item Voxelgrid based
-			\begin{itemize}
-				\item Newcombe: Kinect fusion
-				\item Whelan: Kintinuous and other loop closure papers
-				\item Vladlen: Dense scene reconstruction with points of interest
-				\item etc.
-			\end{itemize}
-
-			\item Height-field based, layered
-			\begin{itemize}
-				\item Adaptive voxelgrid based, scene scale aware (Freiburg)
-				\item etc.
-			\end{itemize}
-
-			\item Point based
-			\begin{itemize}
-				\item Damien Lefloch
-				\item etc.
-			\end{itemize}
-
-			
-		\end{itemize}
-			
- 		\item Pose estimation
-		\begin{itemize}
-			\item some ICP references
-			\item Gyro papers
-			\item MVS already earlier
-		\end{itemize}
-		
-		\item Upsampling
-		\begin{itemize}
-			\item RGB superresolution
-			\item Depth superresolution
-			\begin{itemize}
-				\item Non-guided
-				\begin{itemize}
-					\item Learning based
-						\begin{itemize}
-							\item Mac Aodha et al. '12
-							\item etc.
-						\end{itemize}
-					\item Other
-					\begin{itemize}
-						\item Hornacek et al.: Depth Super Resolution by Rigid Body Self-Similarity in 3D, CVPR '13
-						\item etc.
-					\end{itemize}
-				\end{itemize}
-				
-				\item Guided
-				\begin{itemize}
-					\item Joint Bilateral
-					\begin{itemize}
-						\item Yang '07
-						\item etc.
-					\end{itemize}
-					\item MRF based
-					\begin{itemize}
-						\item Diebel and Thrun
-						\item Schuon et al.
-						\item Park et al. '11
-						\item Choi et al. '12
-						\item Shen and Cheung CVPR '13 (Layer Depth Denoising and Completion for Structured-Light RGB-D Cameras)
-						\item etc.
-					\end{itemize}
-					
-					\item Spatio-temporal filtering
-					
-				\end{itemize}
-			\end{itemize}
-		\end{itemize}
-		
-		\item Commercial 3D scanners
-		\begin{itemize}
-			\item MVS based: Photosynth, Adobe, etc.
-			\item Laser scanner systems (industrial)
-			\item Kinect based: Scanec, Reva, ReconstructMe, ...
-		\end{itemize}
-		
-		\item Seen/used calibration references
-		\item Subdivision references
-		\item Efficient raycasting references
-		\item (+ Categorize all the ref e-mails from Gabriel, Oisin, Reading groups, etc.)
-	
-	\end{enumerate}
+%	\begin{enumerate}
+%		\item 3D reconstruction using Multi-view stereo
+%		\begin{itemize}
+%			\item Curless and Levoy
+%			\item Rusinkiewicz
+%			\item Szeliski
+%			\item Agarwal
+%			\item Snavely
+%			\item Seitz
+%			\item Furukawa and Ponce
+%			\item Strecha
+%			\item etc. from literature review (got good marks for it)
+%			\item Kim et al: Scene reconstruction from High Spatio-Angular Resolution Light Fields (Siggraph '13)
+%		\end{itemize}
+%
+%		\item 3D reconstruction using RGB-D
+%		\begin{itemize}
+%			\item Voxelgrid based
+%			\begin{itemize}
+%				\item Newcombe: Kinect fusion
+%				\item Whelan: Kintinuous and other loop closure papers
+%				\item Vladlen: Dense scene reconstruction with points of interest
+%				\item etc.
+%			\end{itemize}
+%
+%			\item Height-field based, layered
+%			\begin{itemize}
+%				\item Adaptive voxelgrid based, scene scale aware (Freiburg)
+%				\item etc.
+%			\end{itemize}
+%
+%			\item Point based
+%			\begin{itemize}
+%				\item Damien Lefloch
+%				\item etc.
+%			\end{itemize}
+%
+%			
+%		\end{itemize}
+%			
+% 		\item Pose estimation
+%		\begin{itemize}
+%			\item some ICP references
+%			\item Gyro papers
+%			\item MVS already earlier
+%		\end{itemize}
+%		
+%		\item Upsampling
+%		\begin{itemize}
+%			\item RGB superresolution
+%			\item Depth superresolution
+%			\begin{itemize}
+%				\item Non-guided
+%				\begin{itemize}
+%					\item Learning based
+%						\begin{itemize}
+%							\item Mac Aodha et al. '12
+%							\item etc.
+%						\end{itemize}
+%					\item Other
+%					\begin{itemize}
+%						\item Hornacek et al.: Depth Super Resolution by Rigid Body Self-Similarity in 3D, CVPR '13
+%						\item etc.
+%					\end{itemize}
+%				\end{itemize}
+%				
+%				\item Guided
+%				\begin{itemize}
+%					\item Joint Bilateral
+%					\begin{itemize}
+%						\item Yang '07
+%						\item etc.
+%					\end{itemize}
+%					\item MRF based
+%					\begin{itemize}
+%						\item Diebel and Thrun
+%						\item Schuon et al.
+%						\item Park et al. '11
+%						\item Choi et al. '12
+%						\item Shen and Cheung CVPR '13 (Layer Depth Denoising and Completion for Structured-Light RGB-D Cameras)
+%						\item etc.
+%					\end{itemize}
+%					
+%					\item Spatio-temporal filtering
+%					
+%				\end{itemize}
+%			\end{itemize}
+%		\end{itemize}
+%		
+%		\item Commercial 3D scanners
+%		\begin{itemize}
+%			\item MVS based: Photosynth, Adobe, etc.
+%			\item Laser scanner systems (industrial)
+%			\item Kinect based: Scanec, Reva, ReconstructMe, ...
+%		\end{itemize}
+%		
+%		\item Seen/used calibration references
+%		\item Subdivision references
+%		\item Efficient raycasting references
+%		\item (+ Categorize all the ref e-mails from Gabriel, Oisin, Reading groups, etc.)
+%	
+%	\end{enumerate}
 
 \chapter{MySystem} 
 \label{chp:my_system}
@@ -496,42 +521,66 @@ The task of accurate real-time mapping of complex and
 arbitrary indoor scenes in variable lighting conditions was claimed to have been solved by \citep{Newcombe11}. They list using only a
 moving low-cost depth camera and commodity graphics hardware to their contributions as well. There have been made many improvements to the method since it's initial publication detailed in \secref{sec:kinfu}. We base the hypothesis of our work on the claim, that RGB-D reconstruction's attention to the complexity of the scenes can be developed further. Therefore, during the design of the system this algorithm was treated as baseline, its results were reproduced, carefully inspected and an attempt was made to improve upon them. During the extensive research performed to assess the capabilities of derivatives of this algorithm to reconstruct the targeted fine details we did rarely come across projects giving reason to attempt to reproduce their results instead, and treat them as baseline. However, in the future point-based fusion concepts introduced by \citep{keller13realtime} is worth taking into account to improve the starting point of our algorithm.
 
-\myfig
-{fig:kinfu_baseline}
-{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/kinfu_baseline00.png}
-{PCL\'s Kinfu output of scene recorded by us}
-{fig:lefloch}
-{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/lefloch_largescale.png}
-{\citep{keller13realtime}}
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.33\linewidth}
+		\includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/kinectfusion_example.png}
+		\caption{Image from \citep{KinectFuSDKExample}}
+		\label{fig:kinectsdk_example}
+	\end{minipage}
+	\begin{minipage}[b]{0.33\linewidth}
+		\includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/kinfu_baseline00.png}
+		\caption{Mesh reconstruction of scene recorded by us. Reconstruction using PCL's Kinfu with our modifications}
+		\label{fig:kinfu_baseline}
+	\end{minipage}
+	\begin{minipage}[b]{0.33\linewidth}
+		\includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/lefloch_largescale_cropped.png}
+		\caption{\citep{keller13realtime}}
+		\label{fig:lefloch}
+	\end{minipage}
+\end{figure}
 
-The 
-We fuse all of the depth data streamed from a Kinect sensor into
-a single global implicit surface model of the observed scene in
-real-time. The current sensor pose is simultaneously obtained by
-tracking the live depth frame relative to the global model using a
-coarse-to-fine iterative closest point (ICP) algorithm, which uses
-all of the observed depth data available. We demonstrate the advantages
-of tracking against the growing full surface model compared
-with frame-to-frame tracking, obtaining tracking and mapping results
-in constant time within room sized scenes with limited drift
-and high accuracy. We also show both qualitative and quantitative
-results relating to various aspects of our tracking and mapping system.
-Modelling of natural scenes, in real-time with only commodity
-sensor and GPU hardware, promises an exciting step forward
-in augmented reality (AR), in particular, it allows dense surfaces to
-be reconstructed in real-time, with a level of detail and robustness
-beyond any solution yet presented using passive computer vision.
 
-rewrite intro from newcombe
 
-why not sparse, dtam, slam?
+\subsection{System input}
+\par The system design applied in RGB-D SLAM 3D reconstruction methods aligns well to our initial concept of deign of solution. This is true both in terms of processing pipeline and hardware and software tools applied. The scene acquisition happens using sensors providing both chromatic and distance information. It is a common assumption to use a low-cost, usually hand-held device with integrated sensors as the Microsoft Kinect or ASUS Xtion Pro. A calibrated system of a time-of-flight camera and an RGB camera is another usual system setup. We used a calibrated Microsoft Kinect device. \\
 
-\par An easy to operate, hand-held scanning device is used. The developed system will most likely use a smartphone with built in inertial measurement unit, gyroscope, magnetometer and GPS sensor. Alternatively a camera with mounted and calibrated motion and orientation sensors can be used. The performance of structured lighting devices as Microsoft Kinect \cite{Kinect} or Asus Xtion PRO \cite{XtionPro} will also be explored. Eventually a higher resolution device as Leap-motion's gesture recognition solution \cite{LeapMotion} will be evaluated. To ensure interchangeability of the sensors, and to get these systems to cooperate to the highest level possible, a well designed framework needs to be developed. The extensibility of the KinectFusion SDK will be tested once it get's released as part of the Windows 8 SDK as promised \cite{SDKKinectFusion}. Alternatives, as the implementation of a Kinect Fusion like functionality in the Point Cloud Library ("Kinfu") will also be tested \cite{KinFu}.
-\par The commercial accessibility of the used sensor setup has a slightly increased emphasis at this stage of the project. Low cost and out of the box operability would open the possibilities for crowd sourcing in follow-up projects, something that has been targeted by many other research labs as Microsoft (at Techfest 2013) or the University of Washington (Photocity, Pointcraft).
+\par An RGB-D SLAM 3D reconstruction system operates with at least two input streams. A data stream containing chromatic information about the observed scene, usually encoded in 8-bits per channel, and another information source conveying information about the spatial relations of the scene encoded in some form of distance information.
+\par The Microsoft Kinect is capable of conveying three channels of chromatic data encoded in a 24-bit data-stream. The most important available resolution settings with the used OpenNI Middleware are 640 x 480 pixels at \mytilde 30 frames per second and 1280 x 1024 pixels at \mytilde 15 frames per second. The quality of the RGB image seems to suffer from the problems Bayer filtering type methods introduce, as it can be seen in \figref{fig:kinect_rgb_zoom}. This introduces slight corner detection problems at calibration time, and more significant problems when applying the up-sampling algorithm as discussed in the limitations section \secref{sec:limitations}. 
+\par The depth stream is available in the resolution 640 x 480 at \mytilde 30 frames per second. The critical analysis of the quality of the depth map has been researched in many projects, amongst others by modelling the noise of the sensor \citep{NguyenIL12}, or applying temporal filtering \citep{RGBZcamera}. It is considered out of the scope of the current project to pre-process the depth stream before applying it in the system pipeline. \\
 
-PCL steps short description
+\par To establish working volume boundaries and area of focus, the operating range and optimal scanning distance of the used depth acquisition device has to be known. According to \citep{Kinect_ms} the Kinect depth sensor has a minimum range of 800 mm and a maximum of 4 m. The Kinect for Windows Hardware can work in Near Mode providing a range of 500 mm to 3 m. By sampling the depth maps acquired during our data collection process it can be stated, that these characteristics can be achieved using the OpenNI Middleware as well, depths around 500 mm have been observed. 
+\par In future work, the \citep{Kinect_nyko_zoom} might provide possibility to zoom in further on the scene and acquire more accurate depth data about fine details, meanwhile the distortion effect of the additional lens has to be evaluated as well.
 
-\section{Yang}
+\subsection{Processing algorithm}
+\par An open-source implementation of the classical Kinect Fusion algorithm was employed to retrieve a smooth 3D reconstruction from the data acquired. The \citep{PCL} has implementation both for the original small to mid-scale algorithm named "Kinfu" and an implementation capable of handling scenes with larger extent called "Kinfu Large Scale". Due to the targeted proof-of-concept nature of our project the computationally slightly less intensive Kinfu implementation was used as starting point. The sub-project was recompiled to a separate, modifiable library allowing slight customisations to the algorithm (project "MyKinfuTracker" in the source code attachment). Algorithmic changes or implementation of later publications detailed in \secref{sec:kinfu} incorporating improvements to the concept are considered out of scope for this project.\\
+
+\par The outline of PCL's Kinfu algorithm is as follows: All depth data streamed from a Kinect sensor is merged into a global implicit surface model stored in a fixed resolution voxel grid in the GPU's memory. In each voxel grid cell the distance to the closest surface is stored as a truncated signed distance function (TSDF). Subject to convention the two signs represent the inside respectively outside of the assumed non-degenerate mesh. 
+\par Upon arrival of new depth data a 3D point vertex and normal map is generated using camera the intrinsics. Correspondence to the stored mesh represented by the stored TSDF is calculated using ray-casting and the point cloud represented by the vertex map is used to estimate the new camera pose with respect to the current model. This is performed using a coarse-to-fine iterative closest point algorithm. 
+\par The point cloud is then regenerated using the new camera pose and the appropriate cells of the voxel grid are updated. A new vertex and normal map is generated to prepare for the next arriving frame. The update method has large impact on our project goals. In \secref{sec:3d_sys_output} the role is discussed further with other parameters of the algorithm. \\
+
+\subsection{Configuration and system output}
+\label{sec:3d_sys_output}
+
+The results of the reconstruction can be Raytraced vis, marching cubes pointcloud and naive triangle mesh
+
+As stated earlier, the TSDF update method is an important parameter in terms of the reconstruction quality. In the given implementation, the information conveyed by new measurements are averaged giving each measurement equal weight. On the \citep{KinectFuSDKExample} page they say, that the weight parameter {\it "...controls the temporal averaging of data into the reconstruction volume – increasing makes the system a higher detailed reconstruction, but one which takes longer to average and does not adapt to change. Decreasing it makes the volume respond faster to change in the depth (e.g. objects moving), but is noisier overall."}. The equal weighting of all the measurements transforms the 
+
+grid resolution
+
+working volume
+
+truncation distance
+
+maximum movement threshold
+
+
+
+\section{Depth super-resolution}
+
+1 Input
+2 Process: PCL steps short description
+\subsection{Configuration and system output}
+
 
 %\lstset{frame=single,language=C++,tabsize=1,basicstyle=\ttfamily\small,}
 \lstset{style=customcpp}
@@ -592,8 +641,8 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
 
 \end{lstlisting}
 
-\section{Combined pipeline}
-My combined pipleine ( this is what I did, to get the data fro mhere to there. Draw attention to GPU implementations (get credit for it) )
+\section{Combined system pipeline}
+My combined pipleine ( this is what I did, to get the data from here to there. Draw attention to GPU implementations (get credit for it) )
 
 Depth, and RGB
 [move depth to RGB space]
@@ -604,6 +653,9 @@ estimate pose
 render kinfu model from pose
 upsample
 
+GLSL mesh enhancement
+kinfu update method
+
 \section{Implementation details}
 \subsection{Drivers}
 \subsection{Third-party libraries}
@@ -612,6 +664,8 @@ NVIDIA bilateralfiltering sample
 PCL
  pcl bilateral upsampling
  \citep{DCBGridStereo}
+ 
+Renderings made using \citep{Meshlab}.
 
 %%% CHAPTER 5 %%%
 \chapter{Validation / experiments}
@@ -680,27 +734,59 @@ See meshes on CD
 
 \chapter{Discussion} 
 \label{chp:discussion}
+
+\section{Results}
+\label{sec:discussion_results}
+
     - come back to 3's experiments\\
     - interpret experiments\\
     - did you notice, that 2 were good, and 3rd was abd, remember what I sadi in 3.2, that kinfu does it's calibration...well ,that's crap here (threshold), it happend to be good for 2 sequences, but not their thirds \\
 -     Pros, cons \\
 - PFM format \\
 
+\subsection{Dense or sparse reconstruction}
+
+\par An easy to operate, hand-held scanning device is used. The developed system will most likely use a smartphone with built in inertial measurement unit, gyroscope, magnetometer and GPS sensor. Alternatively a camera with mounted and calibrated motion and orientation sensors can be used. The performance of structured lighting devices as Microsoft Kinect \cite{Kinect} or Asus Xtion PRO \cite{XtionPro} will also be explored. Eventually a higher resolution device as Leap-motion's gesture recognition solution \cite{LeapMotion} will be evaluated. To ensure interchangeability of the sensors, and to get these systems to cooperate to the highest level possible, a well designed framework needs to be developed. The extensibility of the KinectFusion SDK will be tested once it get's released as part of the Windows 8 SDK as promised \cite{SDKKinectFusion}. Alternatives, as the implementation of a Kinect Fusion like functionality in the Point Cloud Library ("Kinfu") will also be tested \cite{KinFu}.
+\par The commercial accessibility of the used sensor setup has a slightly increased emphasis at this stage of the project. Low cost and out of the box operability would open the possibilities for crowd sourcing in follow-up projects, something that has been targeted by many other research labs as Microsoft (at Techfest 2013) or the University of Washington (Photocity, Pointcraft).
+
+/// The current sensor pose is simultaneously obtained by
+tracking the live depth frame relative to the global model using a
+coarse-to-fine iterative closest point (ICP) algorithm, which uses
+all of the observed depth data available. We demonstrate the advantages
+of tracking against the growing full surface model compared
+with frame-to-frame tracking, obtaining tracking and mapping results
+in constant time within room sized scenes with limited drift
+and high accuracy. We also show both qualitative and quantitative
+results relating to various aspects of our tracking and mapping system.
+Modelling of natural scenes, in real-time with only commodity
+sensor and GPU hardware, promises an exciting step forward
+in augmented reality (AR), in particular, it allows dense surfaces to
+be reconstructed in real-time, with a level of detail and robustness
+beyond any solution yet presented using passive computer vision.
+
 \section{Limitations} 
 \label{sec:limitations}
+	- kinfu memory needs
 	- so if Kinfu is not reliable, say it! so if it does not work (pose) than \citep{Whelan13icra} \\
 	- misalignment, few frames later, it's great \\
 	- calibration \\
     - obvious (Yang on chessboard, it still does) \\
     - summarizing what I discovered \\
     - Kinect RGB quality \\
+    \begin{figure}[h!]\centering
+        \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/kinect_rgb_zoom.png}
+        \caption{Kinect RGB image quality at 1280 x 1024 resolution}
+        \label{fig:kinect_rgb_zoom}
+    \end{figure}
     - TODO: aligned kinect-rgb, but misaligned kinfu frame example
+    
     
 \section{Future work}
 - Using segmentation \citep{Silberman:ECCV12} \\
 - Occlusion \citep{Hoiem:2011} \\
 - Learning based alignment and depth \citep{Herrera:LearnedJointMRF} \\
 - put back into mesh (loookup papers!)
+- geom processing papers from PCL surface package
 
 This concept fits well into the idea of using a smartphone as sensor in terms of storage space even when recordings of movement sensors' measurements are made. It also fits the concept of an eventual crowd sourcing follow-up project. 
 
@@ -708,6 +794,11 @@ future work: I advocate Yang for the following reasons, or I discourage, since..
 Kinect \\
 Yang \\
 Grid recordings of monitor\\
+
+    - zoom lense: \citep{Kinect_nyko_zoom}
+In future work, the \citep{Kinect_nyko_zoom} might provide possibility to zoom in futher on the scene and acquire more accurate depth data about fine details, meanwhile the distortion effect of the additional lens has to be evaluated.
+
+- kinfu update weight experiments
 
 
 %\section{System plan}

@@ -244,10 +244,27 @@ doi={10.1109/ICCPHOT.2010.5585097},}
 }
 
 @MISC{Kinect,
-	Title = {XBox {K}inect},
-	Howpublished = {\url{http://www.xbox.com/kinect}},
-	year = {Accessed March 2013},
+	key = {XBox {K}inect},
+	url = {http://www.xbox.com/kinect},
+	note = {Accessed March 2013},
 }
+@MISC{Kinect_wikipedia,
+	key = {XBox {K}inect details},
+	url = {http://en.wikipedia.org/wiki/Kinect},
+	note = {Accessed March 2013},
+}
+@MISC{Kinect_ms,
+	key = {MSDN Kinect Sensor},
+	url = {http://msdn.microsoft.com/en-us/library/hh438998.aspx},
+	note = {Accessed September 2013}
+	}
+
+@MISC{Kinect_nyko_zoom,
+	key = {Nyko Zoom for Kinect},
+	url = {	http://www.nyko.com/products/product-detail/?name=Zoom},
+	note = {Accessed September 2013}
+}
+
 
 @MISC{XtionPro,
 	Title = {A{S}{U}{S} {X}tion {P}ro},
@@ -262,6 +279,13 @@ doi={10.1109/ICCPHOT.2010.5585097},}
 	note = {[Online; accessed 21 March 2013]}
 }
 
+@MISC{KinectFuSDKExample,
+	key = {Kinect Fusion SDK Example},
+	url = {http://msdn.microsoft.com/en-us/library/dn188670.aspx},
+	note = {Accessed September 2013}
+}
+
+
 @MISC{Kinfu,
 	Title = {P{C}{L} {K}infu},
 	Howpublished = {\url{http://pointclouds.org/documentation/tutorials/using_kinfu_large_scale.php}},
@@ -270,8 +294,8 @@ doi={10.1109/ICCPHOT.2010.5585097},}
 
 @MISC{PCL,
 	Title = {Point {C}loud {L}ibrary},
-	Howpublished = {\url{http://www.pointclouds.org/}},
-	year = {Accessed March 2013},
+	URL = {http://www.pointclouds.org/},
+	note = {Accessed March 2013}
 }
 
 @inproceedings{jevans1989adaptive,
@@ -834,8 +858,8 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
     month     = sep,
     year      = {2010},
     location  = {Hersonissos, Crete, Greece},
-    url       = {http://www.cl.cam.ac.uk/research/rainbow/projects/dcbgrid/},
   }
+    %    url       = {http://www.cl.cam.ac.uk/research/rainbow/projects/dcbgrid/},
   
 @article{Chen:2013:Scalable_volumetric,
  author = {Chen, Jiawen and Bautembach, Dennis and Izadi, Shahram},
@@ -980,12 +1004,17 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
  title = {Camera Calibration with Distortion Models and Accuracy Evaluation},
  journal = {IEEE Trans. Pattern Anal. Mach. Intell.},
  month = Oct,
- year = {1992},
+ year = {1992}
 } 
 
 % herrera referenced early calibration
-%@article{Melen:1994,
-%}
+@inproceedings{Melen:1994,
+	author = {Melen, Trond and Sommerfelt, Arne},
+	title = {Light plane calibration from a single view},
+	booktitle = {ISPRS Commission III Symposium: Spatial Information from Digital Photogrammetry and Computer Vision},
+	year = {1994},
+}
+
 
 @inproceedings{keller13realtime,
   author         = {Maik Keller and Damien Lefloch and Martin Lambers and Shahram Izadi and Tim Weyrich and Andreas Kolb},
@@ -993,5 +1022,41 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
   booktitle      = {Proc. of Joint 3DIM/3DPVT Conference (3DV)},
   year           = {2013},
   month          = {June},
-  note           = {accepted for oral presentation},
+  note           = {accepted for oral presentation}
+}
+
+% pcl bilateral upsampling
+@article{Kopf:2007,
+ author = {Kopf, Johannes and Cohen, Michael F. and Lischinski, Dani and Uyttendaele, Matt},
+ title = {Joint bilateral upsampling},
+ journal = {ACM Trans. Graph.},
+ month = jul,
+ year = {2007}
+} 
+
+% kinect noise
+@inproceedings{NguyenIL12,
+  author = {Nguyen, Chuong V. and Izadi, Shahram and Lovell, David},
+  booktitle = {3DIMPVT},
+  title = {Modeling Kinect Sensor Noise for Improved 3D Reconstruction and Tracking.},
+  year = 2012
+}
+
+% spatiotemproal smooth
+@inproceedings{RGBZcamera,
+  author    = {Christian Richardt and Carsten Stoll and Neil A. Dodgson and Hans-Peter Seidel and Christian Theobalt},
+  title     = {Coherent Spatio\-temporal Filtering, Upsampling and Rendering of {RGBZ} Videos},
+  journal   = {Computer Graphics Forum (Proceedings of Eurographics)},
+  year      = {2012},
+  month     = {May} 
+}
+%url       = {http://www.mpi-inf.mpg.de/resources/rgbz-camera/}
+
+% spatioangular lightfields
+@article{Kim:2013,
+ author = {Kim, Changil and Zimmer, Henning and Pritch, Yael and Sorkine-Hornung, Alexander and Gross, Markus},
+ title = {Scene reconstruction from high spatio-angular resolution light fields},
+ journal = {ACM Trans. Graph.},
+ month = jul,
+ year = {2013}
 }
