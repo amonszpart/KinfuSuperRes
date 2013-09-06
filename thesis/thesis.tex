@@ -111,8 +111,8 @@
 
 \newpage
 \section*{Abstract}
-I've done some stuff
-%\input{abstract.tex}
+
+The accurate acquisition of fine detailed 3D geometry using a hand-held scanning device is an exciting research topic providing space for innovation. Current state-of-the art reconstruction systems are more focused on large-scale environments and real-time operation than surface details. Investigation is to be conducted to identify the reasons for the over-smoothed nature of the output from modern multi-view stereo and structured lighting solutions. Using the results a proposal to a system can be made, that will make use of recent achievements in the field of machine vision. By applying non-linear filtering using input from multiple sensors great increase in accuracy is expected. Surfaces will be recorded from very close distance to capture as many details as possible. The usage of motion sensor information will solve problems of localisation emerging in these less textured environments.
 
 
 \newpage
@@ -132,29 +132,31 @@ First and foremost I offer my sincerest gratitude to my supervisor, Dr. Gabriel 
 
 \chapter{Introduction and Background} 
 
-\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:sfm}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccurracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models.
+The possibility to develop a flexible, easy to use, relatively environment independent hand-held acquisition process is to be discovered in the frames of this project. Hand-held 3D scanning is the process of acquiring measurements of real world objects and also of recording of accurate depth information about the surfaces of objects in a scene. A high quality measurement allows estimations to be executed on the acquired model yielding results validly transferable to the real world object. We define fine surface details to be the high frequency characteristics of surfaces that are visible to the sensor, but might get lost during the recording process. There exists technology (laser scanners \cite{DiebelThrun05} \cite{Schuon09}, photometric stereo \cite{Nehab05}) that allows these details to be extracted, but the applications require special circumstances and a highly controlled environment. Other solutions, as Kinect Fusion \cite{Izadi11} produce robust and even real-time 3D reconstructions of scenes but fail to pay attention to the retrieval of fine surface details. \\
 
-3D recon bevezetes
-Depth sr bevezetes
+\par In this project we targeted the acquisition of such fine surface details with any method that allows higher flexibility with regard to the required environment. We started our investigation by evaluating the applicability of recent achievements of the fields multi-view stereo, active stereo and dense 3D reconstruction. 
+\par The results of the 3D reconstruction process are used in a large variety of fields influencing many aspects of our lives. The scanning method usually used is simultaneously determined by the level of need for quality and the possibilities in the given acquisition environment. We will illustrate the wide usage of geometry acquisition and the space for a possible improvement on cost, system size and accuracy by a couple of usage examples.
 
-\label{chp:background}
-	\begin{itemize}	
-		\item Motivation
-		\item Overview of approach
-		\begin{itemize}
-			\item Calibration
-			\item Low resolution 3D reconstruction
-			\item Pose estimation of new input
-			\item Mesh subdivision and 2D projection
-			\item Depth upsampling
-			\item Mesh enhancement by backprojection
-		\end{itemize}
-	\end{itemize}
+3D scanning is widely used in the field of medicine in many forms. Amongst others it is used for body scanning to discover body structure related problems and to monitor effectivity of treatment \cite{photomodeler_biology}. The work of surgeons can be assisted by combining the powers of augmented reality and accurate, online 3D scanning. IEEE Spectrum \cite{Spectrum_IEEE} reported about a project in March 2013, where the work of Ben Glockner \cite{ben_glockner} and his group at Microsoft Research used Kinect Fusion \cite{Kinect_fusion} to create a live 3D model of a patient's skull. This model was then used to re-project useful information for the surgeon to the "scene", the patient's head on the operating table.
+\par 3D printing has become a rapidly growing entertainment industry. A good demonstration of the potential lying in an easily operated 3D scanner is the online 3D model repository, {\it Makerbot.com}'s desktop table scanner prototype Makerbot Digitizer \cite{Digitizer} introduced on the SXSW 2013 conference \cite{SXSW}.
+\par Accurate 3D scanning is also very important in the field of cultural heritage preservation \cite{Michelangelo_Project}. Results acquired here or at other venues of scanning can be used to replicate real world models for educational purposes as well. Companies in the manufacturing industry can list several dozens of use cases for accurate 3D scanning \cite{Creaform3D}. 
+\par With respect to \cite{photomodeler_biology} the previously mentioned use cases all operate with scanners based on 3D technology. There exists hand-held laser scanners \cite{Creaform3D}, but their price and physical dimensions leave room for improvement. In the fields of crime scene forensics and the film and animation industry, there is precedence for application of high resolution digital camera images for 3D reconstruction \cite{Photomodeler_film} \cite{Photomodeler_forensics}. The usage of the software requires high cost digital cameras, manual calibration and advanced knowledge to achieve the high quality results demonstrated on the product page. 
+\par During the planning of the project the system's applicability in the film industry as example target was emphasized. Low-budget or amateur films using small-scale models of the real world usually apply a severe amount of post processing to the footage. Having an exact, high resolution 3D model of the scene set would enable them to increase the quality of currently applied special effects and extend their palette of tools intensely. Particle systems have a very wide field of applicability in this context, and providing the physics simulator with highly accurate 3D data is essential to high quality animations.\\
 
+\par The presented use cases show, that there lies a strong commercial perspective in a cheap, easy to use and highly accurate hand-held 3D scanning solution. In \chpref{chp:related_work} the scientific potential of such a project is demonstrated. In \chpref{chp:my_system} we present the concept of our approach, in \chpref{chp:validation} we present the evaluation of the developed solutions to then assess our experiences in \chpref{chp:discussion}.
+
+%%% ------------------ Background ------------------ %%%
+
+\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques. In recent years, a large leap has been made in dense 3D reconstruction by RGB-D based methods. By designing this system we attempted to address inaccuracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models. The system designed acknowledges the power of SLAM performed on the dense model incorporated in the areas of RGB-D based methods. We also recognize the power of other research areas, where inter-sensory information is used to enhance output quality. 
+\par We claim the hypothesis that there is data collected by the capturing system but is discarded early in the reconstruction pipeline of a standard 3D reconstruction system. We looked for methods that enable this information to be reintegrated into the results of the reconstruction. The solution was designed based on the alleged potential of iterative, cost-volume based joint bilateral filtering with sub-pixel accuracy published by \citep{cvpr-07-qingxiong-yang}.
+
+Since two baseline methods, RGB and RGB-D, are targeted for improvement and each of them involve a different tree of densely branched research areas, many concepts were visited for the following reasons. To exactly discover the space for innovation, to consider the transferability of well working solutions as algorithmic building blocks to areas of critical need of better performance and to stimulate the creation of novel combinations of methods. The science of dense 3D reconstruction from RGB-D data was researched the most, since the performance of this field was found to yield higher quality initial results than the areas of multi-view stereo. Active stereo solutions were needed to support our hypothesis, that a solution based on recent results in smooth 3D reconstruction and earlier results in depth up-sampling using the iterative, cost-volume based joint bilateral filter by \cite{cvpr-07-qingxiong-yang} will allow high frequency details to be added to the reconstructed model from any new viewpoint, that's pose can be estimated.
 
 %%% CHAPTER RELATED WORK %%%
 \chapter{Related work} 
 \label{chp:related_work}
+
+\par The three major fields we were interested in during researching existing methods were multi-view stereo and structure from motion, dense 3D reconstruction using active lighting and depth up-sampling. Auxiliary methods necessary to design and build the combined pipeline using the achievements of the methods serving as basis for our hypothesis were explored, namely camera calibration and feature detection.
 
 \section{Stereo correspondence}
 With the evolution of stereo imaging three major works review the state-of-the art techniques among dense two-view stereo correspondence algorithms \cite{ScharsteinS02}, and among multi-view stereo reconstruction algorithms \cite{Seitz:2006}, \cite{Strecha:2008}. The taxonomies defined aid the analysis of current state-of-the art algorithms and will therefore be introduced in more detail in the following paragraphs.
