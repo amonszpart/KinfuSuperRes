@@ -590,7 +590,7 @@ serves as the initial hypothesis of the depth information. In our implementation
 \subsection{Model enhancement}
 \par Several strategies were developed to accomplish the substitution of the projected vertices and faces by the up-sampled depth data. It is established, that the re-sampling nature of the problem requires solutions to be imported from the geometry processing domain. Operations like this were considered out of scope for the current project.
 
-\par As resul
+\par As results the up-sampled 2D depth maps containing some desired and other unwanted high-frequency details are rendered as 3D point clouds and triangle meshes using the naive parametrisation provided by the pixel grid of the 2D image. Further details in \secref{sec:results}.
 
 \section{Calibration}
 \label{sec:calibration}
@@ -688,6 +688,46 @@ Renderings made using \citep{Meshlab}.
 \chapter{Validation / experiments}
 \label{chp:validation}
 
+%%% SECTION results %%%
+\section{Results}
+\label{sec:results}
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard_192_final.png}
+    \caption{Close up rendering of keyboard upsampled from skew view angle}
+    \label{fig:keyboard_192}
+\end{figure}
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard2_192_final.png}
+    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle}
+    \label{fig:keyboard2_192}
+\end{figure}
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/138_in_out.png}
+    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle}
+    \label{fig:keyboard2_192}
+\end{figure}
+
+See meshes on CD
+
+%%% SECTION %%%
+\section{Iterative joint bilateral upsampling with sub-pixel accuracy}
+\label{sec:yang}
+
+\begin{figure}[h!]\centering 
+        \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/checkerboard.png}        
+        \caption{Example run of implementation on checkerboard scene, results without and with texture after 50 iterations.}
+        \label{fig:yang_checkerboard}
+\end{figure}
+
+In \figref{fig:yang_checkerboard}
+
+Yang reproductions
+
+Yang does not introduce new depths
+
 %%% SECTION %%%
 \section{Structure from motion} 
 \label{sec:sfm}
@@ -715,39 +755,9 @@ Renderings made using \citep{Meshlab}.
 	\end{minipage}
 \end{figure}
 
-%%% SECTION %%%
-\section{Iterative joint bilateral upsampling with sub-pixel accuracy}
-\label{sec:yang}
 
-\begin{figure}[h!]\centering 
-        \includegraphics[width=\linewidth]{/media/Storage/Dropbox/UCL/project/results/final/yang_checkerboard/yanged_nonflat.png}        
-        \caption{Example run of implementation on checkerboard scene, results without and with texture after 50 iterations.}
-        \label{fig:yang_checkerboard}
-\end{figure}
 
-In \figref{fig:yang_checkerboard}
 
-Yang reproductions
-
-Yang does not introduce new depths
-
-%%% SECTION %%%
-\section{Results}
-\label{sec:results}
-
-\begin{figure}[h!]\centering
-    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard_192_final.png}
-    \caption{Close up rendering of keyboard upsampled from skew view angle}
-    \label{fig:keyboard_192}
-\end{figure}
-
-\begin{figure}[h!]\centering
-    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard2_192_final.png}
-    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle}
-    \label{fig:keyboard2_192}
-\end{figure}
-
-See meshes on CD
 
 \chapter{Discussion} 
 \label{chp:discussion}
@@ -783,6 +793,23 @@ beyond any solution yet presented using passive computer vision.
 
 \section{Limitations} 
 \label{sec:limitations}
+
+%%%% KINFU pose estimation %%%%
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}
+		\includegraphics[width=\textwidth]{/home/bontius/workspace_local/long640_20130829_1525_200_400/results/really_correct_intr/d138_blended.png}
+		\caption{Aligned Kinect data. The estimated intrinsic and extrinsic relations of the camera are well suited for the purpose.}
+		\label{fig:limit_kinfu_pose}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}
+		\includegraphics[width=\textwidth]{/home/bontius/workspace_local/long640_20130829_1525_200_400/results/really_correct_intr/kinfu_depth_138_blended.png}
+		\caption{Misaligned KinFu pose estimation. The same parameters are used for the virtual viewpoint rendering and alignment.}
+		\label{fig:limit_kinfu_pose_2}
+	\end{minipage}
+\end{figure}
+
+
+
 	- kinfu memory needs
 	- so if Kinfu is not reliable, say it! so if it does not work (pose) than \citep{Whelan13icra} \\
 	- misalignment, few frames later, it's great \\
