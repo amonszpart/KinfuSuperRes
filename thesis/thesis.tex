@@ -594,74 +594,61 @@ serves as the initial hypothesis of the depth information. In our implementation
 
 \section{Calibration}
 \label{sec:calibration}
-During the development Determining the necessity of accurate intrinsic and extrinsic calibration of the recording system
 
-What is calibration, pinhole camera model, different notations (oulu, etc.), 
-with IR, without IR
-USB bus problems, overlayed image
+\par In the previous sections it was established that correct alignment of the input sources shown in \figref{fig:input} has to be executed to enable the up-sampling algorithm to perform. In \figref{fig:calib_built_in} the built-in calibration is shown to be not accurate enough. This calibration is provided by the OpenNI middleware and is stated to be read from the hardware chip of the recording device. By paying attention to narrow non-gray areas (IR occlusions) in the image one can observe the misalignment of the contours of the images.
 
 % Input rgb and depth
-%\begin{figure}[h!]\centering
-%    \begin{minipage}[b]{0.49\linewidth}
-%        \includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/img8_00000001.png}
-%        \caption{Input RGB}
-%    \end{minipage}
-%    \begin{minipage}[b]{0.49\linewidth}
-%        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep8_00000001.png}
-%		\caption{Input depth}
-%    \end{minipage}
-%\end{figure}
-%
-%% Simple alignment
-%\begin{figure}[h!]\centering
-%	\begin{minipage}[b]{0.49\linewidth}
-%		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000001.png}
-%		\caption{No alignment}
-%	\end{minipage}
-%	\begin{minipage}[b]{0.49\linewidth}
-%		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000000.png}
-%		\caption{"Built-in alignment"}
-%	\end{minipage}
-%\end{figure}
-%
-%
-%\begin{figure}[h!]\centering
-%    \begin{minipage}[b]{0.49\linewidth} \label{fig:ir}
-%        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/irAndDep8_00000001.png}
-%        \caption{Default IR and depth overlay}
-%    \end{minipage}
-%    \begin{minipage}[b]{0.49\linewidth}
-%        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/offsIrAndDep8_00000001.png}
-%        \caption{IR offset by radius of convolution kernel}
-%    \end{minipage}
-%\end{figure}
-%
-%\begin{figure}[h!]\centering
-%        \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/results/blendedUndistortedUC3x2.png}
-%        \caption{Mapping from 640x480 depth to 1280x1024 RGB after calibration and distortion removal}
-%\end{figure}
+\begin{figure}[h!]\centering
+    \begin{minipage}[b]{0.49\linewidth}
+        \includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/img8_00000001.png}
+        \caption{Input RGB from Microsoft Kinect camera}
+    \end{minipage}
+    \begin{minipage}[b]{0.49\linewidth}
+        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep8_00000001.png}
+		\caption{Input depth from Microsoft Kinect camera}
+    \end{minipage}
+    \label{fig:input}
+\end{figure}
 
-%//TODO: %
+% Simple alignment
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}
+		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000001.png}
+		\caption{No alignment}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}
+		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000000.png}
+		\caption{"Built-in alignment" from OpenNI Middleware}
+	\end{minipage}
+	\label{fig:calib_built_int}
+\end{figure}
+
+\par The calibration procedure was performed between "raw" images captured by the IR camera and the colour images captured by the RGB camera. Approximately 70 images of both sources were annotated for user-supported corner detection. The calibration images were taken with the structured light projector covered, since that introduces intolerable noise to the corner detection performed on the IR images. Therefore a space with plenty ambient IR lighting (sun light) had to be used for the calibration. The calibration images were taken at several distances to ensure coverage of the whole working volume. Different perpendicular and skew angles were recorded covering the whole, and several sub-parts of the view area. A real-time visual feedback loop was developed to ensure that the full checker-board pattern is visible on both images. Pixel re-projection errors below 0.5 pixels were targeted to reach "sub-pixel accuracy". An A3 format checker-board was the smallest size yielding good enough results (evaluated qualitatively). For future work even larger formats are suggested. The printing method should stretch the paper as little as possible, and the calibration pattern should be attached to a perfectly flat surface with extra caution to  perfect alignment to the surface.
+
+\par Extra attention was paid to the information available about the transformation algorithm that the Primesense sensor uses to convert the IR data to the provided depth images. According to several blog sources the width of the width of the output depth image is a result of 9x9 kernel up-sampling of the raw IR image. Therefore the calibration results were tested using this \mytilde 4.5 pixel offset. The accuracy of the reached calibration did not allow us to determine whether this makes sense. Some errors were corrected, some others were introduced as it can be seen in \ref{fig:calib_ir_depth}
 
 
-default image, built in alignment image, good image\\
-calibration papers, and their comparison of optimisation techniques\\
-calibration with different sources (depth and acryl, ir, ellipses)\\
-cuda mapping\\
+\begin{figure}[h!]\centering
+    \begin{minipage}[b]{0.49\linewidth} \label{fig:ir}
+        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/irAndDep8_00000001.png}
+        \caption{Default IR and depth overlay. A suspected offset of 4 pixels was examined.}
+    \end{minipage}
+    \begin{minipage}[b]{0.49\linewidth}
+        \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/offsIrAndDep8_00000001.png}
+        \caption{IR offset by radius of supposed convolution kernel. Some edges improve, some worsen.}
+    \end{minipage}
+    \label{fig:calib_ir_depth}
+\end{figure}
 
+\par Using the \citep{calibration_bouguet} the intrinsic parameters were estimated of both lenses. The calibration includes parameters skew ($\gamma$), radial distortion up to the third-order ($k_1$,$k_2$,$k_3$) and tangential distortion up to second-order ($t_1$,$t_2$). The extrinsic relationship between the two cameras was established as well. The \mytilde 30 mm translation between the two cameras seemed to be plausible results. Skew was hardly detected in any of the cameras, but the third-order radial distortion was \mytilde 0.5 for both cameras. The final re-projection error for the RGB camera was in the 0.1 pixel magnitude, the IR intrinsic calibration resulted in re-projection errors of 0.3 pixels. Since the re-projection is subject to the errors of the corner detection as well, these results were considered successful. The final alignment after viewpoint mapping and lens distortion removal can be seen in \figref{fig:final_calib}.
 
-\subsection{takeaway}
-Ir image with and without projector\\
-large checkerboard vs. small checkerboard\\
-all positions (mosaic image?)\\
-checkerboard sze 
-All the squares must be clearly visible (unoccluded).
-Use a tripod
-Take 25 images and more
-Use a paper size ".3" and more
-Square size is 3-5 cm
-The chessboard on the images must be located in the all places of the camera matrix
+\begin{figure}[h!]\centering
+        \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/results/blendedUndistortedUC3x2.png}
+        \caption{Mapping from 640x480 depth to 1280x1024 RGB after calibration and distortion removal}
+        \label{fig:final_calib}
+\end{figure}
 
+\par The mapping algorithm implemented in the toolbox runs in the MATLAB framework. The mapping of a 640 x 480 depth image to the 1280 x 960 RGB image took around 1 minute to calculate for each frame. Therefore CUDA code from \citep{kinect_lua} was rewritten to perform the mapping and undistortion with speeds of the 1 ms magnitude for a frame.
 
 \section{Implementation details}
 \label{sec:implementation_details}
@@ -688,6 +675,8 @@ Renderings made using \citep{Meshlab}.
 \chapter{Validation / experiments}
 \label{chp:validation}
 
+To prove, that %//TODO:
+
 %%% SECTION results %%%
 \section{Results}
 \label{sec:results}
@@ -713,33 +702,35 @@ Renderings made using \citep{Meshlab}.
 See meshes on CD
 
 %%% SECTION %%%
-\section{Iterative joint bilateral upsampling with sub-pixel accuracy}
+\section{Iterative joint bilateral up-sampling with sub-pixel accuracy}
 \label{sec:yang}
+
+\par The second part of the pipeline consists of the re-implementation of the work published by \citep{cvpr-07-qingxiong-yang}. To explore the limits of the method and to verify the correctness of the implementation several experiments were executed. One of the methods biggest limitations are depth changes introduced by non-geometric edges in the RGB images. To test this, the an aligned RGB-D input of a checker-board pattern was served as input to the CUDA implementation of the algorithm. The result can be seen in \figref{fig:yang_checkerboard}. 
+\par When designing the system an assumption was made that this depth up-sampling method reintroduces information to the scene from the RGB image. During initial tests, this assumption seemed to change characteristics. The current assumption is that the method is only capable of correcting depth values in the range of the observed depths. Not even the sub-pixel accuracy element ensures that new, unseen depths are introduced. Therefore a synthetic test was set up to understand the capabilities of the algorithm. The same checker-board RGB image responsible for \figref{fig:yang_checkerboard} was paired with a depth image of constant depth. As suspected, the result yielded an unchanged depth map, no new depth values were introduced outside the observed range of depth values.
 
 \begin{figure}[h!]\centering 
         \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/checkerboard.png}        
-        \caption{Example run of implementation on checkerboard scene, results without and with texture after 50 iterations.}
+        \caption{Example run of implementation on checker-board scene, results without and with texture after 50 iterations.}
         \label{fig:yang_checkerboard}
 \end{figure}
 
-In \figref{fig:yang_checkerboard}
+To make sure, that the above experiences are not due to a faulty implementation of the method, some the available inputs from the original dataset were processed, all with success. \figref{fig:umbrella} %//TODO:
 
-Yang reproductions
-
-Yang does not introduce new depths
 
 %%% SECTION %%%
 \section{Structure from motion} 
 \label{sec:sfm}
 
+\par Due to recent achievements of the fields multi-view stereo and structure from motion, the reconstruction capabilities of these methods were tested in the beginning of the project to decide, whether a sparse or dense 3D reconstruction algorithm is to be used. Recordings were created using the video recording function of a rather modern smart phone. The 1080p image stream was down sampled to 960 x 540, and the frame rate of the video was decreased using sub-sampling to 5 FPS. This data was input into both \citep{Photosynth} and \citep{vsfm}, state-of-the art sparse stereo reconstruction algorithms. In general, Microsoft Photosynth performed better with the reconstruction of these scenes. These tasks are otherwise considered to be hard for multi-view stereo due to transparency and the repetitive, feature-less characteristics of the recordings. Results are shown in \figref{fig:acerlit_1}, \figref{fig:acerlit_mesh}, \figref{fig:ob_1} and \figref{fig:ob_mesh}.
+
 % acerlit image
 \myfig
-{acerlit_1}
+{fig:acerlit_1}
 {/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/acer_lit00706.jpg}
 {A frame of video of backside of a monitor}
-{acerlit_mesh}
+{fig:acerlit_mesh}
 {/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/acer_lit01.png}
-{Visual SFM 3D reconstruction of monitor} 
+{Visual SFM 3D reconstruction of monitor. Almost no sense of 3D has been captured.}
 
 % oil bottle image
 \begin{figure}[h!]\centering
@@ -750,12 +741,10 @@ Yang does not introduce new depths
 	\end{minipage}
 	\begin{minipage}[b]{0.49\linewidth}\centering
 		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/ob_mesh00.png}
-		\caption{Visual SFM 3D reconstruction of oil bottle}
+		\caption{Visual SFM 3D reconstruction of oil bottle. Almost no sense of 3D has been captured.}
 		\label{fig:ob_mesh}
 	\end{minipage}
 \end{figure}
-
-
 
 
 
@@ -803,7 +792,7 @@ beyond any solution yet presented using passive computer vision.
 	\end{minipage}
 	\begin{minipage}[b]{0.49\linewidth}
 		\includegraphics[width=\textwidth]{/home/bontius/workspace_local/long640_20130829_1525_200_400/results/really_correct_intr/kinfu_depth_138_blended.png}
-		\caption{Misaligned KinFu pose estimation. The same parameters are used for the virtual viewpoint rendering and alignment.}
+		\caption{Misaligned KinFu pose estimation. The same parameters are used for the virtual viewpoint alignment.}
 		\label{fig:limit_kinfu_pose_2}
 	\end{minipage}
 \end{figure}
