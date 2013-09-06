@@ -306,6 +306,8 @@ yang
 
 In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segmentation, use RANSAC and implement cross bilateral filtering
 
+\citep{guided_filter}
+
 
 
 \section{Kinect fusion papers}
@@ -325,6 +327,8 @@ Point based Fusion:
 
 Pose estimation improvement: \citep{Whelan13icra}
 Multi scale depth: \citep{Fuhrmann:2011}  keywords = depth map integration, hierarchical signed distance field, marching tetrahedra, multi-scale depth map fusion, multi-view stereo depth maps, surface reconstruction
+
+streams to provide a better pose estimation \citep{Whelan13icra}. The possibility of applying machine learning methods for more accurate pose estimation is also to be explored \citep{malisiewicz-iccv11}.
 
 
 \section{<planned>}
@@ -672,34 +676,50 @@ PCL
 Renderings made using \citep{Meshlab}.
 
 %%% CHAPTER 5 %%%
-\chapter{Validation / experiments}
+\chapter{Experiments}
 \label{chp:validation}
 
-To prove, that %//TODO:
+We targeted to build a system, that proves the hypothesis, that there is information discarded early in the 3D reconstruction pipeline and that it can be reintroduced later. The developed system also enables additional, possibly more detailed input to be captured and added the reconstruction later. The outline of the algorithm to be validated is repeated in \figref{fig:sys_overview2}.
+
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/sys_overview.png}
+    \caption{System overview}
+    \label{fig:sys_overview2}
+\end{figure}
+
+The distortion removal and alignment of the input data was validated in \figref{fig:final_calib} and \figref{fig:limit_kinfu_pose}. The smooth reconstruction was tested extensively during mesh subdivision experiments. The successful rendering from a virtual point of view is demonstrated in \figref{fig:pose_138_in_out} on the left side. The reimplementation of the discussed depth super-resolution algorithm as one method of reintegrating discarded information is checked in \figref{fig:sofa}, \figref{fig:umbrella}, \figref{fig:chair}, and \figref{fig:pink}. The final output of the system is shown in \secref{sec:results}.
 
 %%% SECTION results %%%
-\section{Results}
+\section{System output}
 \label{sec:results}
+
+\par Several recordings have been made scanning a detail-rich desktop environment. The scenes contain diffuse surfaces, textured surfaces, transparent surfaces and reflective surfaces as well. As stated among assumptions, our primary focus was on close to Lambertian surfaces. 
+\par The output of our system are up-sampled depth images with possible resolutions up to the input resolution of the RGB images. To ensure minimum loss of accuracy and portability, the output is saved as ASCII float matrix with extension the extension PFM. These images are then rendered in 3D using the calibrated camera intrinsics. The rendering outputs are provided in the format PLY. Both point clouds and naive triangle meshes are rendered. The naive triangle rendering supposes, that the depth image coordinate grid is a uniform parametrisation and connects neighbouring triplets to non-overlapping triangles. Some rendering artifacts due to large pixel discontinuities are considered side effects of the visualisation, and originate in non-perfect parameter settings of our method. Textured point clouds and triangle meshes are also rendered to show the origin of estimation errors. Some of the results of the system can be seen in \figref{fig:keyboard_192_final}, \figref{fig:keyboard2_192_final}, \figref{fig:pose_138_in_out}, and \figref{fig:pose14}. For some of the outputs' rendered meshes, please see attachment. The results are discussed in \chpref{chp:discussion}.
 
 \begin{figure}[h!]\centering
     \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard_192_final.png}
-    \caption{Close up rendering of keyboard upsampled from skew view angle}
-    \label{fig:keyboard_192}
+    \caption{Close up rendering of keyboard upsampled from skew view angle. Output textured point cloud and output rendered naive triangle mesh. Frame 192.}
+    \label{fig:keyboard_192_final}
 \end{figure}
 
 \begin{figure}[h!]\centering
     \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/keyboard2_192_final.png}
-    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle}
-    \label{fig:keyboard2_192}
+    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle. Output textured point cloud and output rendered naive triangle mesh. Frame 192.}
+    \label{fig:keyboard2_192_final}
 \end{figure}
 
 \begin{figure}[h!]\centering
     \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/138_in_out.png}
-    \caption{Close up rendering of different keyboard upsampled from closer to normal view angle}
-    \label{fig:keyboard2_192}
+    \caption{Close up rendering of keyboard and graphics card. Left: rendering from virtual point view; Right: output rendered naive triangle mesh. Frame 138.}
+    \label{fig:pose_138_in_out}
 \end{figure}
 
-See meshes on CD
+\begin{figure}[h!]\centering
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/pose14.png}
+    \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/pose14_2.png}
+    \caption{Effect of non-geometrical edges. Output textured point cloud and output rendered naive triangle mesh. Frame 14.}
+    \label{fig:pose14}
+\end{figure}
 
 %%% SECTION %%%
 \section{Iterative joint bilateral up-sampling with sub-pixel accuracy}
@@ -714,7 +734,51 @@ See meshes on CD
         \label{fig:yang_checkerboard}
 \end{figure}
 
-To make sure, that the above experiences are not due to a faulty implementation of the method, some the available inputs from the original dataset were processed, all with success. \figref{fig:umbrella} %//TODO:
+To make sure, that the above experiences are not due to a faulty implementation of the method, some the available inputs from the original dataset were processed, all with success. \figref{fig:sofa}, \figref{fig:umbrella}, \figref{fig:chair}, \figref{fig:pink}
+
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/sofa_gt.png}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/results/sofa00.png}
+	\end{minipage}
+	\caption{"Sofa" output by original paper (left) and by our implementation(right). Some artifacts due to untuned range variance.}
+	\label{fig:sofa}
+\end{figure}
+
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/umbrella_gt.png}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/results/umbrella00.png}
+	\end{minipage}
+	\caption{"Umbrella" output by original paper (left) and by our implementation (right).}
+	\label{fig:umbrella}
+\end{figure}
+
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/chair_gt.png}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/results/chair00.png}
+	\end{minipage}
+	\caption{"Chair" output by original paper (left) and by our implementation (right).}
+	\label{fig:chair}
+\end{figure}
+
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/pink_gt.png}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/results/pink00.png}
+	\end{minipage}
+	\caption{"Pink" output by original paper (left) and by our implementation (right).}
+	\label{fig:pink}
+\end{figure}
 
 
 %%% SECTION %%%
@@ -724,13 +788,18 @@ To make sure, that the above experiences are not due to a faulty implementation 
 \par Due to recent achievements of the fields multi-view stereo and structure from motion, the reconstruction capabilities of these methods were tested in the beginning of the project to decide, whether a sparse or dense 3D reconstruction algorithm is to be used. Recordings were created using the video recording function of a rather modern smart phone. The 1080p image stream was down sampled to 960 x 540, and the frame rate of the video was decreased using sub-sampling to 5 FPS. This data was input into both \citep{Photosynth} and \citep{vsfm}, state-of-the art sparse stereo reconstruction algorithms. In general, Microsoft Photosynth performed better with the reconstruction of these scenes. These tasks are otherwise considered to be hard for multi-view stereo due to transparency and the repetitive, feature-less characteristics of the recordings. Results are shown in \figref{fig:acerlit_1}, \figref{fig:acerlit_mesh}, \figref{fig:ob_1} and \figref{fig:ob_mesh}.
 
 % acerlit image
-\myfig
-{fig:acerlit_1}
-{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/acer_lit00706.jpg}
-{A frame of video of backside of a monitor}
-{fig:acerlit_mesh}
-{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/acer_lit01.png}
-{Visual SFM 3D reconstruction of monitor. Almost no sense of 3D has been captured.}
+\begin{figure}[h!]\centering
+	\begin{minipage}[b]{0.4\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/acer_lit00706.jpg}
+		\caption{A frame of video of backside of a monitor.}
+		\label{fig:acerlit_1}
+	\end{minipage}
+	\begin{minipage}[b]{0.49\linewidth}\centering
+		\includegraphics[height=5cm]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/acer_lit01.png}
+		\caption{Visual SFM 3D reconstruction of monitor. Almost no sense of 3D has been captured.}
+		\label{fig:acerlit_mesh}
+	\end{minipage}
+\end{figure}
 
 % oil bottle image
 \begin{figure}[h!]\centering
@@ -754,67 +823,61 @@ To make sure, that the above experiences are not due to a faulty implementation 
 \section{Results}
 \label{sec:discussion_results}
 
-    - come back to 3's experiments\\
-    - interpret experiments\\
-    - did you notice, that 2 were good, and 3rd was abd, remember what I sadi in 3.2, that kinfu does it's calibration...well ,that's crap here (threshold), it happend to be good for 2 sequences, but not their thirds \\
--     Pros, cons \\
-- PFM format \\
+\par A thorough investigation has been performed in \chpref{chp:experiments} to identify strengths and weaknesses of the designed system. Based on the evaluation we claim to have developed a proof-of-concept system that identifies major challenges arising during the solution of the targeted task. The initial hypothesis of existing discarded data can be regarded confirmed, since on all of the final output images in \secref{sec:results} we can see depth detail of granularity not observed in current 3D reconstruction algorithms. The level up to which the keyboard keys are  distinguishable in \figref{fig:keyboard2_192_final} is encouraging. However there is a very apparent problem of viewpoint dependency of the algorithm. In all resulting figures one can see, that the details are not put into the right depth, i.e. the keyboard keys are not elevated from the smooth surface, but partially sunk in. The problem becomes even more severe, when steep view-angles are observed as in \figref{fig:keyboard_192_final}. The fact, that the 3D depth data is mapped to the RGB image, and not the opposite can be attributed this effect. In future work, the possibilities of determining a decision logic, controlling whether the individual parts of the here shown up-sampled results should be integrated into the mesh. Another, possibly even more effective approach is to investigate, what conditions have to be fulfilled to be able to use the up-sampling algorithm from an ideal, normal directed viewpoint by taking the information conveyed in the new colour image into account through ray-casting it to the smooth mesh surface. Obviously the sparsity of the colour data would have to be one of the challenges to be targeted.
 
-\subsection{Dense or sparse reconstruction}
+\par The decision about the possibility of rendering a virtual viewpoint and applying a newly acquired RGB image to enhance it's quality is not obvious. Although the calibration, smooth reconstruction and depth up-sampling steps of the pipeline have successfully been validated, the rendering and alignment of the new viewpoint has not. The problems are suspected to rely on two grounds. First, there are too many unknown factors for hold-one-out validation of the pose rendering. The calculation errors introduced by the changes of the intrinsic matrices due to aspect-ratio changing resolution transforms would have to be estimated using a more thorough approach. Second, the pose estimation accuracy of the Kinect Fusion algorithm is shown to be quite limited for the accurate needs of our pipeline. For example in \figref{fig:limit_kinfu_pose} one can see a reasonably well aligned depth and RGB image that come directly from the calibrated Kinect device. However, the virtual depth map and the RGB are misaligned, mostly along the y-axis. Since the aspect-ratio change due to resolution transformations happens along the x-axis, the Kinfu pose estimation is suspected to be the reason to the observed misalignment of the data. Additionally, the event-based, so called "triggered capture" nature of the middleware applied to the two fold difference in stream update speeds (15 FPS vs. 30 FPS) can also contribute to the pose estimation errors.
 
-\par An easy to operate, hand-held scanning device is used. The developed system will most likely use a smartphone with built in inertial measurement unit, gyroscope, magnetometer and GPS sensor. Alternatively a camera with mounted and calibrated motion and orientation sensors can be used. The performance of structured lighting devices as Microsoft Kinect \cite{Kinect} or Asus Xtion PRO \cite{XtionPro} will also be explored. Eventually a higher resolution device as Leap-motion's gesture recognition solution \cite{LeapMotion} will be evaluated. To ensure interchangeability of the sensors, and to get these systems to cooperate to the highest level possible, a well designed framework needs to be developed. The extensibility of the KinectFusion SDK will be tested once it get's released as part of the Windows 8 SDK as promised \cite{SDKKinectFusion}. Alternatives, as the implementation of a Kinect Fusion like functionality in the Point Cloud Library ("Kinfu") will also be tested \cite{KinFu}.
-\par The commercial accessibility of the used sensor setup has a slightly increased emphasis at this stage of the project. Low cost and out of the box operability would open the possibilities for crowd sourcing in follow-up projects, something that has been targeted by many other research labs as Microsoft (at Techfest 2013) or the University of Washington (Photocity, Pointcraft).
-
-/// The current sensor pose is simultaneously obtained by
-tracking the live depth frame relative to the global model using a
-coarse-to-fine iterative closest point (ICP) algorithm, which uses
-all of the observed depth data available. We demonstrate the advantages
-of tracking against the growing full surface model compared
-with frame-to-frame tracking, obtaining tracking and mapping results
-in constant time within room sized scenes with limited drift
-and high accuracy. We also show both qualitative and quantitative
-results relating to various aspects of our tracking and mapping system.
-Modelling of natural scenes, in real-time with only commodity
-sensor and GPU hardware, promises an exciting step forward
-in augmented reality (AR), in particular, it allows dense surfaces to
-be reconstructed in real-time, with a level of detail and robustness
-beyond any solution yet presented using passive computer vision.
+%
+%\subsection{Dense or sparse reconstruction}
+%
+%\par An easy to operate, hand-held scanning device is used. The developed system will most likely use a smartphone with built in inertial measurement unit, gyroscope, magnetometer and GPS sensor. Alternatively a camera with mounted and calibrated motion and orientation sensors can be used. The performance of structured lighting devices as Microsoft Kinect \cite{Kinect} or Asus Xtion PRO \cite{XtionPro} will also be explored. Eventually a higher resolution device as Leap-motion's gesture recognition solution \cite{LeapMotion} will be evaluated. To ensure interchangeability of the sensors, and to get these systems to cooperate to the highest level possible, a well designed framework needs to be developed. The extensibility of the KinectFusion SDK will be tested once it get's released as part of the Windows 8 SDK as promised \cite{SDKKinectFusion}. Alternatives, as the implementation of a Kinect Fusion like functionality in the Point Cloud Library ("Kinfu") will also be tested \cite{KinFu}.
+%\par The commercial accessibility of the used sensor setup has a slightly increased emphasis at this stage of the project. Low cost and out of the box operability would open the possibilities for crowd sourcing in follow-up projects, something that has been targeted by many other research labs as Microsoft (at Techfest 2013) or the University of Washington (Photocity, Pointcraft).
+%
+%/// The current sensor pose is simultaneously obtained by
+%tracking the live depth frame relative to the global model using a
+%coarse-to-fine iterative closest point (ICP) algorithm, which uses
+%all of the observed depth data available. We demonstrate the advantages
+%of tracking against the growing full surface model compared
+%with frame-to-frame tracking, obtaining tracking and mapping results
+%in constant time within room sized scenes with limited drift
+%and high accuracy. We also show both qualitative and quantitative
+%results relating to various aspects of our tracking and mapping system.
+%Modelling of natural scenes, in real-time with only commodity
+%sensor and GPU hardware, promises an exciting step forward
+%in augmented reality (AR), in particular, it allows dense surfaces to
+%be reconstructed in real-time, with a level of detail and robustness
+%beyond any solution yet presented using passive computer vision.
 
 \section{Limitations} 
 \label{sec:limitations}
+
+\par Based on the demonstrated results in \chpref{chp:validation} the strengths and weaknesses of the employed sub-systems can be assessed. The most important sub-systems evaluated are calibration, Kinect Fusion and depth up-sampling.
+\par The calibration toolbox applied in this project is not the most advanced one. State of the art calibration treats range sensors differently by building a noise model before optimisation of the intrinsic parameters \citep{calibration_herrera}. The problem of IR to depth image misalignment is also overcome when estimating calibration using the depth images. More of these have to be acquired though, to provide enough data to the noise model estimation.
+\par The Kinect Fusion implementation applied in this project provides a powerful method for smooth 3D reconstruction. It handles static mid-scale static scenes well, and degrades over dynamic scenes gracefully. State-of-the art improvements have targeted the limitations of the system used in this solution, such as limited work volume \citep{Whelan13iros}, averaging over scale space \citep{Fuhrmann:2011} and memory footprint \citep{keller13realtime}. The limitation faced in this project with the highest impact is the pose estimation accuracy. The applied ICP algorithm and it's static movement threshold did not yield suitable quality of the pose estimates. During reconstruction, sequences of frames were observed with larger displacement or more intensive viewangle changes where the pose estimation was a big problem. Around more static pose sequences in the recordings the pose estimates were observed to be okay. It is to be tested however, if these better alignments are of quality high enough to serve as input for any chosen depth up-sampling. State-of-the art visual odometry applies both streams to provide a better pose estimation \citep{Whelan13icra}. The possibility of applying machine learning methods and segmentation for more accurate calibration and pose estimation is also to be explored \citep{malisiewicz-iccv11}.
 
 %%%% KINFU pose estimation %%%%
 \begin{figure}[h!]\centering
 	\begin{minipage}[b]{0.49\linewidth}
 		\includegraphics[width=\textwidth]{/home/bontius/workspace_local/long640_20130829_1525_200_400/results/really_correct_intr/d138_blended.png}
 		\caption{Aligned Kinect data. The estimated intrinsic and extrinsic relations of the camera are well suited for the purpose.}
-		\label{fig:limit_kinfu_pose}
 	\end{minipage}
 	\begin{minipage}[b]{0.49\linewidth}
 		\includegraphics[width=\textwidth]{/home/bontius/workspace_local/long640_20130829_1525_200_400/results/really_correct_intr/kinfu_depth_138_blended.png}
 		\caption{Misaligned KinFu pose estimation. The same parameters are used for the virtual viewpoint alignment.}
-		\label{fig:limit_kinfu_pose_2}
 	\end{minipage}
+	\label{fig:limit_kinfu_pose}
 \end{figure}
 
+This project has problems with the limitations introduced by the quality of the RGB camera as shown in \figref{fig:kinect_rgb_zoom}. This is only a practical limitation though, since the theoretical enables the application of high quality SLR cameras for refinement.
 
-
-	- kinfu memory needs
-	- so if Kinfu is not reliable, say it! so if it does not work (pose) than \citep{Whelan13icra} \\
-	- misalignment, few frames later, it's great \\
-	- calibration \\
-    - obvious (Yang on chessboard, it still does) \\
-    - summarizing what I discovered \\
-    - Kinect RGB quality \\
-    \begin{figure}[h!]\centering
+\begin{figure}[h!]\centering
         \includegraphics[width=\linewidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/thesis/img/kinect_rgb_zoom.png}
         \caption{Kinect RGB image quality at 1280 x 1024 resolution}
         \label{fig:kinect_rgb_zoom}
-    \end{figure}
-    - TODO: aligned kinect-rgb, but misaligned kinfu frame example
-    - Yang hand-tuned parameters, rgb grayscale conversion, automatic spatial sigma, 
-    - Yang no new depth
-yang:     guided filtering problem of inverted edges
+\end{figure}
+
+\par The strengths and weaknesses of the chosen and applied depth super-resolution technique introduced by \citep{cvpr-07-qingxiong-yang} have been well demonstrated in \secref{sec:results}. Its largely dependent on the alignment of its input images and is sensitive to non-geometric texturing. The latter has most noticeable impact observable around the sticker on the computer in \figref{fig:keyboard2_192_final}, or by the checker-board pattern in  \figref{fig:yang_checkerboard}. The method also requires fixed and hand-tuned parameters that allows limited adaptation to the data. The used parameters of the cross-bilateral filtering method were selected by creating a real-time visual feedback tool with the appropriate trackbars. This is not suitable for frame-by-frame usage, especially since the filtering is applied to the cost volumes and not the visual input frames. A limitation conveying large impact on our solution is the fact, that the filtering approach does not introduce new depth levels, as verified by experiment.
+It is claimed by \citep{guided_filter}, that cross-bilateral filtering introduces an unwanted edge inversion effect. The direction of a more state-of-the art filtering technique using hybrid Euclidean-geodesic filters introduced by \citep{Gastal:2012} is to be explored.
     
 \section{Future work}
 \label{sec:future_work}
@@ -841,6 +904,8 @@ In future work, the \citep{Kinect_nyko_zoom} might provide possibility to zoom i
 - tsdf ray-casting instead of mesh
 
 \par The calculation of the actual position of the virtual viewpoint is detailed in the future work section \secref{sec:future_work}. Bundle adjustment implemented in \citep{SnavelySS06} or \citep{vsfm} can be used to align the new RGB data with the available snapshots from the Kinect stream. The new sparse and stored dense reconstruction model can than be aligned, so that the estimated new camera pose can be transformed between the two coordinate systems.
+
+ In future work, the possibilities of determining a decision logic, controlling whether the individual parts of the here shown up-sampled results should be integrated into the mesh. Another, possibly even more effective approach is to investigate, what conditions have to be fulfilled to be able to use the up-sampling algorithm from an ideal, normal directed viewpoint by taking the information conveyed in the new colour image into account through ray-casting it to the smooth mesh surface.
 
 
 %\section{System plan}
