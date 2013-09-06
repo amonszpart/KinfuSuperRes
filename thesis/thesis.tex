@@ -117,7 +117,7 @@ I've done some stuff
 
 \newpage
 \section*{Acknowledgements}
-Dr. Gabriel Brostow, Dr Neill Campbell, Dr. Oisin Mac Aodha, Fabrizio Pece, Malcolm Reynolds, Clement Godard, Peter Rennert and the UCL PRISM group
+First and foremost I offer my sincerest gratitude to my supervisor, Dr. Gabriel Brostow, who has not spared time, connections or resources to support and guide the success of our project. I would also like to thank Dr. Neill Campbell for his continuous help and support regarding theoretical and practical advice as well computational resources. I would like to acknowledge Dr. Oisin Mac Aodha for his continuous feedback and advice steering the course of our project. In addition, I am very grateful for all the help and advice I have received from Fabrizio Pece, Malcolm Reynolds, Clement Godard, Peter Rennert, the whole PRISM group at University College London and everyone else, who has supported me during the accomplishment of the project.
 
 %\setcounter{tocdepth}{2}
 \tableofcontents
@@ -132,7 +132,7 @@ Dr. Gabriel Brostow, Dr Neill Campbell, Dr. Oisin Mac Aodha, Fabrizio Pece, Malc
 
 \chapter{Introduction and Background} 
 
-\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:SFM}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccurracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models.
+\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:sfm}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccurracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models.
 
 3D recon bevezetes
 Depth sr bevezetes
@@ -151,12 +151,99 @@ Depth sr bevezetes
 		\end{itemize}
 	\end{itemize}
 
+
+%%% CHAPTER RELATED WORK %%%
 \chapter{Related work} 
 \label{chp:related_work}
 
-\section{Multi view stereo}
-\label{sec:mvs}
-Spatioangular lightfields, coarse-to-fine approach, denser reconstruction disney: \citep{Kim:2013}
+\section{Stereo correspondence}
+With the evolution of stereo imaging three major works review the state-of-the art techniques among dense two-view stereo correspondence algorithms \cite{ScharsteinS02}, and among multi-view stereo reconstruction algorithms \cite{Seitz:2006}, \cite{Strecha:2008}. The taxonomies defined aid the analysis of current state-of-the art algorithms and will therefore be introduced in more detail in the following paragraphs.
+
+\subsection{Dense two-view stereo correspondence} 
+\label{subsub:densestereo}
+
+\par The results presented in the first work have had a significant impact on the machine vision community by providing test datasets for two-view stereo used for evaluation even very recently \cite{Yang12} \cite{MacAodhaDepthSuperResECCV2012}. 
+\par Concepts as representation, rectification and disparity space get defined as common terms used by stereo matching algorithms. Although the work focuses on uni-valued disparity functions it groups multi-view techniques into multi-valued, voxel-based and layer-based categories based on their representations of internal states and output. It also mentions deformable models, triangulated meshes and level-set methods as alternative approaches.
+\par A taxonomy of stereo matching algorithms is introduced giving an overview of the most important steps of a stereo matching approach. These are {\it matching cost computation}, {\it cost aggregation}, {\it disparity computation} and {\it disparity refinement}.
+\par The most basic measures for {\it matching cost computation} are identified as squared intensity differences (SD), absolute intensity differences (AD), mean-squared error (MSE) and mean absolute difference (MAD). A large overview of more complex measures is given mentioning gradient-based measures, a sampling independent measure and iterative diffusion. SSSD and SSAD are measures mentioned as extensible to multiple baseline approaches.
+\par {\it Cost aggregation methods} are grouped into two- and three-dimensional methods. The latter allows support for slanted surfaces. Solutions for {\it disparity computation and optimization} are grouped into local methods, global optimization, dynamic programming and cooperative algorithms. 
+\par {\it Disparity refinement} will be an area of emphasis in our approach. Areas of continuous optimization are mentioned to be less common (the usage of optic flow or splines) compared to discrete methods targeting sub-pixel disparity estimates. Iterative gradient descent, curve fitting, median filtering and propagation over neighbourhood are the mentioned techniques in the paper. Our approach will most likely build on disparity refinement by bilateral filtering introduced in \cite{cvpr-07-qingxiong-yang}.
+
+\subsection{Multi-view stereo reconstruction}
+
+Our targeted research will attempt to rely on the performance of multi-view stereo techniques. Therefore it is important to have an overview of the most relevant and recent solutions in the field. The work in \cite{Seitz:2006} continues on the path of the previously discussed taxonomy referenced in Section \ref{subsub:densestereo}. The aspects investigated in the paper are {\it scene representation}, {\it photoconsistency measure}, {\it visibility model}, \textit{shape prior}, \textit{reconstruction algorithm}, and {\it initialization requirements}.
+
+\par In terms of {\it scene representation} the main methods of the algorithms reviewed are similar to the previous taxonomy: voxel-based, level-sets, polygon meshes and multiple disparity maps. Whilst voxel-grids are easier to implement, the resolution as parameter can have a large impact on the results (an adaptive oct-tree representation is a common solution to this problem \cite{jevans1989adaptive}, as implemented in the Point Cloud Library \cite{PCL}.) Polygon meshes are stated to be very popular due to the fact, that they favour visibility computations. Indeed, one of the current state-of-the art techniques, \cite{FurukawaCSS10} rely heavily on visibility calculations to select the most relevant points of interest in large datasets. Another modern technique \cite{Tola12} uses multiple depth maps to escape the restrictions of a volumetric sampling grid.
+
+\par {\it Photo-consistency measure} rates the state of the current reconstruction by its agreement with a set of input images as described in the paper. It gets grouped into methods operating in scene space and image space. In scene space the re-projection of a geometric entity (i.e. point) is evaluated by a selected error metric, as variance, sum of squared differences or normalized cross-correlation. In image space pixel intensity consistency is measured by warping images onto other images in the input set based on the supposed geometry model. This results in a term usually named prediction error. The former method is prone to volume shrinking due to the integration of error measures preferring smaller surfaces, whilst the latter method takes region of interest into account by emphasizing visible features of the geometry by integration of error over the set of input images. Our conclusion predicts that this can favour local accuracy in visible regions, but for higher genus objects, the completeness measure will probably suffer.
+
+\par The {\it visibility model} is the third aspect of investigation regarding multi-view stereo algorithms according to the paper. Its purpose is to select images, cameras and pixels that contribute to the error metrics presented in the previous paragraph. In the review the models get classified into geometric, quasi-geometric and outlier-based approaches. The key question is which intensity disagreement should be taken into account when re-estimating the geometry. Geometric estimate visibility based on pixels or patches as done in \cite{FurukawaP07}. Quasi-geometric methods relief the computational load of large datasets by approximating visibility by clustering cameras, i.e. as its further developed upon in \cite{FurukawaCSS10}. Outlier based methods don't calculate visibility, but use measures from statistics to handle severe disagreement scores.
+
+\par Especially interesting to our approach are the questions around {\it shape priors} since their role increases with low textured regions. Many methods operate using optimizations targeting minimal surfaces. According to the paper, scene based photo-consistency approaches and min-cut based solutions also suffer from problems of shrinking of the volume and smoothing of high curvature details. Furthermore, solutions seeking maximal surfaces usually operate based on voxel colouring and scene carving targeting the creation of the "largest photo-consistent scene reconstruction" named the "Photo Hull". A modification to this approach was later suggested, called "Photo Flux" \cite{boykov2006photohulls}. Maximal surface methods are stated to be good at high frequency details but produce errors in low texture regions. Local smoothness favouring methods attempt to solve this by using Markov Random Fields with surface based priors. The cross bilateral filtering technique in \cite{cvpr-07-qingxiong-yang} can be treated as an extension to the unary and pairwise costs of such an MRF.
+
+\par In terms of {\it reconstruction algorithm} the paper assembles cost-function based approaches, iteratively evolving methods, depth-map merging solutions and surface fitting methods. The presented algorithms either contain {\it initialization requirements} about the size of the scene volume or a maximum disparity dynamic range.
+
+\subsection{State-of-the art sparse multi-view stereo}
+
+The basis of the emergence of successful dense multi-view stereo was partially built by powerful and robust camera pose estimation pipelines. Two major and in their methodology closely related pipelines were discovered during research. 
+\par The Bundler \cite{SnavelySS06} system aligns multiple images containing parts of a larger scene to a consistent set of camera poses producing a sparse point cloud. In \cite{SNAVELY-IJCV08} the work is continued to enable internet-scale reconstruction. They use EXIF data from the images for initialization and to determine absolute location, SIFT key-points \cite{Lowe04} to align input images by estimating their relative locations and RANSAC \cite{fischler1981random} to calculate fundamental matrices based on image pairs. They then construct tracks of aligned image pairs being the output of their pose estimation algorithm. 
+In \cite{AgarwalFSSCSS11} ("Building Rome in a day") further development is outlined to increase the performance of the reconstruction pipeline to be able to handle even larger sets of input data. The parallelisation possibilities of the pipeline are evaluated. In \cite{Tuite:2011:PTE:1978942.1979146}  ("PhotoCity") large-scale environment reconstruction is attempted to be made crowd-sourced using the tools of gamification. The product Microsoft Photosynth \cite{Photosynth} offers the capabilities of the developed pipeline powered by cloud-computing to provide an appealing photo-collection viewer. \\
+
+\par A very popular pipeline the scientific community often uses is Visual Structure from Motion (VSFM). It uses the parallelised extraction algorithm of SIFT feature points SiftGPU \cite{siftgpu07wu}. The feature points are then registered over the sets of images to estimate their camera poses by minimising the reprojection error. The theory is based on the large-scale bundle adjustment technique \cite{agarwal2010bundle} implemented in parallel in Multicore Bundle Adjustment published in \cite{CWu11}. The project includes the later detailed CMVS \cite{FurukawaCSS10} algorithm to perform a dense reconstruction. The results of further research are most likely included in Google's MapsGL project \cite{MGL}.
+
+\subsection{State-of-the art dense multi-view stereo} 
+\label{sotadense}
+
+In \cite{Strecha:2008} published benchmarking datasets for the comparison of multi-view stereo algorithms. A much slower but significantly more accurate acquisition process using a LIDAR time-of-flight scanner was applied, and error measures were defined appropriately. In their work, besides their own earlier algorithms \cite{strecha2004wide} \cite{strecha2006combined} the work published as \cite{FurukawaP07} called "Patch-based multi-view stereo" (PMVS) was treated as state-of-the art. They integrated modern techniques at the time including selection of robust features, iterative expansion of included images and filtering based on effective visibility constraints.
+
+\par At this point of the science, the biggest question was how to handle the incredibly large amounts of input data meaning that photo-consistency measures and visibility checks had to be calculated over very large point sets of possibly corresponding points. These problems were addressed in \cite{agarwal2010bundle} and \cite{AgarwalFSSCSS11} as described earlier.
+
+\par PMVS was later improved upon in \cite{FurukawaCSS10} titled "Clustering Views for Multi-view Stereo" (CMVS) allowing mega-scale image datasets to be used for large-scale reconstruction. This is achieved by introducing a local clustering of camera viewpoints to reduce the computational cost of photo-consistency calculations over the whole input image set.
+
+\par \cite{Jancosek:2011} improved on the CMVS technique by introducing the term weakly supported surfaces denoting geometry with a lower coverage of robust, multi-view consistent feature points. This is done by including highly supported free space into the cost structure of the Markov Random Field construction.
+
+\par In \cite{HHVu:2011} the theoretical foundations assessed in \cite{faugeras2002variational} (geometry processing methods including variational principles, surface evolution, partial differential equations, level set methods) were used to claim improvement towards the PMVS technique. Although large-scale reconstruction is targeted, a higher level of surface detail is achieved on middle-sized test cases as well.
+
+In \cite{Tola12} targeted large-scale (city-sized) reconstruction by going from using medium resolution digital cameras (4-6 megapixels) to high-resolution cameras (20 megapixels and more). The accuracy of images recorded allowed the severe restriction of the search space for pixel correspondences. Regions containing reliable features were selected using the DAISY descriptor \cite{Tola10daisy:an}. In their evaluation they compared themselves on middle-scale and large scale datasets reporting performance increment towards several of the earlier mentioned works. 
+\par The application of high resolution images allowed them to create an even more effective feature descriptor LDAHash as reported in \cite{Strecha12}. In this work, the commonly used descriptors SURF and SIFT are projected to a binary space, where the Hamming distance is used as distance measure to quickly and efficiently threshold the matching of feature points across images. A further overview of feature descriptors is made in Section \ref{section:featdesc}. \\
+
+The most recent work presented in the domain by \citep{Kim:2013} uses a novel, fine-to-coarse approach to solve the problem of dense 3D reconstruction. The lower levels of the pipeline represent independent work thread, so a solution with a generally higher computational cost could be developed utilising the power of parallelisation. The usage of high-resolution SLR cameras make this project extra relevant to our future work section.
+
+\par The current state of multi-view stereo has been reviewed, important pipelines and techniques have been highlighted. Besides multi-view stereo the application of active stereo for depth acquisition is targeted in this project. The overview of the achievements of this field is described in the next section.
+
+\section{Active lighting}
+ The usage of active lighting allows additional information to be extracted about depth relations in the scene (active stereo methods) or about the surface normals of objects (visible light techniques). This information can be used for quick and robust measurement respectively highly accurate reconstruction with regard to fine details. Recent achievements in these fields are highlighted in the following paragraphs.
+ 
+\subsection{Structured lighting}
+\label{sec:kinfu}
+
+Due to the fact that the accessibility of active lighting devices has increased recently, the desired flexibility of the system to construct would not decrease with the involvement of a commercial active stereo device. Therefore the investigation of the state-of-the art structured lighting algorithms was executed. Some passive, monocular solutions are reviewed to better understand the problem of localisation and mapping innovatively solved by recent active lighting projects.
+
+\par The first real-time, simultaneous localisation and mapping algorithm was monoSLAM \cite{monoslam}. The method was limited to feature rich environments and small spaces. Constraints, that consecutive developments in PTAM \cite{PTAM}, \cite{klein09cameraphone} and DTAM \cite{DTAM} were addressing. The parallelisation of tracking and mapping was the key aspect in the performance increase granted by the former, and the incrementation of features points let the latter system perform quickly and robustly in small-scale environments. DTAM proved to be robust against temporary motion blur providing good basis to high quality augmented reality systems.
+
+\par In \cite{Izadi11} and \cite{Newcombe11} a real-time simultaneous localization and mapping system is described that uses the whole input of depth measurements to perform estimations in contradiction to the previous methods' restriction to tracking of selected feature points in colour space. By applying an iterative closest point algorithm to provide robust mapping at high refresh rates they managed to extend the scale of the environment to middle sized rooms and small offices. A truncated signed distance function kept in GPU memory serves as model for the environment, and loop-closure is addressed both in algorithm design and evaluation. The non-adaptive nature of the resolution and storage of the truncated signed distance function values incorporates the size limitations of the scene. Although bilateral filtering is used on the raw depth recordings, it is not making use of the recordable, high resolution RGB data. This is one of the key points of our proposed solution. Since the SDK is promised to be included into Windows 8 SDK \cite{SDKKinectFusion}, there is no doubt that further developments will be performed on this project. 
+\par The current state of RGB-D SLAM algorithms and a more reliable method to handle loop closures is discussed in \cite{endres12icra}. The problem of large dynamic range of the scale-space visited in a scene is addressed in \cite{Fuhrmann:2011}.
+
+\par Further improvements have been made to correct for flaws of limited working volume of the initial pipeline. In \citep{Whelan12rssw} and \citep{Chen:2013:Scalable_volumetric} the solution of very large scale reconstruction is solved both for indoors and outdoors scenes. They emphasize the solutions independence from lighting conditions by demonstrating the system working at night. Later in \citep{Whelan13iros} they present an efficient and real-time computational solution to accumulating errors in the pose estimation eliminating drift in less than two seconds after loop closure detection in the demonstrated data set. The importance of the usage of all information available, both RGB and D streams in terms of pose estimation and visual odometry is demonstrated by \citep{Whelan13icra}.
+
+\par \citep{Zhou:2013} address the problem of loop closures by sacrificing the online processing concept and applying regions of interest to distribute the pose estimation error around areas of less importance. \citep{keller13realtime} address the large memory requirements of the reconstruction by introducing a point based method. Their confidence thresholding and segmentation approach allows a before unseen tolerance for dynamic scenes.
+
+\subsection{Projection of visible light}
+Extracting further information of the scene can be achieved by projection of light coding into the scene. This restricts the flexibility of the environment to a level not acceptable for our plans, but some solutions were reviewed with the aim of looking for relevant algorithmic concepts. In \cite{DBLP:journals/tog/RusinkiewiczHL02} structured light patterns are projected onto the object under scanning to retrieve high quality models of the scanned objects. In \cite{HernandezEtc_ICCV07} and \cite{pami/BrostowHVSC11/VideoNormals} a dense surface normal field is calculated using multi-spectral photometric stereo to overcome the challenges raised by textureless objects. Methods evaluated in these fields are relevant for an eventual shape from shading extension to a system design relying on a flash equipped smartphone.\\
+
+\par Advantages and drawbacks of the application of non-visible and visible light were reviewed. Structured lighting methods require the usage of highly parallelised algorithms, visible light solutions require highly controlled recording environments. 
+
+\section{Super-resolution}
+\label{sec:super_resolution}
+
+\par Precedence in using prior knowledge about the scene has been seen both in 2D imaging and 3D reconstruction. In the works \cite{HaCohen10}, \cite{JSun:2010} and \cite{DBLP:dblp_conf/eccv/TappenL12} priors about image statistics in natural images are exploited to put back lost features into the images. This up-sampling process is widely researched in super-resolution imaging. In parallel with the selected super-resolution method \citep{cvpr-07-qingxiong-yang} the idea of joint bilateral up-sampling was published in \citep{Kopf:2007}, and later implemented in the PCL library. The stability of the recovered information is further enhanced by including temporal filtering by \citep{RGBZcamera}.
+
+\par Bilateral filtering has previously been applied for other image processing tasks as well. For example in HDR imaging \citep{Durand:2002} and fast approximation of the filter. Improvements to the algorithm were introduced in \citep{Paris:2009}.
+
+\par A different, machine learning based approach is used in \cite{MacAodhaDepthSuperResECCV2012}. The creation of 3D super-resolution is attempted by approximation of the high frequency structure of 3D regions in natural environments by learning over a large set of synthetically generated data of depth image patches. In \citep{TUW-218846} it is claimed, that a large database is not necessary, the idea of intrinsic images can be transferred to 3D data. 
+
+\par An extensive overview and runtime comparison of current filtering techniques is demonstrated by \citep{MatsuoFI13}. The bilateral, joint bilateral, trilateral and guided filtering is compared. Although \citep{cvpr-07-qingxiong-yang} is cited, they don't use the iterative algorithm described in the paper.
+
 
 \section{Calibration}
 \label{sec:lit_calib}
@@ -256,7 +343,7 @@ Initial works \citep{Melen:1994}, \citep{Weng:1992} use the combination of linea
 	{\bf x}_{undistorted}
 	=
 	(1 + k_1 r^2 + k_2 r^4 + k_3 r^6 ) {\bf x}_{normalized} 
-	~+~ 
+	~+~\\ 
 	\left[\begin{array}{c}
 	    2 p_1 {\bf x}_{normalized,x} {\bf x}_{normalized,y} + p_2 ( r^2 + 2{\bf x}_{normalized,x}^2) \\
 	    p_1(r^2+2{\bf x}_{normalized,y}^2) + 2 p_2 {\bf x}_{normalized,x} {\bf x}_{normalized,y}\\
@@ -270,58 +357,20 @@ Initial works \citep{Melen:1994}, \citep{Weng:1992} use the combination of linea
     \label{eq:distortion}
 \end{figure}
 
-The achievements of the toolbox were further developed in Intel's \citep{calibration_opencv} package. Additionally, the Graphics and Media Lab of the Lomonosov Moscow State University published a C++ and Matlab calibration toolbox known as \citep{calibration_gml}. Other projects use the \citep{calibration_rgbdemo} package for calibration. Modeling of the noise characteristics of the range camera allows even more accurate calibration presented by \citep{calibration_herrera}. Further improvements using additional prior knowledge is presented in \citep{Herrera:LearnedJointMRF}.
+The achievements of the toolbox were further developed in Intel's \citep{calibration_opencv} package. Additionally, the Graphics and Media Lab of the Lomonosov Moscow State University published a C++ and Matlab calibration toolbox known as \citep{calibration_gml}. Other projects use the \citep{calibration_rgbdemo} package for calibration. Modeling of the noise characteristics of the range camera allows even more accurate calibration presented by \citep{calibration_herrera}. Further improvements using additional prior knowledge is presented in \citep{Herrera:LearnedJointMRF}. The possibility of applying machine learning methods for more accurate pose estimation is also to be explored \citep{malisiewicz-iccv11}.
 
+\section{Addtional methods}
 
-\section{Super-resolution}
-\label{sec:super_resolution}
+\par To overcome the limitations of current multi-view stereo and active lighting systems a deeper understanding of the underlying processes needed attention. The current state-of-the art key-point extraction methods were reviewed. The possibilities provided by including extra sensory information for localisation and prior knowledge were evaluated detailed in the next paragraphs.
 
-% not depth:
-Joint bilateral upsampling PCL: \citep{Kopf:2007}
+\subsection{Local feature descriptors} 
+\label{section:featdesc}
+As referenced earlier in Section \ref{sotadense}, geometry reconstruction builds on the performance of local feature descriptors when performing camera pose estimation. The machine vision community intensely works on creating fast feature descriptors for real-time tracking of deformable objects \cite{RussellFA12}, \cite{DBLP:dblp_conf/ismar/RoussosRGA12} and \cite{DBLP:dblp_conf/eccv/VicenteA12} and static scenes. In \cite{trzcinskiefficient} (D-BRIEF) an extension to the BRIEF descriptor \cite{calonder2010brief}, we get a good overview of the performance of such feature detectors. Although the speed of calculations are reported to out-compete previous techniques, in terms of quality, SIFT \cite{Lowe04} and SURF \cite{BayTG06} feature detectors still perform at highest accuracy. Hence the Bundler pipeline uses SIFT, Visual Structure from Motion pipeline uses SiftGPU \cite{siftgpu07wu}.
 
-The bilateral filter has been used previously for various image pro-
-cessing tasks. Durand and Dorsey [2002] applied the bilateral fil-
-ter to HDR tone mapping and also described a fast approximation,
-which was recently improved upon [Paris and Durand 2006; Weiss
-2006].
-Ramanath and Snyder [2003] used the bilateral filter in the context
-of demosaicking to improve edge sensitivity. Their method is re-
-stricted to Bayer patterns with a fixed small upsampling factor, and
-does not use a guidance image as we do.
-%very close:
-yang
+\subsection{Localization in featureless environments}
+In cases of textureless scenes the pose estimation algorithms of traditional multi-view stereo algorithms as VSFM's bundle adjustment and the PTAM, DTAM algorithms will most likely fail. The usability of internal or external inertial sensors, gyroscopes, magnetometers or GPS sensors for localisation has been investigated. Due to the unreliability of inertia meters and the correlation of measurement errors across inertial sensors and gyroscopes most smartphone softwares apply some version of smoothing (i.e. Kalman filtering \cite{kalman}) to the output of the built-in sensors. In \cite{HolzmannH12} the possibilities of these methods are assessed. Since the image recordings and movement sensor measurements are performed by different chips one of the biggest challenges lies in the resolution of this asynchronism. Other research exploit the ambient signal strength variation of indoor environments for localization as performed in \cite{xiong2011arraytrack}. The accuracy of such methods will most likely not be sufficient to our requirements.
 
-\citep{MatsuoFI13} \\
-\citep{} TUVienna paper of selfsimilarities
-
-In \citep{Silberman:ECCV12} ... they give a very good kinect dataset for segmentation, use RANSAC and implement cross bilateral filtering
-
-\citep{guided_filter}
-
-
-
-\section{Kinect fusion papers}
-\label{sec:kinfu}
-
-%vladlen:
-\citep{Zhou:2013}
-% mr siggraph 13 kinfu:
-\citep{Chen:2013:Scalable_volumetric}
-% kintinous 2
-\citep{Whelan13iros}
-% Kintinuous1
-\citep{Whelan12rssw}
-% lefloch
-Point based Fusion:
-\citep{keller13realtime}
-
-Pose estimation improvement: \citep{Whelan13icra}
-Multi scale depth: \citep{Fuhrmann:2011}  keywords = depth map integration, hierarchical signed distance field, marching tetrahedra, multi-scale depth map fusion, multi-view stereo depth maps, surface reconstruction
-
-streams to provide a better pose estimation \citep{Whelan13icra}. The possibility of applying machine learning methods for more accurate pose estimation is also to be explored \citep{malisiewicz-iccv11}.
-
-
-\section{<planned>}
+%\section{<planned>}
 
 %	\begin{enumerate}
 %		\item 3D reconstruction using Multi-view stereo
@@ -429,7 +478,7 @@ streams to provide a better pose estimation \citep{Whelan13icra}. The possibilit
 \chapter{System design} 
 \label{chp:my_system}
 
-\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:SFM}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccuracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models. \\
+\par The targeted system attempts to solve the problem of 3D reconstruction of fine surface details in static scenes. We have seen various examples of sparse 3D reconstruction methods using the achievements of multi-view stereo, structure from motion and SLAM techniques in \secref{sec:sfm}. In recent years, a large leap has been made in dense 3D reconstruction by methods in \secref{sec:kinfu}. By designing this system we attempted to address inaccuracies produced by the above mentioned methods to refine high frequency details in small segments of the reconstructed models. \\
 
 \par The system designed acknowledges the power of SLAM performed on the dense model incorporated in the areas of RGB-D based methods. We also recognize the power of other research areas, where inter-sensory information is used to enhance output quality. We hypothesize that there is information collected by the capturing system but is discarded too early in the reconstruction pipeline of a standard RGB-D system. We looked for methods that enable this information to be reintegrated into the results of the reconstruction at later processing steps. The solution was designed based on the alleged potential of iterative, cost-volume based joint bilateral filtering with sub-pixel accuracy in \citep{cvpr-07-qingxiong-yang}. \\
 
@@ -595,12 +644,11 @@ serves as the initial hypothesis of the depth information. In our implementation
 \begin{figure}[h!]\centering
     \begin{minipage}[b]{0.49\linewidth}
         \includegraphics[width=\textwidth]{/home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130725_1809/img8_00000001.png}
-        \caption{Input RGB from Microsoft Kinect camera}
     \end{minipage}
     \begin{minipage}[b]{0.49\linewidth}
         \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep8_00000001.png}
-		\caption{Input depth from Microsoft Kinect camera}
     \end{minipage}
+    \caption{Input RGB and depth from Microsoft Kinect camera}
     \label{fig:input}
 \end{figure}
 
@@ -608,13 +656,12 @@ serves as the initial hypothesis of the depth information. In our implementation
 \begin{figure}[h!]\centering
 	\begin{minipage}[b]{0.49\linewidth}
 		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000001.png}
-		\caption{No alignment}
 	\end{minipage}
 	\begin{minipage}[b]{0.49\linewidth}
 		\includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/dep16AndRgb_00000000.png}
-		\caption{"Built-in alignment" from OpenNI Middleware}
 	\end{minipage}
-	\label{fig:calib_built_int}
+	\caption{No alignment superposition and "Built-in alignment" from OpenNI Middleware}
+	\label{fig:calib_built_in}
 \end{figure}
 
 \par The calibration procedure was performed between "raw" images captured by the IR camera and the colour images captured by the RGB camera. Approximately 70 images of both sources were annotated for user-supported corner detection. The calibration images were taken with the structured light projector covered, since that introduces intolerable noise to the corner detection performed on the IR images. Therefore a space with plenty ambient IR lighting (sun light) had to be used for the calibration. The calibration images were taken at several distances to ensure coverage of the whole working volume. Different perpendicular and skew angles were recorded covering the whole, and several sub-parts of the view area. A real-time visual feedback loop was developed to ensure that the full checker-board pattern is visible on both images. Pixel re-projection errors below 0.5 pixels were targeted to reach "sub-pixel accuracy". An A3 format checker-board was the smallest size yielding good enough results (evaluated qualitatively). For future work even larger formats are suggested. The printing method should stretch the paper as little as possible, and the calibration pattern should be attached to a perfectly flat surface with extra caution to  perfect alignment to the surface.
@@ -623,15 +670,16 @@ serves as the initial hypothesis of the depth information. In our implementation
 
 
 \begin{figure}[h!]\centering
-    \begin{minipage}[b]{0.49\linewidth} \label{fig:ir}
+    \begin{minipage}[b]{0.49\linewidth} 
         \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/irAndDep8_00000001.png}
         \caption{Default IR and depth overlay. A suspected offset of 4 pixels was examined.}
+        \label{fig:ir}
     \end{minipage}
     \begin{minipage}[b]{0.49\linewidth}
         \includegraphics[width=\textwidth]{/media/Storage/Dropbox/UCL/project/results/presentation_300713/offsIrAndDep8_00000001.png}
         \caption{IR offset by radius of supposed convolution kernel. Some edges improve, some worsen.}
+            \label{fig:calib_ir_depth}
     \end{minipage}
-    \label{fig:calib_ir_depth}
 \end{figure}
 
 \par Using the \citep{calibration_bouguet} the intrinsic parameters were estimated of both lenses. The calibration includes parameters skew ($\gamma$), radial distortion up to the third-order ($k_1$,$k_2$,$k_3$) and tangential distortion up to second-order ($t_1$,$t_2$). The extrinsic relationship between the two cameras was established as well. The \mytilde 30 mm translation between the two cameras seemed to be plausible results. Skew was hardly detected in any of the cameras, but the third-order radial distortion was \mytilde 0.5 for both cameras. The final re-projection error for the RGB camera was in the 0.1 pixel magnitude, the IR intrinsic calibration resulted in re-projection errors of 0.3 pixels. Since the re-projection is subject to the errors of the corner detection as well, these results were considered successful. The final alignment after viewpoint mapping and lens distortion removal can be seen in \figref{fig:final_calib}.
@@ -647,23 +695,11 @@ serves as the initial hypothesis of the depth information. In our implementation
 \section{Implementation details}
 \label{sec:implementation_details}
 
-\par Besides a single core C++ implementation, a less optimised, GPU based parallel implementation was created using the NVIDIA's Thrust library. Since both of these kept the run times for a single frame in the hour magnitude at the resolution of 1280 x 1024, a more optimised CUDA implementation was also developed. This implementation brought down run-times to 8-15 minutes on 
+\par The solution implemented in C++, CUDA and GLSL was split into several libraries and projects connected, with cross-compilable CMake build configurations. Especially important for quick prototype development and testing was the Thrust implementation of the iterative, cost-volume based joint bilateral filter, that had to be replaced by an even more effective CUDA implementation. The viewpoint mapping algorithm was also implemented in CUDA to enable real-time testing and feedback. The Ubuntu operating system was used to benefit from the power of the open-source community.
 
-\subsection{Drivers}
-\subsection{Third-party libraries}
-simultaneous rgb and IR problems
-NVIDIA bilateralfiltering sample
-PCL
- pcl bilateral upsampling
- \citep{DCBGridStereo}
- 
-%https://github.com/jtbates/lua-kinect/blob/master/depth_to_point_cloud_par.cu
- OpenCV
- Eigen
- Thrust
- OpenNI, freeglut
- 
-Renderings made using \citep{Meshlab}.
+\par The Microsoft Kinect SDK and Kinect Fusion SDK, and the two unix based middleware frameworks libFreenect and \citep{openni} were tested, and the OpenNI 1.5 legacy middleware was selected to enable the quickest development with the highest level of service. Source code from NVIDIA CUDA Samples, PCL example projects, \citep{DCBGridStereo} and \citep{kinect_lua} were used.
+
+\par Additional common third-party libraries widely used in the project are: \citep{opencv} and \citep{libeigen}. Renderings shown in the figures in the document were made using \citep{Meshlab}.
 
 %%% CHAPTER 5 %%%
 \chapter{Experiments}
@@ -813,7 +849,7 @@ To make sure, that the above experiences are not due to a faulty implementation 
 \section{Results}
 \label{sec:discussion_results}
 
-\par A thorough investigation has been performed in \chpref{chp:experiments} to identify strengths and weaknesses of the designed system. Based on the evaluation we claim to have developed a proof-of-concept system that identifies major challenges arising during the solution of the targeted task. The initial hypothesis of existing discarded data can be regarded confirmed, since on all of the final output images in \secref{sec:results} we can see depth detail of granularity not observed in current 3D reconstruction algorithms. The level up to which the keyboard keys are  distinguishable in \figref{fig:keyboard2_192_final} is encouraging. However there is a very apparent problem of viewpoint dependency of the algorithm. In all resulting figures one can see, that the details are not put into the right depth, i.e. the keyboard keys are not elevated from the smooth surface, but partially sunk in. The problem becomes even more severe, when steep view-angles are observed as in \figref{fig:keyboard_192_final}. The fact, that the 3D depth data is mapped to the RGB image, and not the opposite can be attributed this effect. In future work, the possibilities of determining a decision logic, controlling whether the individual parts of the here shown up-sampled results should be integrated into the mesh. Another, possibly even more effective approach is to investigate, what conditions have to be fulfilled to be able to use the up-sampling algorithm from an ideal, normal directed viewpoint by taking the information conveyed in the new colour image into account through ray-casting it to the smooth mesh surface. Obviously the sparsity of the colour data would have to be one of the challenges to be targeted.
+\par A thorough investigation has been performed in \chpref{chp:validation} to identify strengths and weaknesses of the designed system. Based on the evaluation we claim to have developed a proof-of-concept system that identifies major challenges arising during the solution of the targeted task. The initial hypothesis of existing discarded data can be regarded confirmed, since on all of the final output images in \secref{sec:results} we can see depth detail of granularity not observed in current 3D reconstruction algorithms. The level up to which the keyboard keys are  distinguishable in \figref{fig:keyboard2_192_final} is encouraging. However there is a very apparent problem of viewpoint dependency of the algorithm. In all resulting figures one can see, that the details are not put into the right depth, i.e. the keyboard keys are not elevated from the smooth surface, but partially sunk in. The problem becomes even more severe, when steep view-angles are observed as in \figref{fig:keyboard_192_final}. The fact, that the 3D depth data is mapped to the RGB image, and not the opposite can be attributed this effect. In future work, the possibilities of determining a decision logic, controlling whether the individual parts of the here shown up-sampled results should be integrated into the mesh. Another, possibly even more effective approach is to investigate, what conditions have to be fulfilled to be able to use the up-sampling algorithm from an ideal, normal directed viewpoint by taking the information conveyed in the new colour image into account through ray-casting it to the smooth mesh surface. Obviously the sparsity of the colour data would have to be one of the challenges to be targeted.
 
 \par The decision about the possibility of rendering a virtual viewpoint and applying a newly acquired RGB image to enhance it's quality is not obvious. Although the calibration, smooth reconstruction and depth up-sampling steps of the pipeline have successfully been validated, the rendering and alignment of the new viewpoint has not. The problems are suspected to rely on two grounds. First, there are too many unknown factors for hold-one-out validation of the pose rendering. The calculation errors introduced by the changes of the intrinsic matrices due to aspect-ratio changing resolution transforms would have to be estimated using a more thorough approach. Second, the pose estimation accuracy of the Kinect Fusion algorithm is shown to be quite limited for the accurate needs of our pipeline. For example in \figref{fig:limit_kinfu_pose} one can see a reasonably well aligned depth and RGB image that come directly from the calibrated Kinect device. However, the virtual depth map and the RGB are misaligned, mostly along the y-axis. Since the aspect-ratio change due to resolution transformations happens along the x-axis, the Kinfu pose estimation is suspected to be the reason to the observed misalignment of the data. Additionally, the event-based, so called "triggered capture" nature of the middleware applied to the two fold difference in stream update speeds (15 FPS vs. 30 FPS) can also contribute to the pose estimation errors.
 
@@ -854,8 +890,8 @@ To make sure, that the above experiences are not due to a faulty implementation 
 	\begin{minipage}[b]{0.49\linewidth}
 		\includegraphics[width=\textwidth]{/home/bontius/workspace_local/long640_20130829_1525_200_400/results/really_correct_intr/kinfu_depth_138_blended.png}
 		\caption{Misaligned KinFu pose estimation. The same parameters are used for the virtual viewpoint alignment.}
+		\label{fig:limit_kinfu_pose}
 	\end{minipage}
-	\label{fig:limit_kinfu_pose}
 \end{figure}
 
 This project has problems with the limitations introduced by the quality of the RGB camera as shown in \figref{fig:kinect_rgb_zoom}. This is only a practical limitation though, since the theoretical enables the application of high quality SLR cameras for refinement.
@@ -1043,5 +1079,3 @@ It is claimed by \citep{guided_filter}, that cross-bilateral filtering introduce
 %}
 %
 %\end{lstlisting}
-
-

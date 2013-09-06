@@ -221,8 +221,8 @@ doi={10.1109/ICCPHOT.2010.5585097},}
 }
 
 @MISC{AdobeCatch,
-	Title = {{A}dobe {C}atch},
-	Howpublished = {\url{http://www.123dapp.com/}},
+	key = {{A}dobe {C}atch},
+	url = {http://www.123dapp.com/},
 	Year = {2011},
 	note = {[Online; accessed 21 March 2013]}
 }
@@ -270,8 +270,8 @@ doi={10.1109/ICCPHOT.2010.5585097},}
 }
 
 @MISC{SDKKinectFusion,
-	Title = {Kinect for Windows BLOG},
-	Howpublished = {\url{http://blogs.msdn.com/b/kinectforwindows/archive/2012/11/05/kinect-fusion-coming-to-kinect-for-windows.aspx}},
+	key = {Kinect for Windows BLOG},
+url  = {http://blogs.msdn.com/b/kinectforwindows/archive/2012/11/05/kinect-fusion-coming-to-kinect-for-windows.aspx},
 	year = {November 2012},
 	note = {[Online; accessed 21 March 2013]}
 }
@@ -290,7 +290,7 @@ doi={10.1109/ICCPHOT.2010.5585097},}
 }
 
 @MISC{PCL,
-	Title = {Point {C}loud {L}ibrary},
+	key = {Point {C}loud {L}ibrary},
 	URL = {http://www.pointclouds.org/},
 	note = {Accessed March 2013}
 }
@@ -457,7 +457,7 @@ ISSN={1063-6919},}
    author              = {Daniel Scharstein and 
                           Richard Szeliski},
    title               = {A Taxonomy and Evaluation of Dense Two-Frame Stereo Correspondence Algorithms.},
-   journal             = {International Journal of Computer Vision},
+   booktitle = {International Journal of Computer Vision},
    year                = {2002},
    pages               = {7-42},
    ee                  = {http://dx.doi.org/10.1023/A:1014573219977},
@@ -645,10 +645,7 @@ ISSN={1063-6919},}
                           Matthias Hochgatterer},
    title               = {Measuring Distance with Mobile Phones Using Single-Camera Stereo Vision.},
    booktitle           = {ICDCS Workshops},
-   year                = {2012},
-   pages               = {88-93},
-   ee                  = {http://doi.ieeecomputersociety.org/10.1109/ICDCSW.2012.22},
-   crossref            = {2012},
+   year                = {2012}
 }
 
 %% specular
@@ -722,21 +719,21 @@ ISSN={1063-6919},}
 @inproceedings{monoslam,
 	author = { A. J. Davison },
 	title = {Real-time simultaneous localisation and mapping with a single camera},
-	journal = { Proceedings of the International Conference on Computer Vision (ICCV)},
+	booktitle = { Proceedings of the International Conference on Computer Vision (ICCV)},
 	year = {2003}
 }
 
 @inproceedings{PTAM,
 	author = {G. Klein and D. W. Murray},
 	title = {Parallel tracking and mapping for small {A}{R} workspaces},
-	journal = {Proceedings of the International Symposium on Mixed and Augmented Reality (ISMAR)},
+	booktitle = {Proceedings of the International Symposium on Mixed and Augmented Reality (ISMAR)},
 	year = {2007}
 }
 
 @inproceedings{DTAM,
-	author = { R. A. Newcombe, S. J. Lovegrove, and A. J. Davison},
+	author = { R. A. Newcombe and S. J. Lovegrove and A. J. Davison},
 	title = { D{T}{A}{M}: Dense tracking and mapping in real-time},
-	journal =  { Proceedings of the International Conference on Computer Vision (ICCV)},
+	booktitle =  { Proceedings of the International Conference on Computer Vision (ICCV)},
 	year = {2011}
 }
 
@@ -778,7 +775,7 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
 }
 
 @MISC{MGL,
-	title = {Maps{GL} by Google},
+	key = {Maps{GL} by Google},
 	howpublished = {\url{http://www.chromeexperiments.com/detail/mapsgl}},
 	year = {Accessed March 2013}
 }
@@ -820,9 +817,7 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
                           Lourdes de Agapito},
    title               = {Dense multibody motion estimation and reconstruction from a handheld camera.},
    booktitle           = {ISMAR},
-   year                = {2012},
-   pages               = {31-40},
-   ee                  = {http://doi.ieeecomputersociety.org/10.1109/ISMAR.2012.6402535},
+   year                = {2012}
 }
 
 @inproceedings{RussellFA12,
@@ -832,10 +827,7 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
                           Lourdes de Agapito},
    title               = {Dense Non-rigid Structure from Motion.},
    booktitle           = {3DIMPVT},
-   year                = {2012},
-   pages               = {509-516},
-   ee                  = {http://doi.ieeecomputersociety.org/10.1109/3DIMPVT.2012.70},
-   crossref            = {2012},
+   year                = {2012}
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Thesis
@@ -926,6 +918,17 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
 	note = {Accessed September 2013}
 }
 
+@misc{opencv,
+	key  = {Intel's OpenCV},
+	url = {http://opencv.willowgarage.com},
+	note = {Accessed September 2013}
+}
+
+@misc{openni,
+	key  = {OpenNI Middleware},
+	url = {http://www.openni.org/},
+	note = {Accessed September 2013}
+}
 % 4step calibration
 @inproceedings{Heikkila:1997,
  author = {Heikkila, Janne and Silven, Olli},
@@ -1035,7 +1038,7 @@ bibdate =       "Mon Jun 30 16:53:39  2008"
 @inproceedings{RGBZcamera,
   author    = {Christian Richardt and Carsten Stoll and Neil A. Dodgson and Hans-Peter Seidel and Christian Theobalt},
   title     = {Coherent Spatio\-temporal Filtering, Upsampling and Rendering of {RGBZ} Videos},
-  journal   = {Computer Graphics Forum (Proceedings of Eurographics)},
+ booktitle = {Computer Graphics Forum (Proceedings of Eurographics)},
   year      = {2012},
   month     = {May} 
 }
@@ -1119,5 +1122,37 @@ year = {2012}
  author = {Buehler, Chris and Bosse, Michael and McMillan, Leonard and Gortler, Steven and Cohen, Michael},
  title = {Unstructured lumigraph rendering},
  booktitle = {Proceedings of the 28th annual conference on Computer graphics and interactive techniques},
- series = {SIGGRAPH '01}
+ series = {SIGGRAPH '01},
+ year = 2001
 } 
+
+@inproceedings{Durand:2002,
+ author = {Durand, Fr{\'e}do and Dorsey, Julie},
+ title = {Fast bilateral filtering for the display of high-dynamic-range images},
+ booktitle = {Proceedings of the 29th annual conference on Computer graphics and interactive techniques},
+ series = {SIGGRAPH '02},
+ year = {2002}
+} 
+
+@article{Paris:2009,
+ author = {Paris, Sylvain and Durand, Fr{\'e}do},
+ title = {A Fast Approximation of the Bilateral Filter Using a Signal Processing Approach},
+ journal = {Int. J. Comput. Vision},
+ issue_date = {January   2009},
+ month = jan,
+ year = {2009}
+}
+
+@inproceedings{TUW-218846,
+    author = {Hornacek, Michael and Rhemann, Christoph and Gelautz, Margrit and Rother, Carsten},
+    title = {Depth Super Resolution by Rigid Body Self-Similarity in 3D},
+    booktitle = {IEEE Computer Vision and Pattern Recognition},
+    year = {2013},
+    note = {invited; talk: IEEE Conference on Computer Vision and Pattern Recognition (CVPR) 2013, Portland, Oregon, USA; 2013-07-23 -- 2013-07-28}
+}
+
+@misc{libeigen,
+	key = {{Eigen library}},
+	url = {http://eigen.tuxfamily.org/},
+	note = {Accessed Septemer 2013}
+}	
