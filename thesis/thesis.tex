@@ -156,7 +156,7 @@ Depth sr bevezetes
 
 \section{Multi view stereo}
 \label{sec:mvs}
-Spatioangular lightfields, disney: \citep{Kim:2013}
+Spatioangular lightfields, coarse-to-fine approach, denser reconstruction disney: \citep{Kim:2013}
 
 \section{Calibration}
 \label{sec:lit_calib}
@@ -270,17 +270,7 @@ Initial works \citep{Melen:1994}, \citep{Weng:1992} use the combination of linea
     \label{eq:distortion}
 \end{figure}
 
-The achievements of the toolbox were further developed in Intel's \citep{calibration_opencv} package . Additionally, the Graphics and Media Lab of the Lomonosov Moscow State University published a C++ and Matlab calibration toolbox known as \citep{calibration_gml}.
-\citep{calibration_rgbdemo}
-
-herrera 13
-
-
-%http://burrus.name/index.php/Research/KinectCalibration
-%vrui
-%ros http://wiki.ros.org/kinect\_node/Calibration
-%ellipses
-
+The achievements of the toolbox were further developed in Intel's \citep{calibration_opencv} package. Additionally, the Graphics and Media Lab of the Lomonosov Moscow State University published a C++ and Matlab calibration toolbox known as \citep{calibration_gml}. Other projects use the \citep{calibration_rgbdemo} package for calibration. Modeling of the noise characteristics of the range camera allows even more accurate calibration presented by \citep{calibration_herrera}. Further improvements using additional prior knowledge is presented in \citep{Herrera:LearnedJointMRF}.
 
 
 \section{Super-resolution}
@@ -877,35 +867,25 @@ This project has problems with the limitations introduced by the quality of the 
 \end{figure}
 
 \par The strengths and weaknesses of the chosen and applied depth super-resolution technique introduced by \citep{cvpr-07-qingxiong-yang} have been well demonstrated in \secref{sec:results}. Its largely dependent on the alignment of its input images and is sensitive to non-geometric texturing. The latter has most noticeable impact observable around the sticker on the computer in \figref{fig:keyboard2_192_final}, or by the checker-board pattern in  \figref{fig:yang_checkerboard}. The method also requires fixed and hand-tuned parameters that allows limited adaptation to the data. The used parameters of the cross-bilateral filtering method were selected by creating a real-time visual feedback tool with the appropriate trackbars. This is not suitable for frame-by-frame usage, especially since the filtering is applied to the cost volumes and not the visual input frames. A limitation conveying large impact on our solution is the fact, that the filtering approach does not introduce new depth levels, as verified by experiment.
-It is claimed by \citep{guided_filter}, that cross-bilateral filtering introduces an unwanted edge inversion effect. The direction of a more state-of-the art filtering technique using hybrid Euclidean-geodesic filters introduced by \citep{Gastal:2012} is to be explored.
+It is claimed by \citep{guided_filter}, that cross-bilateral filtering introduces an unwanted edge inversion effect, this effect is slightly observable in our output images. The direction of a more state-of-the art filtering technique using hybrid Euclidean-geodesic filters introduced by \citep{Gastal:2012} is to be explored.
     
 \section{Future work}
 \label{sec:future_work}
 
-- Using segmentation \citep{Silberman:ECCV12} \\
-- Occlusion \citep{Hoiem:2011} \\
-- Learning based alignment and depth \citep{Herrera:LearnedJointMRF} \\
-- put back into mesh (loookup papers!)
-- geom processing papers from PCL surface package
+\par The experiences collected along the {\it Chapters \ref{chp:validation} and \ref{chp:discussion}} allow us to identify the most critical points of the algorithm needing improvement to continue with. The simulated and missing parts of the planned pipeline has to be solved. 
 
-This concept fits well into the idea of using a smartphone as sensor in terms of storage space even when recordings of movement sensors' measurements are made. It also fits the concept of an eventual crowd sourcing follow-up project. 
+\par The calculation of the actual position of the virtual viewpoint of a new acquisition was simulated during this project. Bundle adjustment implemented in \citep{SnavelySS06} or \citep{vsfm} can be used to align the new RGB data with the available snapshots from the Kinect stream. The new sparse and stored dense reconstruction model can than be aligned by an ICP type algorithm, so that the estimated new camera pose can be transformed between the two coordinate systems.
 
-future work: I advocate Yang for the following reasons, or I discourage, since...or in some situations this, than that \\
-Kinect \\
-Yang \\
-Grid recordings of monitor\\
+\par In terms of innovation, the possibilities of determining a decision logic that controls whether the individual parts of the here shown, up-sampled results should be integrated into the mesh. The task of selection of the best viewpoint for a given 3D point and a set of existing camera poses points beyond greedy approaches of minimising distance and maximising normal angle. Ideas along the lines of \citep{Buehler:2001} and \citep{keller13realtime} have to be explored. Preceding work i.e. in \citep{Hoiem:2011} has been performed to handle the problems around occluded regions.
+\par Another, possibly even more effective approach is to investigate, what conditions have to be fulfilled to be able to use the up-sampling algorithm from an ideal, normal directed viewpoint by taking the information conveyed in the new colour image into account through ray-casting it to the smooth mesh surface.
 
-    - zoom lense: \citep{Kinect_nyko_zoom}
-In future work, the \citep{Kinect_nyko_zoom} might provide possibility to zoom in futher on the scene and acquire more accurate depth data about fine details, meanwhile the distortion effect of the additional lens has to be evaluated.
+\par As identified earlier, intelligent alignment of the new recordings and the existing surface representation has to be performed in order to implement the simulated part of our pipeline. Ideas presented by \citep{Herrera:LearnedJointMRF} are to be investigated. The area of merging the up-sampled and selected depth details with the original model has to be solved using the knowledge of the geometry processing community.
 
-- kinfu update weight experiments
--Yang params by training
+\par Although the filtering technique applied provided promising results in terms of granularity of details. However the difficulties arising due to the characteristics of the approach and proposed solutions for earlier in this section might indicate, that better filtering approaches, or other up-sampling methods have to replace the currently used technique. \\
 
-- tsdf ray-casting instead of mesh
+\par With the development of the domain of multi-view stereo the quality of surface reconstructions achieved might reach the point, where the basis of the solution can be exchanged for an even more commonly accessible recording device in form of a smartphone, or possibly a smartphone with a 3D camera. By moving the computation to the cloud, a  crowd sourcing based follow-up project can target the reconstruction of large scale, public areas. A solution highly suitable for the purposes of cultural heritage preservation.
 
-\par The calculation of the actual position of the virtual viewpoint is detailed in the future work section \secref{sec:future_work}. Bundle adjustment implemented in \citep{SnavelySS06} or \citep{vsfm} can be used to align the new RGB data with the available snapshots from the Kinect stream. The new sparse and stored dense reconstruction model can than be aligned, so that the estimated new camera pose can be transformed between the two coordinate systems.
 
- In future work, the possibilities of determining a decision logic, controlling whether the individual parts of the here shown up-sampled results should be integrated into the mesh. Another, possibly even more effective approach is to investigate, what conditions have to be fulfilled to be able to use the up-sampling algorithm from an ideal, normal directed viewpoint by taking the information conveyed in the new colour image into account through ray-casting it to the smooth mesh surface.
 
 
 %\section{System plan}
@@ -1000,16 +980,13 @@ In future work, the \citep{Kinect_nyko_zoom} might provide possibility to zoom i
 %		\item Enhancement by best pose selection from input image collection for given pixel/region
 %	\end{itemize}
  
-
-\citep{Lowe04}
-
 %\bibliographystyle{plainnat}
 \bibliography{litrev}
 	
 \end{document}
 
 
-\lstset{style=customcpp}
+% \lstset{style=customcpp}
 %\begin{lstlisting}
 %__device__ float yangRangeDist( float4 a, float4 b, float sigma )
 %{
