@@ -1,0 +1,43 @@
+digraph asdf{
+	rankdir=LR;
+	node [shape = box];
+	ranksep=0.3;
+	
+	subgraph cluster1 {
+		rankdir=TB;
+		D -> vpu;
+		RGB -> u;
+
+		//Kinect [label = "Kinect"];
+		vpu [label = "Viewpoint change \n+ Undistort"];
+		label="N frames";
+		labelloc=top;
+		labeljust=right;
+		
+	};
+
+{ rank=same;
+rgb;
+vd;
+pose_est;
+}
+	vpu -> kinfu;
+	u -> kinfu;
+	model -> pose_est[color=gray];
+	rgb -> pose_est [color=gray];
+	model -> vd;
+	pose_est -> vd [color=gray];
+	pose_est ->yang [style=invisible,arrowhead=none];
+	vd -> yang;
+	rgb -> yang;
+	yang -> model [color=gray, label="enhance mesh",fontcolor=gray];
+	kinfu -> model;
+
+	kinfu [label = "Modified\nKinect\nFusion",shape=box];
+	model [label = "Reconstructed\nmodel"];
+	pose_est [label = "Pose\nestimation",shape=box, color=gray,fontcolor=gray];
+	rgb [label="New RGB\nacquisition",shape=box, rank=same];
+	yang [label ="Depth\nsuper-resolution",shape=box, rank=2];
+	vd [ label = "Rendering from\nvirtual viewpoint",shape=box ];
+	u [ label = "Undistort"];
+}
