@@ -1,5 +1,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include <helper_functions.h>  // CUDA SDK Helper functions
 
@@ -7,6 +8,7 @@
 #include "BilateralFilterCuda.hpp"
 #include "MyThrustUtil.h"
 #include "YangFiltering.h"
+#include "AMUtil2.h"
 
 void blend( cv::Mat &blendedUC3, cv::Mat const& dep, float depMax, cv::Mat const& rgb, float rgbMax = 255.f )
 {
@@ -136,6 +138,8 @@ int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& rgb8 )
         cv::resize( mapped16, mapped16x2, mapped16.size() * 2, 0, 0, CV_INTER_NN );
         blend( blendedUndistortedUC3, mapped16x2, 10001.f, undistortedRgb, 255.f );
         cv::imshow( "blendedUndistortedUC3x2", blendedUndistortedUC3 );
+
+        am::util::cv::writePNG( "blendedUndistortedUC3x2.png", blendedUndistortedUC3 );
     }
 
 
@@ -392,14 +396,62 @@ int testThrust( cv::Mat const& img16, cv::Mat const& guide )
 }
 #endif
 
+int testDepthEdge( cv::Mat const& depth, cv::Mat const& rgb )
+{
+    if ( depth.empty() ) { std::cerr << "depth is EMPTY" << std::endl; return EXIT_FAILURE; }
+    if ( rgb  .empty() ) { std::cerr << "rgb is EMPTY"   << std::endl; return EXIT_FAILURE; }
+
+    cv::imshow( "depth", depth );
+    cv::imshow( "rgb"  , rgb   );
+
+    if ( depth.type() != CV_32FC1 ) { std::cerr << "testDepthEdge(): depth not float..." << std::endl; return EXIT_FAILURE; }
+
+        //cv::Mat depthU8;
+    //depth.convertTo( depthU8, CV_8UC1, 255.f / 10001.f );
+
+    //cv::Mat d2;
+    //cv::resize( depth, d2, rgb.size(), 0, 0, cv::INTER_LINEAR );
+
+
+
+    cv::Mat edgesX, edgesY, edges;
+    cv::Sobel( depth, edgesX, CV_32FC1, 1, 0 );
+    cv::Sobel( depth, edgesY, CV_32FC1, 0, 1 );
+    cv::addWeighted( edgesX, 127.5f/10001.f, edgesY, 127.5f/10001.f, 0, edges );
+    cv::imshow( "edges", edges );
+
+    //cv::Mat rgb8_960;
+    //cv::resize( rgb, large_rgb8, depth.size(), 0, 0, CV_INTER_NN );
+    //ViewPointMapperCuda::undistortRgb( rgb8_960, rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+
+    //cv::Mat edges2;
+
+//    cv::imshow( "rgb8_960", rgb8_960 );
+
+
+    cv::Mat blended;
+    am::util::cv::blend( blended, edges, 1.f, rgb );
+    cv::imshow( "blended", blended );
+
+
+
+    //cv::Mat blended;
+    //am::util::cv::blend( blended, depth, 10001.f, rgb );
+    //cv::imshow( "blended", blended );
+
+    char c = 0;
+    while ( (c = cv::waitKey()) != 27 ) ;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
-int main(int argc, char **argv)
+int main( int argc, char **argv )
 {
     // --in /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/dep16_00000000.pgm --guide /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/img8_00000000.png
     // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d16.png --guide /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/16.png
+    // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/kinfu_depth_110.pfm --guide /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/16.png
     char *image_path = NULL;
     char *guide_path = NULL;
     cv::Mat img16, guide;
@@ -407,9 +459,9 @@ int main(int argc, char **argv)
     // image name
     if (checkCmdLineFlag(argc, (const char **)argv, "in"))
     {
-        getCmdLineArgumentString(argc, (const char **)argv, "in", &image_path );
-        img16 = cv::imread( image_path, cv::IMREAD_UNCHANGED );
-
+        getCmdLineArgumentString( argc, (const char **)argv, "in", &image_path );
+        //img16 = cv::imread( image_path, cv::IMREAD_UNCHANGED );
+        am::util::cv::imread( img16, image_path );
     }
     else
     {
@@ -421,7 +473,8 @@ int main(int argc, char **argv)
     if (checkCmdLineFlag(argc, (const char **)argv, "guide"))
     {
         getCmdLineArgumentString(argc, (const char **)argv, "guide", &guide_path );
-        guide = cv::imread( guide_path, cv::IMREAD_UNCHANGED );
+        //guide = cv::imread( guide_path, cv::IMREAD_UNCHANGED );
+        am::util::cv::imread( guide, guide_path );
     }
     else
     {
@@ -430,7 +483,9 @@ int main(int argc, char **argv)
     }
 
     //return testThrust(img16,guide);
-    return testYang( img16, guide );
+    //return testYang( img16, guide );
+    return testDepthEdge( img16, guide );
+
 #if 1 // VIEWPOINTMAPPING
     return testViewpointMapping( img16, guide );
 #elif 1 // BilateralFiltering

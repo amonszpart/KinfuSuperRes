@@ -6,6 +6,7 @@
 #include "MeshRayCaster.h"
 #include "AmPclUtil.h"
 #include "MaUtil.h"
+#include "AMUtil2.h"
 
 #include <pcl/io/ply_io.h>
 #include <pcl/io/vtk_lib_io.h>
@@ -45,10 +46,10 @@ namespace am
                               + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "")
                               + ".ply";
         std::string outSubdivName = outDir
-                              + "/" + polygonPath.stem().string()
-                              + "_subdiv"
-                              + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "")
-                              + ".ply";
+                                    + "/" + polygonPath.stem().string()
+                                    + "_subdiv"
+                                    + ((img_id > -1) ? ("_" + boost::lexical_cast<std::string>(img_id)) : "")
+                                    + ".ply";
 
 
 
@@ -75,8 +76,8 @@ namespace am
         //am::TriangleRenderer triangleRenderer;
         std::vector<cv::Mat> depths, indices;
         am::TriangleRenderer::Instance().renderDepthAndIndices( /* out: */ depths, indices,
-                                                /*  in: */ cols, rows, intrinsics_, pose, mesh,
-                                                /* depths[0] scale: */ 1.f );
+                                                                /*  in: */ cols, rows, intrinsics_, pose, mesh,
+                                                                /* depths[0] scale: */ 1.f );
         depths[0].copyTo( zBufMat );
         float zMax = 10.1f;
 
@@ -173,16 +174,16 @@ namespace am
 #else
             //meshRayCaster.enhanceMesh2( enhancedMeshPtr, filtered, mesh, pose, depths, indices );
             {
-                   double minVal, maxVal;
-                   cv::minMaxIdx( zBufMat, &minVal, &maxVal );
-                   std::cout << "minVal(zBufMat): " << minVal << ", "
-                             << "maxVal(zBufMat): " << maxVal << std::endl;
+                double minVal, maxVal;
+                cv::minMaxIdx( zBufMat, &minVal, &maxVal );
+                std::cout << "minVal(zBufMat): " << minVal << ", "
+                          << "maxVal(zBufMat): " << maxVal << std::endl;
             }
             {
-                   double minVal, maxVal;
-                   cv::minMaxIdx( filtered, &minVal, &maxVal );
-                   std::cout << "minVal(filtered): " << minVal << ", "
-                             << "maxVal(filtered): " << maxVal << std::endl;
+                double minVal, maxVal;
+                cv::minMaxIdx( filtered, &minVal, &maxVal );
+                std::cout << "minVal(filtered): " << minVal << ", "
+                          << "maxVal(filtered): " << maxVal << std::endl;
             }
             meshRayCaster.enhanceMesh2( enhancedMeshPtr, filtered, mesh, pose, depths, indices );
 #endif
@@ -208,6 +209,26 @@ namespace am
         system( ("meshlab " + outName + " &").c_str() );
 
         std::cout << "UpScaling::run(): FINISHED..." << std::endl;
+    }
+
+    int
+    UpScaling::depthEdgeBlend( /* out: */ cv::Mat &blended, /*  in: */ cv::Mat const& depth, cv::Mat const& rgb, float dmax )
+    {
+        if ( depth.empty() ) { std::cerr << "depth is EMPTY" << std::endl; return EXIT_FAILURE; }
+        if ( rgb  .empty() ) { std::cerr << "rgb is EMPTY"   << std::endl; return EXIT_FAILURE; }
+
+        if ( depth.type() != CV_32FC1 ) { std::cerr << "testDepthEdge(): depth not float..." << std::endl; return EXIT_FAILURE; }
+
+        cv::Mat edgesX, edgesY, edges;
+        cv::Sobel( depth, edgesX, CV_32FC1, 1, 0 );
+        cv::Sobel( depth, edgesY, CV_32FC1, 0, 1 );
+        cv::addWeighted( edgesX, 127.5f/10001.f, edgesY, 127.5f/10001.f, 0, edges );
+
+        //cv::Mat rgb8_960;
+        //cv::resize( rgb, large_rgb8, depth.size(), 0, 0, CV_INTER_NN );
+        //ViewPointMapperCuda::undistortRgb( rgb8_960, rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+
+        am::util::cv::blend( blended, edges, 1.f, rgb );
     }
 
 } // end ns am

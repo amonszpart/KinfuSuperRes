@@ -141,6 +141,40 @@ namespace am
                 return ret;
             }
 
+            int
+            writePNG( std::string title, ::cv::Mat const& mat )
+            {
+                std::vector<int> params(2);
+                params[0] = 16; params[1] = 0;
+                ::cv::imwrite( title.c_str(), mat, params );
+
+                return EXIT_SUCCESS;
+            }
+
+            int
+            blend( ::cv::Mat &blendedUC3, ::cv::Mat const& dep, float depMax, ::cv::Mat const& rgb, float rgbMax )
+            {
+                ::cv::Mat depFC1_1;
+                dep.convertTo( depFC1_1, CV_32FC1, 1.f / depMax );
+
+                std::vector< ::cv::Mat> depFC1Vector;
+                depFC1Vector.push_back( depFC1_1 );
+                depFC1Vector.push_back( depFC1_1 );
+                depFC1Vector.push_back( depFC1_1 );
+                ::cv::Mat depFC1_3;
+                ::cv::merge( depFC1Vector.data(), 3, depFC1_3 );
+
+                ::cv::Mat rgbFC1;
+                rgb.convertTo( rgbFC1, CV_32FC1, 1.f / rgbMax );
+
+                ::cv::Mat blendedFC1( depFC1_3.rows, depFC1_3.cols, CV_32FC1 );
+                ::cv::addWeighted( rgbFC1  , 0.5,
+                                   depFC1_3, 0.7,
+                                   0.0, blendedFC1, CV_32FC1 );
+                blendedFC1.convertTo( blendedUC3, CV_8UC3, 255.f );
+
+                return EXIT_SUCCESS;
+            }
         }
 
     } // end ns util

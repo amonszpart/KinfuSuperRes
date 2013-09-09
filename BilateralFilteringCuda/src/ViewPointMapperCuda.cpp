@@ -204,6 +204,16 @@ void ViewPointMapperCuda::getIntrinsics( cv::Mat &intrinsics, cv::Mat &distortio
     std::cout << "intr: " << intrinsics << std::endl;
 }
 
+void ViewPointMapperCuda::getIntrinsics( Eigen::Matrix3f &intrinsics, cv::Mat &distortion_coeffs, INTRINSICS_CAMERA_ID camera, am::viewpoint_mapping::INTRINSICS_SCALE scale )
+{
+    cv::Mat intr;
+    getIntrinsics( intr, distortion_coeffs, camera, scale );
+
+    for ( int j = 0; j < 3; ++j )
+        for ( int i = 0; i < 3; ++i )
+            intrinsics( j, i ) = intr.at<float>( j, i );
+}
+
 
 /// returns a float2 matrix of normalised 3D coordinates without the homogeneous part
 extern void cam2World( GpuDepthMap<float> &out, int w, int h,

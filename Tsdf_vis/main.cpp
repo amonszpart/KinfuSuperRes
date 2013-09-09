@@ -269,7 +269,7 @@ int main( int argc, char** argv )
     ViewPointMapperCuda::getIntrinsics( intr_rgb, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960 );
     for ( int j = 0; j < 3; ++j )
         for ( int i = 0; i < 3; ++i )
-            intrinsics(j,i) =intr_rgb.at<float>(j,i);
+            intrinsics(j,i) =intr_rgb.at<float>( j, i );
     std::cout << "main intrinsics: " << intrinsics << std::endl;
 
     //// RENDER /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -365,8 +365,7 @@ int main( int argc, char** argv )
             mesh_name = (p.parent_path() / p.stem()).string()
                                             + "_polymesh_colour.ply";
 
-            std::cout << "saving " << mesh_name;
-            pcl::io::savePolygonFilePLY( mesh_name, *polyMeshPtr );
+            std::cout << "saving " << mesh_name; pcl::io::savePolygonFilePLY( mesh_name, *polyMeshPtr );
             std::cout << "...OK" << std::endl;
         }
         return EXIT_SUCCESS;
@@ -520,13 +519,24 @@ int main( int argc, char** argv )
         else std::cerr << "can't read poses" << std::endl;
     }
 
+
     //// ALL-KINECT-POSES //////////////////////////////////////////////////////////////////////////////////////////////////
     if ( pcl::console::find_switch(argc, argv, "--all-kinect-poses") )
     {
-        int rows = 960, cols = 1280;
+        // ./tsdf_vis --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --all-kinect-poses --pose_id 110
+        int pose_id = -1;
+        pcl::console::parse_argument (argc, argv, "--pose_id", pose_id );
+
+        int rows = 1024, cols = 1280;
         pcl::console::parse_argument(argc, argv, "--rows", rows );
         pcl::console::parse_argument(argc, argv, "--cols", cols );
         std::cout << "running --all-kinect-poses with size: " << rows << "x" << cols << std::endl;
+
+        Eigen::Matrix3f local_intrinsics;
+             if ( rows > 960 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+        else if ( rows > 480 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960  );
+        else                   ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_640_480   );
+        std::cout << "All-Kinect-Poses intrinsics: " << local_intrinsics;
 
         pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
         pcl::io::loadPolygonFile( inputFilePath, *meshPtr );
@@ -539,6 +549,8 @@ int main( int argc, char** argv )
 
         for ( auto it = poses.begin(); it != poses.end(); ++it )
         {
+            if ( (pose_id > 0 ) && (pose_id != it->first) ) continue;
+
             Eigen::Affine3f &pose = it->second;
             triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
                                                     /*  in: */ cols, rows, intrinsics, pose, meshPtr,
@@ -562,6 +574,21 @@ int main( int argc, char** argv )
             am::util::cv::unsignedIntToFloat( indices2F, indices[2] );
             sprintf( fname, "flat_faceids_kinfu_%d.pfm", it->first );
             am::util::savePFM( indices2F, outPath.string() + "/" + fname );
+
+            for ( int curr_pose_id = it->first - 1; curr_pose_id < it->first + 1; ++curr_pose_id )
+            {
+                std::string str_pose_id = boost::lexical_cast<std::string>( curr_pose_id );
+                cv::Mat rgb;
+                am::util::cv::imread( rgb, (the_path / "poses").string() + str_pose_id + ".png" );
+                if ( rgb.empty() ) continue;
+
+                cv::Mat edgeBlended;
+                am::UpScaling::depthEdgeBlend( edgeBlended, depths[0], rgb );
+                am::util::cv::writePNG( outPath.string() + "/" + "edgeblend"
+                                        + "_d" + boost::lexical_cast<std::string>( it->first )
+                                        + "_r" + str_pose_id +
+                                        ".png", edgeBlended );
+            }
 
         }
         return 0;

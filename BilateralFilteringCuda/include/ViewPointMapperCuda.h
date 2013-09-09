@@ -2,6 +2,7 @@
 #define VIEWPOINTMAPPERCUDA_H
 
 #include <opencv2/core/core.hpp>
+#include <eigen3/Eigen/Dense>
 
 enum INTRINSICS_CAMERA_ID
 {
@@ -47,6 +48,7 @@ class ViewPointMapperCuda
 
         static void getIntrinsics( std::vector<float>& intrinsics, std::vector<float>& distortion_coeffs, INTRINSICS_CAMERA_ID camera );
         static void getIntrinsics( cv::Mat &intrinsics, cv::Mat &distortion_coeffs, INTRINSICS_CAMERA_ID camera, am::viewpoint_mapping::INTRINSICS_SCALE scale );
+        static void getIntrinsics( Eigen::Matrix3f &intrinsics, cv::Mat &distortion_coeffs, INTRINSICS_CAMERA_ID camera, am::viewpoint_mapping::INTRINSICS_SCALE scale );
 };
 
 #endif // VIEWPOINTMAPPERCUDA_H
