@@ -135,7 +135,7 @@ namespace am
 {
     namespace util
     {
-        void blend( cv::Mat &blendedUC3, cv::Mat const& dep, float depMax, cv::Mat const& rgb, float rgbMax = 255.f );
+        void blend( ::cv::Mat &blendedUC3, ::cv::Mat const& dep, float depMax, ::cv::Mat const& rgb, float rgbMax = 255.f );
     } // end ns util
 } // end ns am
 

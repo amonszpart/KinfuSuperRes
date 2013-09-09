@@ -93,7 +93,7 @@ namespace am
         kinfu_.setIcpCorespFilteringParams (0.1f/*meters*/, sin ( pcl::deg2rad(20.f) ));
         //kinfu_.setDepthTruncationForICP(5.f/*meters*/);
         kinfu_.setCameraMovementThreshold(0.001f);
-        kinfu_.setDepthIntrinsics( 521.7401, 522.1379, 323.4402, 258.1387 ); // aron
+        kinfu_.setDepthIntrinsics( 523.048350f, 523.037845f, 319.313152f, 258.347998f ); // aron
 
         if (!icp)
             kinfu_.disableIcp();
@@ -447,6 +447,7 @@ namespace am
             }
 
             // map viewpoint
+            if ( mapped )
             {
                 mapped_depth.resize( depth_arg.cols * depth_arg.rows );
                 ViewPointMapperCuda::runViewpointMapping( /*   in_data: */ depth_arg.data,

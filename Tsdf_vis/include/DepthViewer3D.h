@@ -187,7 +187,7 @@ namespace am
                 cloudPtr->points.push_back( point );
 
                 // faces
-                if ( (pFaces) && (y+1 < dep.rows) )
+                if ( (pFaces) && ((float)dep.at<depT>( y,x ) > 0.f) && (y+1 < dep.rows) )
                 {
                     if ( x > 0 ) // left face
                     {

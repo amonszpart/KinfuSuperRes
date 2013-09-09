@@ -121,6 +121,36 @@ void ViewPointMapperCuda::undistortRgb( cv::Mat &undistortedRgb,
     newIntrinsics.at<float>( 0,1 ) = 0.f; // no skew please
 
     cv::undistort( rgb, undistortedRgb, intr_rgb, distr_rgb, newIntrinsics );
+
+    if ( out_scale != in_scale )
+    {
+        cv::Mat tmp;
+        undistortedRgb.copyTo( tmp );
+        int startx = intr_rgb.at<float>(0,2) - newIntrinsics.at<float>(0,2);
+        int starty = intr_rgb.at<float>(1,2) - newIntrinsics.at<float>(1,2);
+
+        int newWidth, newHeight;
+        switch( out_scale )
+        {
+            case am::viewpoint_mapping::INTR_RGB_640_480:
+                newWidth = 640;
+                newHeight = 480;
+                break;
+            case am::viewpoint_mapping::INTR_RGB_1280_960:
+                newWidth = 1280;
+                newHeight = 960;
+                break;
+            case am::viewpoint_mapping::INTR_RGB_1280_1024:
+                newWidth = 1280;
+                newHeight = 1024;
+                break;
+        }
+
+        tmp( cv::Range(starty,starty+newHeight), cv::Range(startx,startx+newWidth) ).copyTo( undistortedRgb );
+        //startx = floor(rgb.cols - newWidth)/2;
+        //starty = floor(rgb.rows - newHeight)/2;
+        //tmp( cv::Range(starty,starty+newHeight), cv::Range(startx,startx+newWidth) ).copyTo( undistortedRgb );
+    }
 }
 
 /// Intrinsics

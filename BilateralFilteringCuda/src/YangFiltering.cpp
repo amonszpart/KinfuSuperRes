@@ -36,8 +36,15 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
 
     /// parse input
     // fDep // scale to 0.f .. MAXRES
-    if ( dep16.type() == CV_16UC1 ) { dep16.convertTo( fDep, CV_32FC1 ); std::cerr << "YangFiltering::run(): warning, converting from 16UC1" << std::endl; }
-    else                            { dep16.copyTo   ( fDep ); }
+    if ( dep16.type() != CV_32FC1 )
+    {
+        dep16.convertTo( fDep, CV_32FC1 );
+        std::cerr << "YangFiltering::run(): warning, converting to CV32FC1" << std::endl;
+    }
+    else
+    {
+        dep16.copyTo( fDep );
+    }
 
     {
         double maxVal, minVal;

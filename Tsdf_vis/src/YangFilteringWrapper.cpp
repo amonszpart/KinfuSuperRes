@@ -10,6 +10,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <boost/filesystem.hpp>
 #include "AMUtil2.h"
+#include "MaUtil.h"
 
 namespace am {
 
@@ -40,13 +41,14 @@ namespace am {
         cv::Mat rgb8        = cv::imread( imgPath, -1 );
         std::cout << "YangFilteringWrapper: undistorting rgb with size: "
                   << rgb8.rows << "x" << rgb8.cols
-                  << " with intrinsics: 1280x1024"
+                  << " with intrinsics: 1280x960"
                   << std::endl;
         cv::Mat tmp;
         ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
                                            /*  in: */ rgb8,
                                            am::viewpoint_mapping::INTR_RGB_1280_1024,
-                                           am::viewpoint_mapping::INTR_RGB_1280_1024 );
+                                           am::viewpoint_mapping::INTR_RGB_1280_960 );
+        //cv::resize( tmp, rgb8, cv::Size(1280,960),0,0, cv::INTER_LANCZOS4 );
         tmp.copyTo( rgb8 );
 
 

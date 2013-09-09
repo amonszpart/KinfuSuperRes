@@ -377,7 +377,7 @@ namespace pcl
             int weight_prev;
             unpack_tsdf (*pos, tsdf_prev, weight_prev);
 
-            const int Wrk = 1;
+            const int Wrk = 5;
 
             float tsdf_new = (tsdf_prev * weight_prev + Wrk * tsdf) / (weight_prev + Wrk);
             int weight_new = min (weight_prev + Wrk, Tsdf::MAX_WEIGHT);

@@ -262,9 +262,15 @@ int main( int argc, char** argv )
 
     // test intrinsics
     Eigen::Matrix3f intrinsics;
-    intrinsics << 521.7401 * 2.f, 0             , 323.4402 * 2.f,
-            0             , 522.1379 * 2.f, 258.1387 * 2.f,
-            0             , 0             , 1             ;
+    //intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
+    //        0             , 522.1379 * 2.f, 258.1387 * 2.f,
+    //        0             , 0             , 1             ;
+    cv::Mat intr_rgb, distr_rgb;
+    ViewPointMapperCuda::getIntrinsics( intr_rgb, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960 );
+    for ( int j = 0; j < 3; ++j )
+        for ( int i = 0; i < 3; ++i )
+            intrinsics(j,i) =intr_rgb.at<float>(j,i);
+    std::cout << "main intrinsics: " << intrinsics << std::endl;
 
     //// RENDER /////////////////////////////////////////////////////////////////////////////////////////////////////////
     if ( pcl::console::find_switch(argc, argv, "--render") )
@@ -285,6 +291,13 @@ int main( int argc, char** argv )
             tmp.copyTo( dep );
         }
 
+        if ( dep.rows == 480 )
+        {
+            cv::Mat tmp;
+            cv::resize( dep, tmp, cv::Size(1280,960), 0, 0, cv::INTER_NEAREST );
+            tmp.copyTo( dep );
+        }
+
         std::string rgbPath;
         if (pcl::console::parse_argument (argc, argv, "--img", rgbPath) < 0 )
         {
@@ -298,6 +311,20 @@ int main( int argc, char** argv )
                 std::cerr << "render can't read rgb..." << std::endl;
                 return EXIT_FAILURE;
             }
+
+            std::cout << "undistorting colour..." << std::endl;
+            cv::Mat tmp;
+            ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
+                                               /*  in: */ rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_960 );
+            tmp.copyTo(rgb);
+
+            /*cv::Mat blended;
+            am::util::blend( blended, dep, 10001.f, rgb );
+            cv::imshow( "blended", blended );
+            boost::filesystem::path p( depPath );
+            std::string blended_name = (p.parent_path() / p.stem()).string()
+                                    + "_blended.png";
+            cv::imwrite( blended_name.c_str(), blended );*/
         }
 
         float scale = 1.f;
@@ -342,7 +369,7 @@ int main( int argc, char** argv )
             pcl::io::savePolygonFilePLY( mesh_name, *polyMeshPtr );
             std::cout << "...OK" << std::endl;
         }
-
+        return EXIT_SUCCESS;
     }
 
     //// YANG /////////////////////////////////////////////////////////////////////////////////////////////////////////
