@@ -109,13 +109,15 @@ void ViewPointMapperCuda::runViewpointMapping( unsigned short *& data, int w, in
 void ViewPointMapperCuda::undistortRgb( cv::Mat &undistortedRgb,
                                         cv::Mat const& rgb,
                                         am::viewpoint_mapping::INTRINSICS_SCALE in_scale,
-                                        am::viewpoint_mapping::INTRINSICS_SCALE out_scale )
+                                        am::viewpoint_mapping::INTRINSICS_SCALE out_scale,
+                                        INTRINSICS_CAMERA_ID camera_id
+                                        )
 {
     // fetch current intrinsics
     cv::Mat intr_rgb, distr_rgb;
-    ViewPointMapperCuda::getIntrinsics( intr_rgb, distr_rgb, RGB_CAMERA, in_scale );
+    ViewPointMapperCuda::getIntrinsics( intr_rgb, distr_rgb, camera_id, in_scale );
     cv::Mat newIntrinsics;
-    ViewPointMapperCuda::getIntrinsics( newIntrinsics, distr_rgb, RGB_CAMERA, out_scale );
+    ViewPointMapperCuda::getIntrinsics( newIntrinsics, distr_rgb, camera_id, out_scale );
 
     // resize for output
     newIntrinsics.at<float>( 0,1 ) = 0.f; // no skew please

@@ -578,6 +578,7 @@ int main( int argc, char** argv )
             for ( int curr_pose_id = it->first - 1; curr_pose_id < it->first + 1; ++curr_pose_id )
             {
                 std::string str_pose_id = boost::lexical_cast<std::string>( curr_pose_id );
+
                 cv::Mat rgb;
                 am::util::cv::imread( rgb, (the_path / "poses").string() + str_pose_id + ".png" );
                 if ( rgb.empty() ) continue;

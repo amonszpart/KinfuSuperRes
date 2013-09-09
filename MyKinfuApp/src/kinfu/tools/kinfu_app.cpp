@@ -414,7 +414,7 @@ namespace am
         if ( has_data )
         {
             const int prefiltered = false;
-            const int mapped      = true;
+            const int mapped      = false;
 
             // resize rgb to the same size as the depth
             if ( rgb24.cols > depth_arg.cols )
@@ -463,6 +463,24 @@ namespace am
                 crFilteredDepthPtr.data = &mapped_depth[0];
             }
 
+            // map viewpoint
+            if ( !mapped )
+            {
+                const cv::Mat depMat( depth_arg.cols, depth_arg.cols, CV_16UC1, const_cast<ushort*>(reinterpret_cast<const ushort*>(&depth_arg[0])) );
+                cv::Mat undistorted_depth;
+                ViewPointMapperCuda::undistortRgb( /*       out: */ undistorted_depth,
+                                                   /*        in: */ depMat,
+                                                   /*  in_scale: */ am::viewpoint_mapping::INTR_RGB_640_480,
+                                                   /* out_scale: */ am::viewpoint_mapping::INTR_RGB_640_480,
+                                                   /* camera_id: */ DEP_CAMERA );
+
+                // create new depth pointer
+                crFilteredDepthPtr.cols = undistorted_depth.cols;
+                crFilteredDepthPtr.rows = undistorted_depth.rows;
+                crFilteredDepthPtr.step = undistorted_depth.step1();
+                crFilteredDepthPtr.data = undistorted_depth.data();
+            }
+
             // prefilter with crossfilter (depth_arg -> cFilteredDepthPtr)
             if ( prefiltered )
             {
@@ -489,8 +507,8 @@ namespace am
 
             }
             // select depth version for later
-            const PtrStepSz<const unsigned short> *pPreparedDepth = ( prefiltered || mapped ) ? &crFilteredDepthPtr
-                                                                                              : &depth_arg;
+            const PtrStepSz<const unsigned short> *pPreparedDepth = ( prefiltered || mapped || 1) ? &crFilteredDepthPtr
+                                                                                                  : &depth_arg;
 
             // show depth
             {

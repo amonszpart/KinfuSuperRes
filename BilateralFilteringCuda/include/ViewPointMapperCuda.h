@@ -32,7 +32,8 @@ class ViewPointMapperCuda
         static void undistortRgb( cv::Mat &undistortedRgb,
                                   cv::Mat const& rgb,
                                   am::viewpoint_mapping::INTRINSICS_SCALE in_scale,
-                                  am::viewpoint_mapping::INTRINSICS_SCALE out_scale );
+                                  am::viewpoint_mapping::INTRINSICS_SCALE out_scale,
+                                  INTRINSICS_CAMERA_ID camera_id = RGB_CAMERA );
 
         static void runMyCopyKernelTest( cv::Mat const& in, cv::Mat &out );
 
