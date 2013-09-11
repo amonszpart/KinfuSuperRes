@@ -405,6 +405,8 @@ namespace am
     void
     KinFuApp::execute(const PtrStepSz<const unsigned short>& depth_arg, const PtrStepSz<const KinfuTracker::PixelRGB>& rgb24, bool has_data)
     {
+        static MyIntrinsicsFactory factory;
+
         bool has_image = false;
 
         std::vector<ushort> mapped_depth;                   // owner
@@ -458,8 +460,9 @@ namespace am
                                                           /*  out_data: */ mapped_depth.data(),
                                                           /*     width: */ depth_arg.cols,
                                                           /*    height: */ depth_arg.rows,
-                                                          /* undistort: */ true );
-
+                                                          factory.createIntrinsics( DEP_CAMERA, true),
+                                                          factory.createIntrinsics( RGB_CAMERA, false) );
+                factory.clear();
                 // create new depth pointer
                 crFilteredDepthPtr.cols = depth_arg.cols;
                 crFilteredDepthPtr.rows = depth_arg.rows;
