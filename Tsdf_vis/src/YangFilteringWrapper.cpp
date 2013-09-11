@@ -34,17 +34,14 @@ namespace am {
             dep16 = cv::imread( depPath, -1 );
         }
 
-        MyIntrinsicsFactory factory;
+        static MyIntrinsicsFactory factory;
 
         cv::Mat undistorted_dep;
         ViewPointMapperCuda::runViewpointMapping(
                     /*   in: */ dep16,
                 /*      out: */ undistorted_dep,
                 /* dep_intr: */ factory.createIntrinsics( DEP_CAMERA, false ), // depth is already undistorted in kinfu
-                /* rgb_intr: */ factory.createIntrinsics( rgb_intr.at<float>(0,0), // don't distort rgb, it will be undistorted later
-                                                          rgb_intr.at<float>(1,1),
-                                                          rgb_intr.at<float>(0,2),
-                                                          rgb_intr.at<float>(1,2) )
+                /* rgb_intr: */ factory.createIntrinsics( RGB_CAMERA, false, am::viewpoint_mapping::INTR_RGB_1280_1024 ) // rgb is undistorted just below
                 );
         factory.clear();
 
