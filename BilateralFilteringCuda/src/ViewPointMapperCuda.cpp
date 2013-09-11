@@ -344,6 +344,14 @@ void testCam2World( int w, int h, Eigen::Matrix3f const& intrinsics )
     delete [] pixMap;
 }
 
+MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort )
+{
+    MyIntrinsics* intr = new MyIntrinsics( cid, use_distort );
+    storage_.push_back( intr );
+
+    return intr;
+}
+
 MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( float fx, float fy, float cx, float cy )
 {
     MyIntrinsics* intr = new MyIntrinsics;
