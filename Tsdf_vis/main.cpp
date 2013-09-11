@@ -538,8 +538,11 @@ int main( int argc, char** argv )
         pcl::console::parse_argument(argc, argv, "--cols", cols );
         std::cout << "running --all-kinect-poses with size: " << rows << "x" << cols << std::endl;
 
+        boost::filesystem::path outPath = the_path / "kinect_poses";
+        boost::filesystem::create_directory( outPath );
+
         cv::VideoWriter outputVideo;
-        outputVideo.open( outPath.string() + "/edgeblended.avi", "XVID", cv::Size(cols,rows), true );
+        outputVideo.open( (outPath.string() + "/edgeblended.avi").c_str(), CV_FOURCC( 'X','V','I','D'), 25, cv::Size(cols,rows), true );
 
         Eigen::Matrix3f local_intrinsics;
              if ( rows > 960 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
@@ -553,8 +556,7 @@ int main( int argc, char** argv )
         am::TriangleRenderer triangleRenderer;
         std::vector<cv::Mat> depths, indices;
 
-        boost::filesystem::path outPath = the_path / "kinect_poses";
-        boost::filesystem::create_directory( outPath );
+
 
         for ( auto it = poses.begin(); it != poses.end(); ++it )
         {
@@ -628,7 +630,6 @@ int main( int argc, char** argv )
             }
 
         }
-        outputVideo.close();
         return 0;
     }
 
