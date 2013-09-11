@@ -212,23 +212,43 @@ namespace am
     }
 
     int
-    UpScaling::depthEdgeBlend( /* out: */ cv::Mat &blended, /*  in: */ cv::Mat const& depth, cv::Mat const& rgb, float dmax )
+    UpScaling::depthEdgeBlend( /* out: */ cv::Mat &out_blended, /*  in: */ cv::Mat const& depth, cv::Mat const& rgb, float dmax )
     {
         if ( depth.empty() ) { std::cerr << "depth is EMPTY" << std::endl; return EXIT_FAILURE; }
         if ( rgb  .empty() ) { std::cerr << "rgb is EMPTY"   << std::endl; return EXIT_FAILURE; }
 
         if ( depth.type() != CV_32FC1 ) { std::cerr << "testDepthEdge(): depth not float..." << std::endl; return EXIT_FAILURE; }
 
-        cv::Mat edgesX, edgesY, edges;
-        cv::Sobel( depth, edgesX, CV_32FC1, 1, 0 );
-        cv::Sobel( depth, edgesY, CV_32FC1, 0, 1 );
-        cv::addWeighted( edgesX, 127.5f/10001.f, edgesY, 127.5f/10001.f, 0, edges );
+        cv::Mat blended, edges_depth;
+        {
+            cv::Mat edgesX, edgesY;
+            cv::Sobel( depth, edgesX, CV_32FC1, 1, 0 );
+            cv::Sobel( depth, edgesY, CV_32FC1, 0, 1 );
+            cv::addWeighted( edgesX, 127.5f/dmax, edgesY, 127.5f/dmax, 0, edges_depth );
+            am::util::cv::blend( blended, edges_depth, 1.f, rgb );
+        }
 
-        //cv::Mat rgb8_960;
-        //cv::resize( rgb, large_rgb8, depth.size(), 0, 0, CV_INTER_NN );
-        //ViewPointMapperCuda::undistortRgb( rgb8_960, rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+        cv::Mat blended2( blended.size(), CV_8UC3 );
+        {
+            cv::Mat edges_rgb, rgb_gray;
+            {
+                cv::cvtColor( rgb, rgb_gray, CV_RGB2GRAY );
+                cv::Canny( rgb_gray, edges_rgb, 50, 300, 3, false );
+            }
 
-        am::util::cv::blend( blended, edges, 1.f, rgb );
+            cv::Mat edges_depth_uc1;
+            edges_depth.convertTo( edges_depth_uc1, CV_8UC1, 2.f );
+
+            std::vector<cv::Mat> chns;
+            chns.push_back( rgb_gray );
+            chns.push_back( edges_depth_uc1 );
+            chns.push_back( edges_rgb );
+            cv::merge( chns, blended2 );
+        }
+
+        out_blended.create( blended.rows, blended.cols + blended2.cols, CV_8UC3 );
+        blended.copyTo( out_blended(cv::Range(0,blended.rows), cv::Range(0,blended.cols)) );
+        blended2.copyTo( out_blended(cv::Range(0,blended.rows), cv::Range(blended.cols,out_blended.cols)) );
     }
 
 } // end ns am

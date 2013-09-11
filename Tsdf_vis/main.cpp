@@ -542,7 +542,7 @@ int main( int argc, char** argv )
         boost::filesystem::create_directory( outPath );
 
         cv::VideoWriter outputVideo;
-        outputVideo.open( (outPath.string() + "/edgeblended.avi").c_str(), CV_FOURCC( 'X','V','I','D'), 25, cv::Size(cols,rows), true );
+        outputVideo.open( (outPath.string() + "/edgeblended.avi").c_str(), CV_FOURCC( 'D','I','V','X'), 30, cv::Size(cols,rows), true );
 
         Eigen::Matrix3f local_intrinsics;
              if ( rows > 960 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
@@ -626,7 +626,10 @@ int main( int argc, char** argv )
                                         + "_d" + boost::lexical_cast<std::string>( it->first )
                                         + "_r" + str_pose_id +
                                         ".png", edgeBlended );
-                outputVideo << edgeBlended;
+                for ( int i = 0; i < 15; ++i )
+                {
+                    outputVideo << edgeBlended;
+                }
             }
 
         }
