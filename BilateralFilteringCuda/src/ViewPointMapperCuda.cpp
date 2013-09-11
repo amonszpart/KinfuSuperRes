@@ -364,6 +364,32 @@ MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( float fx, float fy, float c
     return intr;
 }
 
+MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort, am::viewpoint_mapping::INTRINSICS_SCALE scale )
+{
+    MyIntrinsics* intr = new MyIntrinsics;
+
+    cv::Mat rgb_intr, rgb_distr;
+    ViewPointMapperCuda::getIntrinsics( rgb_intr, rgb_distr, cid, scale );
+
+    intr->fx = rgb_intr.at<float>(0,0);
+    intr->fy = rgb_intr.at<float>(1,1);
+    intr->cx = rgb_intr.at<float>(0,2);
+    intr->cy = rgb_intr.at<float>(1,2);
+    if ( use_distort )
+    {
+        intr->k1 = rgb_distr.at<float>(0);
+        intr->k2 = rgb_distr.at<float>(1);
+        intr->p1 = rgb_distr.at<float>(2);
+        intr->p2 = rgb_distr.at<float>(3);
+        intr->k3 = rgb_distr.at<float>(4);
+        intr->alpha = rgb_intr.at<float>(0,1);
+    }
+    storage_.push_back( intr );
+
+    return intr;
+}
+
+
 void MyIntrinsicsFactory::clear()
 {
     for ( std::vector<MyIntrinsics*>::iterator it = storage_.begin(); it != storage_.end(); it++ )

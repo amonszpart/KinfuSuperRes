@@ -33,23 +33,36 @@ namespace am {
         {
             dep16 = cv::imread( depPath, -1 );
         }
-#if 0 // FLAT depth
-        std::cerr << "flattening depth" << std::endl;
-        dep16.setTo( 2000.f );
-#endif
 
+        MyIntrinsicsFactory factory;
+
+        cv::Mat undistorted_dep;
+        ViewPointMapperCuda::runViewpointMapping(
+                    /*   in: */ dep16,
+                /*      out: */ undistorted_dep,
+                /* dep_intr: */ factory.createIntrinsics( DEP_CAMERA, false ), // depth is already undistorted in kinfu
+                /* rgb_intr: */ factory.createIntrinsics( rgb_intr.at<float>(0,0), // don't distort rgb, it will be undistorted later
+                                                          rgb_intr.at<float>(1,1),
+                                                          rgb_intr.at<float>(0,2),
+                                                          rgb_intr.at<float>(1,2) )
+                );
+        factory.clear();
+
+        // undistort rgb
         cv::Mat rgb8        = cv::imread( imgPath, -1 );
-        std::cout << "YangFilteringWrapper: undistorting rgb with size: "
-                  << rgb8.rows << "x" << rgb8.cols
-                  << " with intrinsics: 1280x960"
-                  << std::endl;
-        cv::Mat tmp;
-        ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
-                                           /*  in: */ rgb8,
-                                           am::viewpoint_mapping::INTR_RGB_1280_1024,
-                                           am::viewpoint_mapping::INTR_RGB_1280_960 );
-        //cv::resize( tmp, rgb8, cv::Size(1280,960),0,0, cv::INTER_LANCZOS4 );
-        tmp.copyTo( rgb8 );
+        {
+            std::cout << "YangFilteringWrapper: undistorting rgb with size: "
+                      << rgb8.cols << "x" << rgb8.rows
+                      << " with intrinsics: 1280x1024"
+                      << std::endl;
+            cv::Mat tmp;
+            ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
+                                               /*  in: */ rgb8,
+                                               am::viewpoint_mapping::INTR_RGB_1280_1024,
+                                               am::viewpoint_mapping::INTR_RGB_1280_1024 );
+            //cv::resize( tmp, rgb8, cv::Size(1280,960),0,0, cv::INTER_LANCZOS4 );
+            tmp.copyTo( rgb8 );
+        }
 
 
         if ( dep16.empty() || rgb8.empty() )

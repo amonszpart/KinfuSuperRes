@@ -45,6 +45,8 @@ class MyIntrinsicsFactory
     public:
         MyIntrinsics* createIntrinsics( float fx, float fy, float cx, float cy );
         MyIntrinsics* createIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort = true );
+        MyIntrinsics* createIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort, am::viewpoint_mapping::INTRINSICS_SCALE scale );
+
         void clear();
         virtual ~MyIntrinsicsFactory();
 
