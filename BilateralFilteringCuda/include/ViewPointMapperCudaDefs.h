@@ -1,0 +1,21 @@
+#ifndef VIEWPOINTMAPPERCUDADEFS_H
+#define VIEWPOINTMAPPERCUDADEFS_H
+
+enum INTRINSICS_CAMERA_ID
+{
+    DEP_CAMERA,
+    RGB_CAMERA,
+    LEFT_CAMERA = DEP_CAMERA,
+    RIGHT_CAMERA = RGB_CAMERA
+};
+
+namespace am
+{
+    namespace viewpoint_mapping
+    {
+        enum INTRINSICS_SCALE { INTR_RGB_640_480, INTR_RGB_1280_960, INTR_RGB_1280_1024 };
+        const float _1024_DIV_480 = 1024.f/480.f;
+    }
+}
+
+#endif // VIEWPOINTMAPPERCUDADEFS_H

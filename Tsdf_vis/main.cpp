@@ -524,6 +524,12 @@ int main( int argc, char** argv )
     if ( pcl::console::find_switch(argc, argv, "--all-kinect-poses") )
     {
         // ./tsdf_vis --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --all-kinect-poses --pose_id 110
+        // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/cloud_mesh.ply --all-kinect-poses --pose_id 111
+
+        MyIntrinsicsFactory factory;
+        cv::Mat rgb_intr, rgb_distr;
+        ViewPointMapperCuda::getIntrinsics( rgb_intr, rgb_distr, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+
         int pose_id = -1;
         pcl::console::parse_argument (argc, argv, "--pose_id", pose_id );
 
@@ -575,16 +581,42 @@ int main( int argc, char** argv )
             sprintf( fname, "flat_faceids_kinfu_%d.pfm", it->first );
             am::util::savePFM( indices2F, outPath.string() + "/" + fname );
 
-            for ( int curr_pose_id = it->first - 1; curr_pose_id < it->first + 1; ++curr_pose_id )
+            // undistort depth
+            //MyIntrinsics rgb_intr( RGB_CAMERA, /* use_distort: */ false );
+            //MyIntrinsics dep_intr( DEP_CAMERA, /* use_distort: */ false );
+            //::createIntrinsics( intrinsics(0,0), intrinsics(1,1), intrinsics(0,2), intrinsics(1,2) );
+
+            cv::Mat undistorted_dep;
+            ViewPointMapperCuda::runViewpointMapping(
+                        /*   in: */ depths[0],
+                    /*      out: */ undistorted_dep,
+                    /* dep_intr: */ factory.createIntrinsics(         intrinsics(0,0), // depth is already undistorted in kinfu
+                                                                      intrinsics(1,1),
+                                                                      intrinsics(0,2),
+                                                                      intrinsics(1,2) ),
+                    /* rgb_intr: */ factory.createIntrinsics( rgb_intr.at<float>(0,0), // don't distort rgb, it will be undistorted later
+                                                              rgb_intr.at<float>(1,1),
+                                                              rgb_intr.at<float>(0,2),
+                                                              rgb_intr.at<float>(1,2) )
+                    );
+            factory.clear();
+
+            for ( int curr_pose_id = it->first - 1; curr_pose_id < it->first + 2; ++curr_pose_id )
             {
                 std::string str_pose_id = boost::lexical_cast<std::string>( curr_pose_id );
 
                 cv::Mat rgb;
-                am::util::cv::imread( rgb, (the_path / "poses").string() + str_pose_id + ".png" );
+                am::util::cv::imread( rgb, (the_path / "poses/").string() + str_pose_id + ".png" );
                 if ( rgb.empty() ) continue;
 
+                cv::Mat undistorted_rgb;
+                ViewPointMapperCuda::undistortRgb( undistorted_rgb, rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+                cv::imshow( "undistorted_rgb", undistorted_rgb );
+
                 cv::Mat edgeBlended;
-                am::UpScaling::depthEdgeBlend( edgeBlended, depths[0], rgb );
+                am::UpScaling::depthEdgeBlend( edgeBlended, undistorted_dep, undistorted_rgb );
+                cv::imshow( "edgeBlended", edgeBlended );
+                cv::waitKey(10);
                 am::util::cv::writePNG( outPath.string() + "/" + "edgeblend"
                                         + "_d" + boost::lexical_cast<std::string>( it->first )
                                         + "_r" + str_pose_id +
@@ -916,9 +948,6 @@ return 0;
             tsdfViewer->dumpMesh();
         }
     }
-
-
-
 
     std::vector<float> zBuffer;
     int w, h;

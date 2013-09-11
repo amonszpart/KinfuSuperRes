@@ -478,7 +478,7 @@ namespace am
                 crFilteredDepthPtr.cols = undistorted_depth.cols;
                 crFilteredDepthPtr.rows = undistorted_depth.rows;
                 crFilteredDepthPtr.step = undistorted_depth.step1();
-                crFilteredDepthPtr.data = undistorted_depth.data();
+                crFilteredDepthPtr.data = undistorted_depth.data;
             }
 
             // prefilter with crossfilter (depth_arg -> cFilteredDepthPtr)

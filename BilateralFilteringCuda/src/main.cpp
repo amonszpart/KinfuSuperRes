@@ -9,6 +9,7 @@
 #include "MyThrustUtil.h"
 #include "YangFiltering.h"
 #include "AMUtil2.h"
+#include "MyIntrinsics.h"
 
 void blend( cv::Mat &blendedUC3, cv::Mat const& dep, float depMax, cv::Mat const& rgb, float rgbMax = 255.f )
 {
@@ -118,7 +119,8 @@ int testViewpointMapping( cv::Mat const& dep16, cv::Mat const& rgb8 )
 
     // test undistort version
     {
-        ViewPointMapperCuda::runViewpointMapping( dep16, mapped16, true );
+        MyIntrinsics rgb_intr( RGB_CAMERA, /* use_distort: */ false );
+        ViewPointMapperCuda::runViewpointMapping( dep16, mapped16, /* dep_intr: */ NULL, /* rgb_intr: */ &rgb_intr );
         cv::Mat blendedUC3;
         blend( blendedUC3, mapped16, 10001.f, rgb8, 255.f );
         cv::imshow( "blendedUC3", blendedUC3 );
@@ -432,8 +434,6 @@ int testDepthEdge( cv::Mat const& depth, cv::Mat const& rgb )
     cv::Mat blended;
     am::util::cv::blend( blended, edges, 1.f, rgb );
     cv::imshow( "blended", blended );
-
-
 
     //cv::Mat blended;
     //am::util::cv::blend( blended, depth, 10001.f, rgb );

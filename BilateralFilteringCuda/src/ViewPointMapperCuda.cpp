@@ -1,4 +1,5 @@
 #include "ViewPointMapperCuda.h"
+#include "MyIntrinsics.h"
 
 #include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
@@ -9,9 +10,10 @@
 /// viewpoint mapping with or without rgb lens distortion
 // extern in ViewPointMapperCuda.cu
 template<typename T>
-extern void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out, bool undistort );
+extern void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out,
+                             MyIntrinsics dep_intr, MyIntrinsics rgb_intr );
 
-void ViewPointMapperCuda::runViewpointMapping( float* const& in_data, float* out_data, int w, int h, bool undistort )
+void ViewPointMapperCuda::runViewpointMapping( float* const& in_data, float* out_data, int w, int h, MyIntrinsics* p_dep_intr, MyIntrinsics* p_rgb_intr )
 {
     if ( !out_data )
     {
@@ -26,12 +28,40 @@ void ViewPointMapperCuda::runViewpointMapping( float* const& in_data, float* out
     static GpuDepthMap<float> d_out;
     d_out.Create( DEPTH_MAP_TYPE_FLOAT, w, h );
 
-    runMapViewpoint<float>( d_in, d_out, undistort );
+    // set default params DEP
+    MyIntrinsics *dep_intr = NULL;
+    if ( p_dep_intr )
+    {
+        dep_intr = p_dep_intr;
+    }
+    else
+    {
+        dep_intr = new MyIntrinsics( DEP_CAMERA );
+    }
 
+    // set default params RGB
+    MyIntrinsics *rgb_intr = NULL;
+    if ( p_rgb_intr )
+    {
+        rgb_intr = p_rgb_intr;
+    }
+    else
+    {
+        rgb_intr = new MyIntrinsics( RGB_CAMERA );
+    }
+
+    // run
+    runMapViewpoint<float>( d_in, d_out, *dep_intr, *rgb_intr );
+
+    // output
     d_out.CopyDataOut( out_data );
+
+    // cleanup
+    if ( !p_dep_intr ) { delete dep_intr; dep_intr = NULL; }
+    if ( !p_rgb_intr ) { delete rgb_intr; rgb_intr = NULL; }
 }
 
-void ViewPointMapperCuda::runViewpointMapping( cv::Mat const& in, cv::Mat &out, bool undistort )
+void ViewPointMapperCuda::runViewpointMapping( cv::Mat const& in, cv::Mat &out, MyIntrinsics* dep_intr, MyIntrinsics* rgb_intr )
 {
     // copy in
     float *in_data = NULL;
@@ -53,7 +83,7 @@ void ViewPointMapperCuda::runViewpointMapping( cv::Mat const& in, cv::Mat &out, 
     float *out_data = new float[ in.cols * in.rows ];
 
     // work
-    runViewpointMapping( in_data, out_data, in.cols, in.rows, undistort );
+    runViewpointMapping( in_data, out_data, in.cols, in.rows, dep_intr, rgb_intr );
 
     // copy out
     if ( in.type() == CV_16UC1 )
@@ -72,7 +102,7 @@ void ViewPointMapperCuda::runViewpointMapping( cv::Mat const& in, cv::Mat &out, 
     SAFE_DELETE_ARRAY( out_data );
 }
 
-void ViewPointMapperCuda::runViewpointMapping( unsigned short const* const& data, unsigned short* out, int w, int h, bool undistort )
+void ViewPointMapperCuda::runViewpointMapping( unsigned short const* const& data, unsigned short* out, int w, int h, MyIntrinsics* dep_intr, MyIntrinsics* rgb_intr )
 {
     if ( !out )
     {
@@ -89,7 +119,7 @@ void ViewPointMapperCuda::runViewpointMapping( unsigned short const* const& data
     }
 
     // work
-    runViewpointMapping( fData, fData, w, h, undistort );
+    runViewpointMapping( fData, fData, w, h, dep_intr, rgb_intr );
 
     // copy out
     for ( int i = 0; i < size; ++i )
@@ -101,9 +131,9 @@ void ViewPointMapperCuda::runViewpointMapping( unsigned short const* const& data
     SAFE_DELETE_ARRAY( fData );
 }
 
-void ViewPointMapperCuda::runViewpointMapping( unsigned short *& data, int w, int h, bool undistort )
+void ViewPointMapperCuda::runViewpointMapping( unsigned short *& data, int w, int h, MyIntrinsics* dep_intr, MyIntrinsics* rgb_intr )
 {
-    runViewpointMapping( data, data, w, h, undistort );
+    runViewpointMapping( data, data, w, h, dep_intr, rgb_intr );
 }
 
 void ViewPointMapperCuda::undistortRgb( cv::Mat &undistortedRgb,
@@ -314,4 +344,28 @@ void testCam2World( int w, int h, Eigen::Matrix3f const& intrinsics )
     delete [] pixMap;
 }
 
+MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( float fx, float fy, float cx, float cy )
+{
+    MyIntrinsics* intr = new MyIntrinsics;
+    intr->fx = fx;
+    intr->fy = fy;
+    intr->cx = cx;
+    intr->cy = cy;
+    storage_.push_back( intr );
 
+    return intr;
+}
+
+void MyIntrinsicsFactory::clear()
+{
+    for ( std::vector<MyIntrinsics*>::iterator it = storage_.begin(); it != storage_.end(); it++ )
+    {
+        delete (*it);
+    }
+    storage_.clear();
+}
+
+MyIntrinsicsFactory::~MyIntrinsicsFactory()
+{
+    clear();
+}

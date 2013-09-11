@@ -2,6 +2,8 @@
 //#include "/media/Storage/workspace_ubuntu/rec/imgs_20130801_1607_calibPrism3/calibration.h"
 //#include "/media/Storage/workspace_ubuntu/rec/imgs_20130805_1047_calibPrism4/calibration.h"
 #include "calibration_cuda_constants_prism4.h"
+#include "ViewPointMapperCudaDefs.h"
+#include "MyIntrinsics.h"
 
 #include "GpuDepthMap.hpp"
 #include "cutil_math.cuh"
@@ -116,7 +118,8 @@ __global__ void mapViewpointKernel( const T *in,
                                     int w, int h,
                                     size_t in_pitch,
                                     size_t out_pitch,
-                                    const bool undistort = false )
+                                    MyIntrinsics dep_intr,
+                                    MyIntrinsics rgb_intr )
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -124,10 +127,12 @@ __global__ void mapViewpointKernel( const T *in,
 
     const float d = in[ y * in_pitch + x ]; // * 10001.f
 
-    float3 P_world_left = d * cam2World( (float2){x   , y   },
-                                         (float2){FX_D, FY_D}, (float2){CX_D, CY_D},
-                                         K1_D, K2_D, P1_D, P2_D, K3_D,
-                                         ALPHA_D );
+    float3 P_world_left;
+    P_world_left = d * cam2World( (float2){x   , y   },
+                                  (float2){dep_intr.fx, dep_intr.fy}, (float2){dep_intr.cx, dep_intr.cy},
+                                  dep_intr.k1, dep_intr.k2, dep_intr.p1, dep_intr.p2, dep_intr.k3,
+                                  dep_intr.alpha );
+
     // R * [X; Y; Z] + T
     float3 P_world_right = {
         (R1 * P_world_left.x) + (R2 * P_world_left.y) + (R3 * P_world_left.z) + T1,
@@ -135,20 +140,10 @@ __global__ void mapViewpointKernel( const T *in,
         (R7 * P_world_left.x) + (R8 * P_world_left.y) + (R9 * P_world_left.z) + T3 };
 
     float2 p2_right;
-    if ( undistort )
-    {
-        p2_right = world2Cam( P_world_right,
-                              (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
-                              0.f, 0.f, 0.f, 0.f, 0.f,
-                              0.f );
-    }
-    else
-    {
-        p2_right = world2Cam( P_world_right,
-                              (float2){FX_RGB, FY_RGB}, (float2){CX_RGB, CY_RGB},
-                              K1_RGB, K2_RGB, P1_RGB, P2_RGB, K3_RGB,
-                              ALPHA_RGB );
-    }
+    p2_right = world2Cam( P_world_right,
+                          (float2){rgb_intr.fx, rgb_intr.fy}, (float2){rgb_intr.cx, rgb_intr.cy},
+                          rgb_intr.k1, rgb_intr.k2, rgb_intr.p1, rgb_intr.p2, rgb_intr.k3,
+                          rgb_intr.alpha );
 
     // map to 0.f..1.f
     //P_world_right.z /= 10001.f;
@@ -174,7 +169,7 @@ __global__ void mapViewpointKernel( const T *in,
 //// runMapViewpoint ////
 
 template<typename T>
-void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out, bool undistort = false )
+void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out, MyIntrinsics dep_intr, MyIntrinsics rgb_intr )
 {
     cudaMemset( out.Get(), 0, out.GetWidth() * out.GetHeight() * sizeof(T) );
     checkCudaErrors( cudaDeviceSynchronize() );
@@ -186,14 +181,15 @@ void runMapViewpoint( GpuDepthMap<T> const& in, GpuDepthMap<T> &out, bool undist
                                                   in.GetWidth(), in.GetHeight(),
                                                   in.GetPitch()  / sizeof(T),
                                                   out.GetPitch() / sizeof(T),
-                                                  undistort );
+                                                  dep_intr,
+                                                  rgb_intr );
 
     // sync host and stop computation timer
     checkCudaErrors( cudaDeviceSynchronize() );
 }
 
-template void runMapViewpoint<float>( GpuDepthMap<float> const& in, GpuDepthMap<float> &out, bool undistort );
-template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const& in, GpuDepthMap<unsigned short> &out, bool undistort );
+template void runMapViewpoint<float>( GpuDepthMap<float> const& in, GpuDepthMap<float> &out, MyIntrinsics dep_intr, MyIntrinsics rgb_intr );
+template void runMapViewpoint<unsigned short>( GpuDepthMap<unsigned short> const& in, GpuDepthMap<unsigned short> &out, MyIntrinsics dep_intr, MyIntrinsics rgb_intr );
 
 //// toWorld ////
 

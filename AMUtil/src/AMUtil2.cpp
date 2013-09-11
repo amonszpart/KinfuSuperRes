@@ -11,13 +11,15 @@ namespace am
     namespace util
     {
         int
-        savePFM( ::cv::Mat const& imgF, std::string path, float scale )
+        savePFM( ::cv::Mat const& imgF, std::string path, float scale, bool silent )
         {
             if ( imgF.empty() || imgF.type() != CV_32FC1 )
             {
                 std::cerr << "AMUtil::savePFM: expects non-empty image of type CV_32FC1" << std::endl;
                 return EXIT_FAILURE;
             }
+
+            if ( !silent ) std::cout << "saving " << path << "..." << std::endl;
 
             std::fstream file;
             file.open( path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc );
@@ -142,10 +144,13 @@ namespace am
             }
 
             int
-            writePNG( std::string title, ::cv::Mat const& mat )
+            writePNG( std::string title, ::cv::Mat const& mat, bool silent )
             {
+                // png no compression
                 std::vector<int> params(2);
                 params[0] = 16; params[1] = 0;
+
+                if ( !silent ) std::cout << "saving " << title << "..." << std::endl;
                 ::cv::imwrite( title.c_str(), mat, params );
 
                 return EXIT_SUCCESS;
