@@ -93,7 +93,11 @@ namespace am
         kinfu_.setIcpCorespFilteringParams (0.1f/*meters*/, sin ( pcl::deg2rad(20.f) ));
         //kinfu_.setDepthTruncationForICP(5.f/*meters*/);
         kinfu_.setCameraMovementThreshold(0.001f);
-        kinfu_.setDepthIntrinsics( 523.048350f, 523.037845f, 319.313152f, 258.347998f ); // aron
+        //kinfu_.setDepthIntrinsics( 523.048350f, 523.037845f, 319.313152f, 258.347998f ); // aron
+        Eigen::Matrix3f intr;
+        cv::Mat distr;
+        ViewPointMapperCuda::getIntrinsics( intr, distr, DEP_CAMERA, am::viewpoint_mapping::INTR_RGB_640_480 );
+        kinfu_.setDepthIntrinsics( intr(0,0), intr(1,1), intr(0,2), intr(1,2) );
 
         if (!icp)
             kinfu_.disableIcp();
@@ -401,6 +405,8 @@ namespace am
     void
     KinFuApp::execute(const PtrStepSz<const unsigned short>& depth_arg, const PtrStepSz<const KinfuTracker::PixelRGB>& rgb24, bool has_data)
     {
+        static MyIntrinsicsFactory factory;
+
         bool has_image = false;
 
         std::vector<ushort> mapped_depth;                   // owner
@@ -454,8 +460,9 @@ namespace am
                                                           /*  out_data: */ mapped_depth.data(),
                                                           /*     width: */ depth_arg.cols,
                                                           /*    height: */ depth_arg.rows,
-                                                          /* undistort: */ true );
-
+                                                          factory.createIntrinsics( DEP_CAMERA, true),
+                                                          factory.createIntrinsics( RGB_CAMERA, false) );
+                factory.clear();
                 // create new depth pointer
                 crFilteredDepthPtr.cols = depth_arg.cols;
                 crFilteredDepthPtr.rows = depth_arg.rows;
@@ -464,21 +471,39 @@ namespace am
             }
 
             // map viewpoint
+            std::vector<ushort> undistorted_data(depth_arg.cols * depth_arg.rows);
             if ( !mapped )
             {
-                const cv::Mat depMat( depth_arg.cols, depth_arg.cols, CV_16UC1, const_cast<ushort*>(reinterpret_cast<const ushort*>(&depth_arg[0])) );
+                const cv::Mat depMat( depth_arg.rows, depth_arg.cols, CV_16UC1, const_cast<ushort*>(reinterpret_cast<const ushort*>(&depth_arg[0])) );
+#if 0
+                //cv::Mat depMat( depth_arg.c)
+                for ( int y = 0; y < undistorted_depth.rows; ++y )
+                    for ( int x = 0; x < undistorted_depth.cols; ++x )
+                    {
+                        undistorted_data[y*undistorted_depth.cols+x] = undistorted_depth.at<ushort>(y,x);
+                    }
+#endif
+
                 cv::Mat undistorted_depth;
+                std::cout << "undistortRgb starting..." << std::endl;
                 ViewPointMapperCuda::undistortRgb( /*       out: */ undistorted_depth,
                                                    /*        in: */ depMat,
                                                    /*  in_scale: */ am::viewpoint_mapping::INTR_RGB_640_480,
                                                    /* out_scale: */ am::viewpoint_mapping::INTR_RGB_640_480,
                                                    /* camera_id: */ DEP_CAMERA );
+                std::cout << "undistortRgb ended..." << std::endl;
 
                 // create new depth pointer
+                for ( int y = 0; y < undistorted_depth.rows; ++y )
+                    for ( int x = 0; x < undistorted_depth.cols; ++x )
+                    {
+                        undistorted_data[y*undistorted_depth.cols+x] = undistorted_depth.at<ushort>(y,x);
+                    }
+
                 crFilteredDepthPtr.cols = undistorted_depth.cols;
                 crFilteredDepthPtr.rows = undistorted_depth.rows;
-                crFilteredDepthPtr.step = undistorted_depth.step1();
-                crFilteredDepthPtr.data = undistorted_depth.data;
+                crFilteredDepthPtr.step = depth_arg.step;
+                crFilteredDepthPtr.data = &undistorted_data[0];//reinterpret_cast<ushort*>(undistorted_depth.data);
             }
 
             // prefilter with crossfilter (depth_arg -> cFilteredDepthPtr)
@@ -539,7 +564,7 @@ namespace am
                 {
 #                   if MYKINFU
                     std::cout << "skipping initial bilfilter" << std::endl;
-                    /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ true );
+                    /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL, /* skip initial bilfil: */ false );
 #                   else
                     /**/ has_image = kinfu_ ( depth_device_, /* pose_hint: */ NULL );
 #                   endif
