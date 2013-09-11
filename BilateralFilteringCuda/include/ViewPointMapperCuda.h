@@ -44,6 +44,7 @@ class MyIntrinsicsFactory
 {
     public:
         MyIntrinsics* createIntrinsics( float fx, float fy, float cx, float cy );
+        MyIntrinsics* createIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort = true );
         void clear();
         virtual ~MyIntrinsicsFactory();
 

@@ -538,6 +538,9 @@ int main( int argc, char** argv )
         pcl::console::parse_argument(argc, argv, "--cols", cols );
         std::cout << "running --all-kinect-poses with size: " << rows << "x" << cols << std::endl;
 
+        cv::VideoWriter outputVideo;
+        outputVideo.open( outPath.string() + "/edgeblended.avi", "XVID", cv::Size(cols,rows), true );
+
         Eigen::Matrix3f local_intrinsics;
              if ( rows > 960 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
         else if ( rows > 480 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960  );
@@ -621,9 +624,11 @@ int main( int argc, char** argv )
                                         + "_d" + boost::lexical_cast<std::string>( it->first )
                                         + "_r" + str_pose_id +
                                         ".png", edgeBlended );
+                outputVideo << edgeBlended;
             }
 
         }
+        outputVideo.close();
         return 0;
     }
 
