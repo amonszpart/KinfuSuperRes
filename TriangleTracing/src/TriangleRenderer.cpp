@@ -648,6 +648,7 @@ namespace am
           pixels( new GLubyte[width_*height_*sizeof(float   ) * 4] ),
           ids   ( new GLuint [width_*height_*sizeof(unsigned) * 3] ),
           depthRenderBufferHandle_( INVALID_OGL_VALUE ), framebufferHandle_( INVALID_OGL_VALUE ),
+          shader_program( INVALID_OGL_VALUE ), vertex_shader( INVALID_OGL_VALUE ), fragment_shader( INVALID_OGL_VALUE ),
           inited_(false), showWindow_(false)
     {
         textureHandles_[0] = textureHandles_[1] = textureHandles_[2] = INVALID_OGL_VALUE;
@@ -660,13 +661,13 @@ namespace am
         if ( pixels ) { delete [] pixels; pixels = NULL; }
         if ( ids    ) { delete [] ids   ; ids    = NULL; }
 
-        glDeleteTextures     ( 2, textureHandles_    );
-        glDeleteFramebuffers ( 1, &framebufferHandle_   );
-        glDeleteRenderbuffers( 1, &depthRenderBufferHandle_ );
+        if ( textureHandles_[0]       != INVALID_OGL_VALUE ) glDeleteTextures     ( 3, textureHandles_    );
+        if ( framebufferHandle_       != INVALID_OGL_VALUE ) glDeleteFramebuffers ( 1, &framebufferHandle_   );
+        if ( depthRenderBufferHandle_ != INVALID_OGL_VALUE ) glDeleteRenderbuffers( 1, &depthRenderBufferHandle_ );
 
-        glDeleteProgram( shader_program );
-        glDeleteShader ( vertex_shader );
-        glDeleteShader ( fragment_shader );
+        if ( shader_program  != INVALID_OGL_VALUE ) glDeleteProgram( shader_program  );
+        if ( vertex_shader   != INVALID_OGL_VALUE ) glDeleteShader ( vertex_shader   );
+        if ( fragment_shader != INVALID_OGL_VALUE ) glDeleteShader ( fragment_shader );
     }
 
     void TriangleRenderer::init( int w, int h, bool showWindow )

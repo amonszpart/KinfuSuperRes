@@ -557,15 +557,13 @@ int main( int argc, char** argv )
         am::TriangleRenderer triangleRenderer;
         std::vector<cv::Mat> depths, indices;
 
-
-
         for ( auto it = poses.begin(); it != poses.end(); ++it )
         {
             if ( (pose_id > 0 ) && (pose_id != it->first) ) continue;
 
             Eigen::Affine3f &pose = it->second;
             triangleRenderer.renderDepthAndIndices( /* out: */ depths, indices,
-                                                    /*  in: */ cols, rows, intrinsics, pose, meshPtr,
+                                                    /*  in: */ cols, rows, local_intrinsics, pose, meshPtr,
                                                     /* depths[0] scale: */ 1.f );
 
             char fname[255];
