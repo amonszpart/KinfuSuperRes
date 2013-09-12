@@ -40,7 +40,7 @@ namespace am {
         ViewPointMapperCuda::runViewpointMapping(
                     /*   in: */ dep16,
                 /*      out: */ undistorted_dep,
-                /* dep_intr: */ factory.createIntrinsics( DEP_CAMERA, false ), // depth is already undistorted in kinfu
+                /* dep_intr: */ factory.createIntrinsics( DEP_CAMERA, false, am::viewpoint_mapping::INTR_RGB_1280_1024 ), // depth is already undistorted in kinfu
                 /* rgb_intr: */ factory.createIntrinsics( RGB_CAMERA, false, am::viewpoint_mapping::INTR_RGB_1280_1024 ) // rgb is undistorted just below
                 );
         factory.clear();
@@ -62,6 +62,10 @@ namespace am {
             tmp.copyTo( rgb8 );
         }
 
+        cv::Mat yang_input;
+        am::util::cv::blend( yang_input, dep16, 10001.f, rgb8 );
+        cv::imshow( "yang_input", yang_input );
+        cv::waitKey();
 
         if ( dep16.empty() || rgb8.empty() )
         {

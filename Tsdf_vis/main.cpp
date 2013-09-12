@@ -530,6 +530,7 @@ int main( int argc, char** argv )
         MyIntrinsicsFactory factory;
         cv::Mat rgb_intr, rgb_distr;
         ViewPointMapperCuda::getIntrinsics( rgb_intr, rgb_distr, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+        rgb_intr.at<float>(0,1) = 0.f;
 
         int pose_id = -1;
         pcl::console::parse_argument (argc, argv, "--pose_id", pose_id );
@@ -546,9 +547,10 @@ int main( int argc, char** argv )
         outputVideo.open( (outPath.string() + "/edgeblended.avi").c_str(), CV_FOURCC( 'D','I','V','X'), 30, cv::Size(cols,rows), true );
 
         Eigen::Matrix3f local_intrinsics;
-             if ( rows > 960 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
-        else if ( rows > 480 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960  );
-        else                   ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_640_480   );
+             if ( rows > 960 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, DEP_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+        else if ( rows > 480 ) ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, DEP_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960  );
+        else                   ViewPointMapperCuda::getIntrinsics( local_intrinsics, distr_rgb, DEP_CAMERA, am::viewpoint_mapping::INTR_RGB_640_480   );
+        local_intrinsics(0,1) = 0.f;
         std::cout << "All-Kinect-Poses intrinsics: " << local_intrinsics;
 
         pcl::PolygonMesh::Ptr meshPtr( new pcl::PolygonMesh );
@@ -570,7 +572,7 @@ int main( int argc, char** argv )
             sprintf( fname, "kinfu_depth_%d.pfm", it->first );
             am::util::savePFM( depths[0], outPath.string() + "/" + fname );
 
-            cv::Mat indices0F;
+            /*cv::Mat indices0F;
             am::util::cv::unsignedIntToFloat( indices0F, indices[0] );
             sprintf( fname, "vxids_kinfu_%d.pfm", it->first );
             am::util::savePFM( indices0F, outPath.string() + "/" + fname );
@@ -583,7 +585,7 @@ int main( int argc, char** argv )
             cv::Mat indices2F;
             am::util::cv::unsignedIntToFloat( indices2F, indices[2] );
             sprintf( fname, "flat_faceids_kinfu_%d.pfm", it->first );
-            am::util::savePFM( indices2F, outPath.string() + "/" + fname );
+            am::util::savePFM( indices2F, outPath.string() + "/" + fname );*/
 
             // undistort depth
             //MyIntrinsics rgb_intr( RGB_CAMERA, /* use_distort: */ false );
@@ -594,10 +596,10 @@ int main( int argc, char** argv )
             ViewPointMapperCuda::runViewpointMapping(
                         /*   in: */ depths[0],
                     /*      out: */ undistorted_dep,
-                    /* dep_intr: */ factory.createIntrinsics(         intrinsics(0,0), // depth is already undistorted in kinfu
-                                                                      intrinsics(1,1),
-                                                                      intrinsics(0,2),
-                                                                      intrinsics(1,2) ),
+                    /* dep_intr: */ factory.createIntrinsics( local_intrinsics(0,0), // depth is already undistorted in kinfu
+                                                              local_intrinsics(1,1),
+                                                              local_intrinsics(0,2),
+                                                              local_intrinsics(1,2) ),
                     /* rgb_intr: */ factory.createIntrinsics( rgb_intr.at<float>(0,0), // don't distort rgb, it will be undistorted later
                                                               rgb_intr.at<float>(1,1),
                                                               rgb_intr.at<float>(0,2),
@@ -616,6 +618,14 @@ int main( int argc, char** argv )
                 cv::Mat undistorted_rgb;
                 ViewPointMapperCuda::undistortRgb( undistorted_rgb, rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
                 cv::imshow( "undistorted_rgb", undistorted_rgb );
+
+                cv::Mat blended0, blended1, blended2;
+                am::util::cv::blend( blended0, depths[0], 10001.f, rgb );
+                am::util::cv::blend( blended1, undistorted_dep, 10001.f, rgb );
+                am::util::cv::blend( blended2, depths[0], 10001.f, undistorted_rgb );
+                cv::imshow( "blended d r", blended0 );
+                cv::imshow( "blended u r", blended1 );
+                cv::imshow( "blended d u", blended2 );
 
                 cv::Mat edgeBlended;
                 am::UpScaling::depthEdgeBlend( edgeBlended, undistorted_dep, undistorted_rgb );
