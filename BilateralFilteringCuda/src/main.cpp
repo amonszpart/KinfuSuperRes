@@ -452,7 +452,7 @@ int main( int argc, char **argv )
 {
     // --in /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/dep16_00000000.pgm --guide /home/bontius/workspace/cpp_projects/KinfuSuperRes/SuperRes-NI-1-5/build/out/imgs_20130805_1644/img8_00000000.png
     // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/d16.png --guide /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/16.png
-    // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/kinfu_depth_110.pfm --guide /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/16.png
+    // --in /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/kinfu_depth_110.pfm --guide /home/bontius/workspace_local/long640_20130829_1525_200_400/poses/110.png
     char *image_path = NULL;
     char *guide_path = NULL;
     cv::Mat img16, guide;

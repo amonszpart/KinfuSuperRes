@@ -44,6 +44,7 @@ namespace am {
                 /* rgb_intr: */ factory.createIntrinsics( RGB_CAMERA, false, am::viewpoint_mapping::INTR_RGB_1280_1024 ) // rgb is undistorted just below
                 );
         factory.clear();
+        undistorted_dep.copyTo( dep16 );
 
         // undistort rgb
         cv::Mat rgb8        = cv::imread( imgPath, -1 );

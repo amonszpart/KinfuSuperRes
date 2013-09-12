@@ -265,11 +265,8 @@ int main( int argc, char** argv )
     //intrinsics << 521.7401 * 2.f, 0       , 323.4402 * 2.f,
     //        0             , 522.1379 * 2.f, 258.1387 * 2.f,
     //        0             , 0             , 1             ;
-    cv::Mat intr_rgb, distr_rgb;
-    ViewPointMapperCuda::getIntrinsics( intr_rgb, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_960 );
-    for ( int j = 0; j < 3; ++j )
-        for ( int i = 0; i < 3; ++i )
-            intrinsics(j,i) =intr_rgb.at<float>( j, i );
+    cv::Mat distr_rgb;
+    ViewPointMapperCuda::getIntrinsics( intrinsics, distr_rgb, RGB_CAMERA, am::viewpoint_mapping::INTR_RGB_1280_1024 );
     std::cout << "main intrinsics: " << intrinsics << std::endl;
 
     //// RENDER /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -281,6 +278,8 @@ int main( int argc, char** argv )
             std::cerr << "render usage: --render --dep full_dep_path --img full_rgb_path [ --scale 1.f]" << std::endl;
             return 1;
         }
+        int rows = 1024;
+
         cv::Mat dep;
         if ( am::util::cv::imread(dep, depPath) ) { std::cerr << "render can't read depth..." << std::endl; return EXIT_FAILURE; }
         // make sure it's float
@@ -291,10 +290,10 @@ int main( int argc, char** argv )
             tmp.copyTo( dep );
         }
 
-        if ( dep.rows == 480 )
+        if ( dep.rows < rows )
         {
             cv::Mat tmp;
-            cv::resize( dep, tmp, cv::Size(1280,960), 0, 0, cv::INTER_NEAREST );
+            cv::resize( dep, tmp, cv::Size(1280,rows), 0, 0, cv::INTER_NEAREST );
             tmp.copyTo( dep );
         }
 
@@ -315,7 +314,7 @@ int main( int argc, char** argv )
             std::cout << "undistorting colour..." << std::endl;
             cv::Mat tmp;
             ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
-                                               /*  in: */ rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_960 );
+                                               /*  in: */ rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
             tmp.copyTo(rgb);
 
             /*cv::Mat blended;
