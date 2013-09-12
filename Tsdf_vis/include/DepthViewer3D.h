@@ -187,9 +187,15 @@ namespace am
                 cloudPtr->points.push_back( point );
 
                 // faces
-                if ( (pFaces) && ((float)dep.at<depT>( y,x ) > 0.f) && (y+1 < dep.rows) )
+                const float dlimit = 300.f; // 30 cm
+                if ( (pFaces)                                         &&
+                     (y+1 < dep.rows)                                 &&
+                     (static_cast<float>(dep.at<depT>(y,x)) > dlimit)    )
                 {
-                    if ( x > 0 ) // left face
+                    // left face
+                    if ( (x > 0)                                              &&
+                         (static_cast<float>(dep.at<depT>(y+1,x-1)) > dlimit) &&
+                         (static_cast<float>(dep.at<depT>(y+1,x  )) > dlimit)    )
                     {
                         pFaces->push_back( ::pcl::Vertices() );
                         pFaces->back().vertices.resize(3);
@@ -199,15 +205,17 @@ namespace am
 
                         //++fid;
                     }
-                    if ( x+1 < dep.cols ) // right face
+
+                    // right face
+                    if ( (x+1 < dep.cols)                                     &&
+                         (static_cast<float>(dep.at<depT>(y+1,x  )) > dlimit) &&
+                         (static_cast<float>(dep.at<depT>(y  ,x+1)) > dlimit)    )
                     {
                         pFaces->push_back( ::pcl::Vertices() );
                         pFaces->back().vertices.resize(3);
                         pFaces->back().vertices[0] =  y    * dep.cols + x    ; // y,x
                         pFaces->back().vertices[1] = (y+1) * dep.cols + x    ; // y+1,x
                         pFaces->back().vertices[2] =  y    * dep.cols + x + 1; // y+1,x+1
-
-                        //++fid;
                     }
                 }
             }

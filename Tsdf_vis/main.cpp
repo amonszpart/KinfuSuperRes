@@ -314,7 +314,9 @@ int main( int argc, char** argv )
             std::cout << "undistorting colour..." << std::endl;
             cv::Mat tmp;
             ViewPointMapperCuda::undistortRgb( /* out: */ tmp,
-                                               /*  in: */ rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+                                               /*  in: */ rgb,
+                                               /* in_scale: */ am::viewpoint_mapping::INTR_RGB_1280_1024,
+                                               am::viewpoint_mapping::INTR_RGB_1280_1024 );
             tmp.copyTo(rgb);
 
             /*cv::Mat blended;
