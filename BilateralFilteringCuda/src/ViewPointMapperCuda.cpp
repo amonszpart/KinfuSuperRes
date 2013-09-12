@@ -366,27 +366,27 @@ MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( float fx, float fy, float c
 
 MyIntrinsics* MyIntrinsicsFactory::createIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort, am::viewpoint_mapping::INTRINSICS_SCALE scale )
 {
-    MyIntrinsics* intr = new MyIntrinsics;
+    MyIntrinsics* p_intr = new MyIntrinsics;
 
-    cv::Mat rgb_intr, rgb_distr;
-    ViewPointMapperCuda::getIntrinsics( rgb_intr, rgb_distr, cid, scale );
+    cv::Mat intr, distr;
+    ViewPointMapperCuda::getIntrinsics( intr, distr, cid, scale );
 
-    intr->fx = rgb_intr.at<float>(0,0);
-    intr->fy = rgb_intr.at<float>(1,1);
-    intr->cx = rgb_intr.at<float>(0,2);
-    intr->cy = rgb_intr.at<float>(1,2);
+    p_intr->fx = intr.at<float>(0,0);
+    p_intr->fy = intr.at<float>(1,1);
+    p_intr->cx = intr.at<float>(0,2);
+    p_intr->cy = intr.at<float>(1,2);
     if ( use_distort )
     {
-        intr->k1 = rgb_distr.at<float>(0);
-        intr->k2 = rgb_distr.at<float>(1);
-        intr->p1 = rgb_distr.at<float>(2);
-        intr->p2 = rgb_distr.at<float>(3);
-        intr->k3 = rgb_distr.at<float>(4);
-        intr->alpha = rgb_intr.at<float>(0,1);
+        p_intr->k1 = distr.at<float>(0);
+        p_intr->k2 = distr.at<float>(1);
+        p_intr->p1 = distr.at<float>(2);
+        p_intr->p2 = distr.at<float>(3);
+        p_intr->k3 = distr.at<float>(4);
+        p_intr->alpha = intr.at<float>(0,1);
     }
-    storage_.push_back( intr );
+    storage_.push_back( p_intr );
 
-    return intr;
+    return p_intr;
 }
 
 
