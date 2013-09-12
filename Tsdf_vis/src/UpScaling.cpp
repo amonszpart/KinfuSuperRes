@@ -243,12 +243,16 @@ namespace am
             chns.push_back( rgb_gray );
             chns.push_back( edges_depth_uc1 );
             chns.push_back( edges_rgb );
-            cv::merge( chns, blended2 );
+            cv::merge( chns.data(), 3, blended2 );
         }
 
         out_blended.create( blended.rows, blended.cols + blended2.cols, CV_8UC3 );
-        blended.copyTo( out_blended(cv::Range(0,blended.rows), cv::Range(0,blended.cols)) );
-        blended2.copyTo( out_blended(cv::Range(0,blended.rows), cv::Range(blended.cols,out_blended.cols)) );
+        cv::Mat left = out_blended.rowRange( 0,blended.rows ).colRange(0,blended.cols);
+        blended.copyTo( left );
+        cv::Mat right = out_blended.rowRange( 0,blended.rows ).colRange(blended.cols,out_blended.cols);
+        blended2.copyTo( right );
+        //blended.copyTo( out_blended(cv::Range(0,blended.rows), cv::Range(0,blended.cols)) );
+        //blended2.copyTo( out_blended(cv::Range(0,blended.rows), cv::Range(blended.cols,out_blended.cols)) );
     }
 
 } // end ns am

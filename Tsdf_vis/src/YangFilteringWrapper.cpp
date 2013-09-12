@@ -34,6 +34,7 @@ namespace am {
             dep16 = cv::imread( depPath, -1 );
         }
 
+
         static MyIntrinsicsFactory factory;
 
         cv::Mat undistorted_dep;
@@ -45,6 +46,13 @@ namespace am {
                 );
         factory.clear();
         undistorted_dep.copyTo( dep16 );
+        double minVal, maxVal;
+        cv::minMaxLoc( undistorted_dep, &minVal, &maxVal);
+        std::cout<< "undistorted_dep:" << minVal << " " << maxVal << std::endl;
+        cv::minMaxLoc( dep16, &minVal, &maxVal);
+        std::cout<< "dep16:" << minVal << " " << maxVal << std::endl;
+        //cv::imshow("undistorted_dep",undistorted_dep/10001.f);
+        //cv::waitKey();
 
         // undistort rgb
         cv::Mat rgb8        = cv::imread( imgPath, -1 );
@@ -95,6 +103,12 @@ namespace am {
         bfc.setFillMode( FILL_ONLY_ZEROS );
         bfc.runBilateralFiltering( depFC1, rgb8, depFC1,
                                    5.f, .1f, 10, 1.f );
+
+        //cv::Mat blended;
+        //am::util::cv::blend( blended, depFC1, 10001.f, rgb8 );
+        //imshow("blended,yang", blended);
+        //cv::waitKey();
+
         // Yang
         YangFiltering yf;
         res += yf.run( depFC1, rgb8, depFC1, yangFilteringRunParams, path );

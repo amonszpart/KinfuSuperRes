@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(Tsdf_vis)
+project(Tsdf_vis2)
 
 INCLUDE( ../commonLibLocations.cmake )
 

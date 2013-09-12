@@ -19,6 +19,7 @@ struct MyIntrinsics
         {}
 
         MyIntrinsics( INTRINSICS_CAMERA_ID cid, bool use_distort = true )
+            : fx(0.f), fy(0.f), cx(0.f), cy(0.f), k1(0.f), k2(0.f), p1(0.f), p2(0.f), k3(0.f), alpha(0.f)
         {
             if ( cid == DEP_CAMERA )
             {

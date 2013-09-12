@@ -144,7 +144,7 @@ SET( CCFILES
     src/ViewPointMapperCuda.cpp
     src/YangFiltering.cpp
     #src/MyThrustUtil.cpp
-    src/main.cpp
+    #src/main.cpp
 )
 
 # CUDA
