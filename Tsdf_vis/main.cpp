@@ -432,8 +432,10 @@ int main( int argc, char** argv )
             }
             boost::filesystem::path img_name_w_ext, dep_name_w_ext;
             std::string img_name;
+	    int cnt = 0;
             for ( auto &dep_path : dep_paths )
             {
+		if ( (dep_paths.size() > 1) && (cnt++ % 10 != 0) ) continue;
                 dep_name_w_ext = dep_path;
                 img_name_w_ext = boost::filesystem::path( rgbBeginsWith + dep_path.string().substr(beginsWith.length(), std::string::npos) );
                 img_name = img_name_w_ext.stem().string();
@@ -568,6 +570,7 @@ int main( int argc, char** argv )
                                                     /*  in: */ cols, rows, local_intrinsics, pose, meshPtr,
                                                     /* depths[0] scale: */ 1.f );
 
+
             char fname[255];
             sprintf( fname, "kinfu_depth_%d.pfm", it->first );
             am::util::savePFM( depths[0], outPath.string() + "/" + fname );
@@ -616,7 +619,8 @@ int main( int argc, char** argv )
                 if ( rgb.empty() ) continue;
 
                 cv::Mat undistorted_rgb;
-                ViewPointMapperCuda::undistortRgb( undistorted_rgb, rgb, am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
+                ViewPointMapperCuda::undistortRgb( undistorted_rgb, rgb,
+                                                   am::viewpoint_mapping::INTR_RGB_1280_1024, am::viewpoint_mapping::INTR_RGB_1280_1024 );
                 cv::imshow( "undistorted_rgb", undistorted_rgb );
 
                 cv::Mat blended0, blended1, blended2;
@@ -635,10 +639,19 @@ int main( int argc, char** argv )
                                         + "_d" + boost::lexical_cast<std::string>( it->first )
                                         + "_r" + str_pose_id +
                                         ".png", edgeBlended );
-                for ( int i = 0; i < 15; ++i )
-                {
-                    outputVideo << edgeBlended;
-                }
+		if ( curr_pose_id == it->first )
+		{
+                	for ( int i = 0; i < 15; ++i )
+	                {
+	                    outputVideo << edgeBlended;
+	                }
+
+	 char tit[255];
+	sprintf(tit,"%03d",it->first); 
+	  am::util::cv::writePNG( outPath.string() + "/" + "edgeblend"
+                                        + "_" + tit +
+                                        ".png", edgeBlended );
+		}
             }
 
         }

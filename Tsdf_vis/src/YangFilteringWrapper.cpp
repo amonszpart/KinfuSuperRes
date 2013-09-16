@@ -70,10 +70,10 @@ namespace am {
             tmp.copyTo( rgb8 );
         }
 
-        cv::Mat yang_input;
-        am::util::cv::blend( yang_input, dep16, 10001.f, rgb8 );
-        cv::imshow( "yang_input", yang_input );
-        cv::waitKey();
+        //cv::Mat yang_input;
+        //am::util::cv::blend( yang_input, dep16, 10001.f, rgb8 );
+        //cv::imshow( "yang_input", yang_input );
+        //cv::waitKey();
 
         if ( dep16.empty() || rgb8.empty() )
         {
