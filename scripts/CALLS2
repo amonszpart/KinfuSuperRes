@@ -1,0 +1,10 @@
+MyKinfuApp/build/MyKinfuApp -oni /home/amonszpart/rec/troll_recordings/ram_prism_kinect_20130816_1207/amonirecorded.oni -out ~/rec/testing/ram640_lf_200 --viz 1 -r --dump-poses -lf 400 -sf 200ram640_lf_200_20130911_1433
+
+Tsdf_vis/build/tsdf_vis --in /home/amonszpart/rec/testing/ram640_lf_200_20130911_1433/cloud_mesh.ply --all-kinect-poses
+
+ln -f ~/rec/testing/ram640_lf_200_20130911_1433/kinect_poses/kinfu_depth_*.pfm ~/rec/testing/ram640_lf_200_20130911_1433/poses/
+
+Tsdf_vis/build/tsdf_vis --yangd /home/amonszpart/rec/testing/ram640_lf_200_20130911_1433/poses --extension pfm --begins-with kinfu_depth_ --spatial_sigma 1.2 --range_sigma 0.05 --L 30 --kernel_range 5 --yang_iterations 30
+
+
+Tsdf_vis/build/tsdf_vis --render --dep /home/amonszpart/rec/testing/ram640_lf_200_20130911_1433/poses/yanged_53.pfm --img /home/amonszpart/rec/testing/ram640_lf_200_20130911_1433/poses/53.png

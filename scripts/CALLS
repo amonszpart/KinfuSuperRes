@@ -1,0 +1,22 @@
+./tsdf_vis --yangd /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses --extension pfm --begins-with depth_kinect_pose_ --spatial_sigma 1.2 --range_sigma 0.05 --L 40 --kernel_range 5 --yang_iterations 50
+
+# dump all mesh poses
+./tsdf_vis --in /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/cloud_mesh.ply --all-kinect-poses
+# yang all in dir
+./tsdf_vis --yangd /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses --extension pfm --begins-with kinfu_depth_ --spatial_sigma 1.2 --range_sigma 0.05 --L 40 --kernel_range 5 --yang_iterations 30
+
+# yang only one image
+~/cpp_projects/KinfuSuperRes/Tsdf_vis/build$ ./tsdf_vis --yangd /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses --extension pfm --begins-with kinfu_depth_ --spatial_sigma 1.2 --range_sigma 0.05 --L 40 --kernel_range 5 --yang_iterations 30 --dep kinfu_depth_16.pfm --img 16.png
+
+# render to 3D
+~/KinfuSuperRes/Tsdf_vis/build/tsdf_vis --in /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/cloud_mesh.ply --yanged /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses/yanged_14.pfm --kindep /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses/d14.png --img_id 14 --kinfudep /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses/kinfu_depth_14.pfm --rgb /mnt/scratch/amonszpart/good_recordings/long640_20130829_1525_200_400/poses/14.png
+
+# yang only one image2
+~/cpp_projects/KinfuSuperRes/Tsdf_vis/build$ ./tsdf_vis --yangd /home/amonszpart/rec/good_recordings/checkerboard_1938/ --extension png --begins-with dep16_000000 --rgb-begins-with img8_000000 --spatial_sigma 1.2 --range_sigma 0.05 --L 40 --kernel_range 5 --yang_iterations 30 --dep dep16_00000010.png --img img8_00000010.png
+
+# yang range data
+./tsdf_vis --yangd /mnt/scratch/amonszpart/good_recordings/super_resolution_range_data/ --extension png --begins-with chair_depth --rgb-begins-with chair_image --spatial_sigma 1.2 --range_sigma 0.05 --L 40 --kernel_range 5 --yang_iterations 200 --dep chair_depth.png --img chair_image.png --allow_scale 0
+
+# render
+./tsdf_vis --render --dep /home/amonszpart/rec/good_recordings/super_resolution_range_data/yanged_umbrella_image.pfm --img /home/amonszpart/rec/good_recordings/super_resolution_range_data/umbrella_image.png
+
