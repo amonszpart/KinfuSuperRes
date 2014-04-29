@@ -25,12 +25,14 @@ main (int argc, char* argv[] )
         return printUsage ();
     }
 
-    if (pcl::console::find_argument (argc, argv, "-oni" ) < 0)
+    if ( (pcl::console::find_argument (argc, argv, "-oni" ) < 0)
+         && (pcl::console::find_argument (argc, argv, "--files" ) < 0) )
     {
-        std::cout << "Please provide an -oni file argument..." << std::endl;
+        std::cout << "Please provide an -oni or --files argument..." << std::endl;
         printUsage ();
         return 1;
     }
+
     if (pcl::console::find_argument (argc, argv, "-out" ) < 0)
     {
         std::cout << "Please provide an -out file argument..." << std::endl;

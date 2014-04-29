@@ -41,11 +41,21 @@ INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../TriangleTracing/include/ )
 
 ### AMUtil
 
-add_library ( libAMUtil STATIC IMPORTED)
-set_property( TARGET libAMUtil PROPERTY
-              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/build/libAMUtil.a )
+#add_library ( libAMUtil STATIC IMPORTED)
+#set_property( TARGET libAMUtil PROPERTY
+#              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/build/libAMUtil.a )
 
-INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/include/ )
+#INCLUDE_DIRECTORIES( ${CMAKE_CURRENT_SOURCE_DIR}/../AMUtil/include/ )
+
+##############################################
+# libAMUtil
+SET( AMUTIL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../SmartGeometry/AMUtil/)
+add_library( libAMUtil SHARED IMPORTED )
+set_property( TARGET libAMUtil PROPERTY IMPORTED_LOCATION_RELEASE ${AMUTIL_DIR}/lib/libAMUtil.so)
+set_property( TARGET libAMUtil PROPERTY IMPORTED_LOCATION_DEBUG ${AMUTIL_DIR}/lib/libAMUtild.so)
+INCLUDE_DIRECTORIES( ${AMUTIL_DIR}/include )
+
+##############################################
 
 
 ####################

@@ -35,6 +35,8 @@
  */
 //#define _CRT_SECURE_NO_DEPRECATE
 
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "kinfu_app.h"
 
 #include "pcl/common/angles.h"
@@ -44,6 +46,7 @@
 #include "ViewPointMapperCuda.h"
 #include "../../util/MaUtil.h"
 #include <iostream>
+#include "../amImageGrabber.h"
 
 using namespace std;
 using namespace pcl;
@@ -142,7 +145,8 @@ namespace am
     void
     KinFuApp::initRegistration ()
     {
-        registration_ = capture_.providesCallback<pcl::ONIGrabber::sig_cb_openni_image_depth_image> ();
+        registration_ =    capture_.providesCallback<   pcl::ONIGrabber::sig_cb_openni_image_depth_image>()
+                        || capture_.providesCallback<am::AMImageGrabber::sig_cb_vtk_image_depth_image   >();
         cout << "Registration mode: " << (registration_ ? "On" : "Off (not supported by source)") << endl;
     }
 
@@ -152,7 +156,7 @@ namespace am
         if ( registration_ )
         {
             const int max_color_integration_weight = 2;
-            kinfu_.initColorIntegration(max_color_integration_weight);
+            kinfu_.initColorIntegration( max_color_integration_weight );
             integrate_colors_ = true;
         }
         cout << "Color integration: " << (integrate_colors_ ? "On" : "Off ( requires registration mode )") << endl;
@@ -183,6 +187,7 @@ namespace am
                                                                    evaluation_ptr_->fx, evaluation_ptr_->fy, evaluation_ptr_->cx, evaluation_ptr_->cy) );
     }
 
+#if 1
     void
     KinFuApp::source_cb1_device(const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper)
     {
@@ -201,6 +206,26 @@ namespace am
         }
         data_ready_cond_.notify_one();
     }
+
+    void
+    KinFuApp::source_cb1_oni(const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper)
+    {
+        {
+            boost::mutex::scoped_lock lock(data_ready_mutex_);
+            if (exit_)
+                return;
+
+            depth_.cols = depth_wrapper->getWidth();
+            depth_.rows = depth_wrapper->getHeight();
+            depth_.step = depth_.cols * depth_.elemSize();
+
+            source_depth_data_.resize(depth_.cols * depth_.rows);
+            depth_wrapper->fillDepthImageRaw(depth_.cols, depth_.rows, &source_depth_data_[0]);
+            depth_.data = &source_depth_data_[0];
+        }
+        data_ready_cond_.notify_one();
+    }
+#endif
 
     void
     KinFuApp::source_cb2_device(const boost::shared_ptr<openni_wrapper::Image>& image_wrapper, const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper, float)
@@ -230,25 +255,6 @@ namespace am
     }
 
     void
-    KinFuApp::source_cb1_oni(const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper)
-    {
-        {
-            boost::mutex::scoped_lock lock(data_ready_mutex_);
-            if (exit_)
-                return;
-
-            depth_.cols = depth_wrapper->getWidth();
-            depth_.rows = depth_wrapper->getHeight();
-            depth_.step = depth_.cols * depth_.elemSize();
-
-            source_depth_data_.resize(depth_.cols * depth_.rows);
-            depth_wrapper->fillDepthImageRaw(depth_.cols, depth_.rows, &source_depth_data_[0]);
-            depth_.data = &source_depth_data_[0];
-        }
-        data_ready_cond_.notify_one();
-    }
-
-    void
     KinFuApp::source_cb2_oni(const boost::shared_ptr<openni_wrapper::Image>& image_wrapper, const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper, float)
     {
         {
@@ -272,6 +278,69 @@ namespace am
             image_wrapper->fillRGB(rgb24_.cols, rgb24_.rows, (unsigned char*)&source_image_data_[0]);
             rgb24_.data = &source_image_data_[0];
         }
+        data_ready_cond_.notify_one();
+    }
+
+    void
+    KinFuApp::source_cb2_image_grabber( const vtkSmartPointer<vtkImageData>& image_wrapper, const vtkSmartPointer<vtkImageData>& depth_wrapper )
+    {
+        {
+            // not multithreaded, so cannot lock and publish
+//            std::cout << "[" << __func__ << "]: " << "locking"; fflush(stdout);
+//            boost::mutex::scoped_lock lock(data_ready_mutex_);
+//            std::cout << "locked..." << std::endl; fflush(stdout);
+
+            if ( exit_ ) { std::cout << "exit_==true" << std::endl; return; }
+
+            {
+                int* dims = depth_wrapper->GetDimensions();
+                depth_.cols = dims[0]; // stored in x
+                depth_.rows = dims[1];
+                depth_.step = depth_.cols * depth_.elemSize();
+
+                source_depth_data_.resize(depth_.cols * depth_.rows);
+                //depth_wrapper->fillDepthImageRaw(depth_.cols, depth_.rows, &source_depth_data_[0]);
+                int idx = 0;
+                for ( size_t y = 0; y != depth_.rows; ++y )
+                {
+                    for ( size_t x = 0; x != depth_.cols; ++x, ++idx )
+                    {
+                        source_depth_data_[idx] = *reinterpret_cast<ushort*>(depth_wrapper->GetScalarPointer(x,y,0));
+                    }
+                }
+                depth_.data = &source_depth_data_[0];
+                std::cout << "depth ok...";
+            }
+
+            {
+                int* dims = image_wrapper->GetDimensions();
+                rgb24_.cols = dims[0];
+                rgb24_.rows = dims[1];
+                rgb24_.step = rgb24_.cols * rgb24_.elemSize();
+
+                source_image_data_.resize(rgb24_.cols * rgb24_.rows);
+                //image_wrapper->fillRGB(rgb24_.cols, rgb24_.rows, (unsigned char*)&source_image_data_[0]);
+                if ( image_wrapper->GetNumberOfScalarComponents() != 3 )
+                    std::cerr << "[" << __func__ << "]: " << "image_wrapper->GetNumberOfScalarComponents(): " << image_wrapper->GetNumberOfScalarComponents() << std::endl;
+                if ( image_wrapper->GetScalarType() != VTK_UNSIGNED_CHAR )
+                    std::cerr << "[" << __func__ << "]: " << " image_wrapper->GetScalarType(): " << image_wrapper->GetScalarTypeAsString() << std::endl;
+
+                int idx = 0;
+                for ( size_t y = rgb24_.rows; y; --y )
+                {
+                    for ( size_t x = 0; x != rgb24_.cols; ++x, ++idx )
+                    {
+                        uchar *pix = reinterpret_cast<uchar*>(image_wrapper->GetScalarPointer(x,y-1,0));
+                        source_image_data_[idx].r = pix[0];
+                        source_image_data_[idx].g = pix[1];
+                        source_image_data_[idx].b = pix[2];
+                    }
+                }
+                rgb24_.data = &source_image_data_[0];
+                std::cout << "rgb ok...\n";
+            }
+        }
+
         data_ready_cond_.notify_one();
     }
 
@@ -419,8 +488,9 @@ namespace am
 
         if ( has_data )
         {
-            const int prefiltered = false;
-            const int mapped      = false;
+            const int do_prefiltering = false;
+            const int do_mapping      = false;
+            const int do_undistort    = false;
 
             // resize rgb to the same size as the depth
             if ( rgb24.cols > depth_arg.cols )
@@ -428,7 +498,7 @@ namespace am
                 // apply CV header
                 const cv::Mat rgbMat1280( rgb24.rows, rgb24.cols, CV_8UC3, const_cast<uchar*>(reinterpret_cast<const uchar*>(&rgb24[0])) );
                 // resize
-                cv::resize( rgbMat1280, rgbMat640, cv::Size(depth_arg.cols,depth_arg.rows), 0, 0, CV_INTER_LANCZOS4 );
+                cv::resize( rgbMat1280, rgbMat640, cv::Size(depth_arg.cols,depth_arg.rows), 0, 0, cv::INTER_LANCZOS4 );
 
                 // prepare output
                 rgb640.resize( rgbMat640.cols * rgbMat640.rows * rgbMat640.channels() );
@@ -444,7 +514,7 @@ namespace am
                 rgb640Ptr = PtrStepSz<const KinfuTracker::PixelRGB>(
                                 rgbMat640.rows, rgbMat640.cols,
                                 reinterpret_cast<KinfuTracker::PixelRGB*>(&rgb640[0]),
-                                rgbMat640.cols * 3 * sizeof(uchar) );
+                        rgbMat640.cols * 3 * sizeof(uchar) );
             }
             else
             {
@@ -453,7 +523,7 @@ namespace am
             }
 
             // map viewpoint
-            if ( mapped )
+            if ( do_mapping )
             {
                 mapped_depth.resize( depth_arg.cols * depth_arg.rows );
                 ViewPointMapperCuda::runViewpointMapping( /*   in_data: */ depth_arg.data,
@@ -472,7 +542,7 @@ namespace am
 
             // map viewpoint
             std::vector<ushort> undistorted_data(depth_arg.cols * depth_arg.rows);
-            if ( !mapped )
+            if ( !do_mapping && do_undistort )
             {
                 const cv::Mat depMat( depth_arg.rows, depth_arg.cols, CV_16UC1, const_cast<ushort*>(reinterpret_cast<const ushort*>(&depth_arg[0])) );
 #if 0
@@ -507,7 +577,7 @@ namespace am
             }
 
             // prefilter with crossfilter (depth_arg -> cFilteredDepthPtr)
-            if ( prefiltered )
+            if ( do_prefiltering )
             {
                 // prepare data holder
                 crFilteredDepth.resize( depth_arg.cols * depth_arg.rows );
@@ -515,7 +585,7 @@ namespace am
 
                 // run filter
                 static BilateralFilterCuda<float> bilateralFilterCuda;
-                bilateralFilterCuda.runBilateralFilteringWithUShort( /*       in_depth: */ mapped ? &mapped_depth[0] : depth_arg.data,
+                bilateralFilterCuda.runBilateralFilteringWithUShort( /*       in_depth: */ do_mapping ? &mapped_depth[0] : depth_arg.data,
                                                                      /*       in_guide: */ reinterpret_cast<const unsigned*>( rgb640Ptr.ptr() ),
                                                                      /* guide_channels: */ 3,
                                                                      /*      out_depth: */ pFilteredDepthData,
@@ -531,9 +601,10 @@ namespace am
                 crFilteredDepthPtr.data = &crFilteredDepth[0];
 
             }
+
             // select depth version for later
-            const PtrStepSz<const unsigned short> *pPreparedDepth = ( prefiltered || mapped || 1) ? &crFilteredDepthPtr
-                                                                                                  : &depth_arg;
+            const PtrStepSz<const unsigned short> *pPreparedDepth = ( do_prefiltering || do_mapping || do_undistort ) ? &crFilteredDepthPtr
+                                                                                                                      : &depth_arg;
 
             // show depth
             {
@@ -556,9 +627,11 @@ namespace am
                 SampledScopeTime fps(time_ms_);
 
                 //run kinfu algorithm
+                std::cout << "integrate_colours_: " << (integrate_colors_ ? " YES" : " NO") << std::endl;
                 if ( integrate_colors_ )
                 {
                     has_image = kinfu_ ( depth_device_, image_view_.colors_device_ );
+                    std::cout << "[" << __func__ << "]: " << "kinfu_ returned has_image: " << (has_image?" YES":" NO") << std::endl;
                 }
                 else
                 {
@@ -581,7 +654,7 @@ namespace am
         if (scan_)
         {
             scan_ = false;
-            scene_cloud_view_.show ( kinfu_, integrate_colors_ );
+            scene_cloud_view_.show( kinfu_, integrate_colors_);
 
             if (scan_volume_)
             {
@@ -633,23 +706,27 @@ namespace am
         typedef boost::shared_ptr<DepthImage> DepthImagePtr;
         typedef boost::shared_ptr<Image> ImagePtr;
 
-        boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)> func1_dev = boost::bind (&KinFuApp::source_cb2_device, this, _1, _2, _3);
-        boost::function<void (const DepthImagePtr&)> func2_dev = boost::bind (&KinFuApp::source_cb1_device, this, _1);
+        boost::function<void (const DepthImagePtr&)>                                    func1_dev   = boost::bind (&KinFuApp::source_cb1_device, this, _1);
+        boost::function<void (const DepthImagePtr&)>                                    func1_oni   = boost::bind (&KinFuApp::source_cb1_oni, this, _1);
+        boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)>   func2_dev   = boost::bind (&KinFuApp::source_cb2_device, this, _1, _2, _3);
+        boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)>   func2_oni   = boost::bind (&KinFuApp::source_cb2_oni, this, _1, _2, _3);
+        boost::function<void (const vtkSmartPointer<vtkImageData>&, const vtkSmartPointer<vtkImageData>&)>
+                func2_image_grabber = boost::bind (&KinFuApp::source_cb2_image_grabber, this, _1, _2);
 
-        boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)> func1_oni = boost::bind (&KinFuApp::source_cb2_oni, this, _1, _2, _3);
-        boost::function<void (const DepthImagePtr&)> func2_oni = boost::bind (&KinFuApp::source_cb1_oni, this, _1);
+        bool is_oni           =             dynamic_cast<pcl::ONIGrabber   *>(&capture_) != 0;
+        bool is_image_grabber = !is_oni && (dynamic_cast<am::AMImageGrabber*>(&capture_) != 0);
+        boost::function<void (const DepthImagePtr&)                                 > func1 = is_oni ? func1_oni : func1_dev;
+        boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)> func2 = is_oni ? func2_oni : func2_dev;
 
-        bool is_oni = dynamic_cast<pcl::ONIGrabber*>(&capture_) != 0;
-        boost::function<void (const ImagePtr&, const DepthImagePtr&, float constant)> func1 = is_oni ? func1_oni : func1_dev;
-        boost::function<void (const DepthImagePtr&)> func2 = is_oni ? func2_oni : func2_dev;
-
-        bool need_colors = integrate_colors_ || registration_;
-        boost::signals2::connection c = need_colors ? capture_.registerCallback (func1) : capture_.registerCallback (func2);
+        bool need_colors = integrate_colors_ || registration_ || is_image_grabber;
+        boost::signals2::connection c = is_image_grabber ? capture_.registerCallback(func2_image_grabber)
+                                                         : (need_colors ? capture_.registerCallback (func2) : capture_.registerCallback (func1));
+        std::cout<<"is_iamge_grabber:" << (is_image_grabber?"YES":"NO") << std::endl;
 
         {
-            boost::unique_lock<boost::mutex> lock(data_ready_mutex_);
+            boost::unique_lock<boost::mutex> lock( data_ready_mutex_ );
 
-            if ( !triggered_capture )
+            //if ( !triggered_capture ) // start anyway, publishing is delayed with one step
                 capture_.start (); // Start stream
 
             bool scene_view_not_stopped = viz_ ? !scene_cloud_view_.cloud_viewer_->wasStopped () : true;
@@ -660,7 +737,10 @@ namespace am
             while ( !exit_ && scene_view_not_stopped && image_view_not_stopped )
             {
                 if ( triggered_capture )
+                {
+                    std::cout << "[" << __func__ << "]: " << "calling trigger..." << std::endl;
                     capture_.start(); // Triggers new frame
+                }
 
                 if ( frame_count < start_frame )
                 {
@@ -669,7 +749,9 @@ namespace am
                     continue;
                 }
 
-                bool has_data = data_ready_cond_.timed_wait (lock, boost::posix_time::millisec(100));
+                bool has_data = is_image_grabber ? reinterpret_cast<AMImageGrabber&>(capture_).hasImage() // not multithreaded, so cannot lock and publish
+                                                 : data_ready_cond_.timed_wait (lock, boost::posix_time::millisec(100));
+                //bool has_data = true;
 
                 try { this->execute (depth_, rgb24_, has_data); }
                 catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; break; }

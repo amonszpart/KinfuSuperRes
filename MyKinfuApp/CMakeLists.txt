@@ -5,6 +5,7 @@ INCLUDE(../localcfg.cmake)
 #add_subdirectory( src/kinfu_large_scale )
 
 INCLUDE( ../commonLibLocations.cmake )
+SET( MYKINFU TRUE )
 
 #############################################################################################
 
@@ -14,12 +15,16 @@ INCLUDE( ../commonLibLocations.cmake )
 
 ####################
 ### BilateralFilteringCuda
-add_library ( imp_bilFilCuda STATIC IMPORTED)
+add_library ( imp_bilFilCuda SHARED IMPORTED)
 set_property( TARGET imp_bilFilCuda PROPERTY
-              IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/libcuBilateralFilteringCuda.a )
+              IMPORTED_LOCATION_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/${CMAKE_BUILD_TYPE}/libBilateralFilteringCuda.so )
+set_property( TARGET imp_bilFilCuda PROPERTY
+              IMPORTED_LOCATION_DEBUG ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/${CMAKE_BUILD_TYPE}/libBilateralFilteringCudad.so )
 
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/inc/" )
 INCLUDE_DIRECTORIES( "../BilateralFilteringCuda/include/" )
+
+MESSAGE(STATUS "!!!!!!": ${CMAKE_CURRENT_SOURCE_DIR}/../BilateralFilteringCuda/build/${CMAKE_BUILD_TYPE}/libBilateralFilteringCuda.so )
 
 ####################
 
@@ -82,7 +87,7 @@ SET( KINFU_SRC_LIST
     src/kinfu/tools/my_screenshot_manager.cpp
     src/kinfu/mainKinfuApp.cpp
 )
-
+add_definitions( -DPCL_BUILT_WITH_VTK ) # needed by amImageGrabber
 ### MA
 SET( HEADERS_LIST
     ${KINFU_TRACKER_Hs}
@@ -91,6 +96,7 @@ SET( HEADERS_LIST
     src/util/XnVUtil.h
     src/myopenni/MyONIGrabber.h
     src/myopenni/MyOpenNIGrabber.h
+    src/kinfu/amImageGrabber.h
     #src/kinfu/AMKinfuTracker.h
     ../BilateralFilteringCuda/include/ViewPointMapperCuda.h
     ../BilateralFilteringCuda/include/BilateralFilterCuda.hpp
@@ -102,20 +108,17 @@ SET( SRC_LIST
     src/util/MaUtil.cpp
     src/myopenni/MyONIGrabber.cpp
     src/myopenni/MyOpenNIGrabber.cpp
+    src/kinfu/amImageGrabber.cpp
     src/main.cpp
     #src/kinfu/AMKinfuTracker.cpp
 )
 
 ### INCLUDES
-SET(MYKINFU TRUE)
-
 IF(MYKINFU)
     add_definitions(-DMYKINFU)
     SET( KINFU_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/../MyKinfuTracker/include/" )
-    #INCLUDE_DIRECTORIES( "../MyKinfuTracker/include/" )
 ELSE(MYKINFU)
     SET( KINFU_INCLUDE ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
-    #INCLUDE_DIRECTORIES( ${PCL_LOC}/include/pcl-1.7/pcl/gpu/kinfu/ )
 ENDIF(MYKINFU)
 
 INCLUDE_DIRECTORIES( ${KINFU_INCLUDE} ${MY_INCLUDES} )
@@ -124,17 +127,21 @@ INCLUDE_DIRECTORIES( ${KINFU_INCLUDE} ${MY_INCLUDES} )
 ADD_EXECUTABLE( ${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST} )
 
 ### LINK
-TARGET_LINK_LIBRARIES( ${PROJECT_NAME} imp_bilFilCuda )
 
 IF(MYKINFU)
     SET( KINFU_LIB libMyKinfuTracker )
-    #TARGET_LINK_LIBRARIES( ${PROJECT_NAME} libMyKinfuTracker )
 ELSE(MYKINFU)
     SET( KINFU_LIB ${PCL_LOC}/lib/libpcl_gpu_kinfu.so )
-    #TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${PCL_LOC}/lib/libpcl_gpu_kinfu.so )
 ENDIF(MYKINFU)
 
-TARGET_LINK_LIBRARIES( ${PROJECT_NAME} ${KINFU_LIB} ${MY_LIBRARIES} )
+message(STATUS MY_LIBRARIES: ${MY_LIBRARIES})
+
+
+TARGET_LINK_LIBRARIES( ${PROJECT_NAME}
+    imp_bilFilCuda
+    ${KINFU_LIB}
+    ${MY_LIBRARIES}
+)
 
 ############## TSDF_VIS ##############
 

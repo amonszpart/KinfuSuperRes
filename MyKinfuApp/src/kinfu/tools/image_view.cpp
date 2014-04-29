@@ -45,7 +45,7 @@ ImageView::showScene (KinfuTracker& kinfu, const PtrStepSz<const KinfuTracker::P
     if (accumulate_views_)
     {
         views_.push_back (cv::Mat ());
-        cv::cvtColor (cv::Mat (480, 640, CV_8UC3, (void*)&view_host_[0]), views_.back (), CV_RGB2GRAY);
+        cv::cvtColor( cv::Mat (480, 640, CV_8UC3, (void*)&view_host_[0]), views_.back (), cv::COLOR_RGB2GRAY );
         //cv::copy(cv::Mat(480, 640, CV_8UC3, (void*)&view_host_[0]), views_.back());
     }
 #endif

@@ -32,7 +32,7 @@ namespace am
 
                 cloud_viewer_.setBackgroundColor (0, 0, 0.15);
                 cloud_viewer_.setPointCloudRenderingProperties (visualization::PCL_VISUALIZER_POINT_SIZE, 1);
-                cloud_viewer_.addCoordinateSystem (1.0);
+                cloud_viewer_.addCoordinateSystem (1.0, "coord_sys", 0);
                 cloud_viewer_.initCameraParameters ();
                 cloud_viewer_.setPosition (0, 500);
                 cloud_viewer_.setSize (640, 480);
@@ -97,6 +97,7 @@ namespace am
 
             void source_cb2_device(const boost::shared_ptr<openni_wrapper::Image>& image_wrapper, const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper, float);
 
+            void source_cb2_image_grabber( const vtkSmartPointer<vtkImageData>& image_wrapper, const vtkSmartPointer<vtkImageData>& depth_wrapper );
 
             void source_cb1_oni(const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper);
 

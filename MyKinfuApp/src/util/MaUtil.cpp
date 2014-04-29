@@ -85,7 +85,7 @@ namespace util
             memcpy( pImgRGB->data + pImgRGB->step * y, pImageRow, md.XRes() * 3 );
         }
 
-        cvtColor( *pImgRGB, *pImgRGB, CV_BGR2RGB );
+        cvtColor( *pImgRGB, *pImgRGB, cv::COLOR_BGR2RGB );
 
         return 0;
     }
@@ -172,7 +172,7 @@ namespace util
                          cv::Point( (h+1)*width - 1, histImg.rows - intensity*scale),
                          cv::Point( h*width+1, histImg.rows ),
                          cv::Scalar::all(128 + (255-binVal)/2),
-                         CV_FILLED );
+                         cv::FILLED );
         }
 
         cv::namedWindow( title, 1 );

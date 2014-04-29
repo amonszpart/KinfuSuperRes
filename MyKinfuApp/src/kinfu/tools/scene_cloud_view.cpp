@@ -17,7 +17,7 @@ namespace am
             cloud_viewer_ = pcl::visualization::PCLVisualizer::Ptr( new pcl::visualization::PCLVisualizer("Scene Cloud Viewer") );
 
             cloud_viewer_->setBackgroundColor (0, 0, 0);
-            cloud_viewer_->addCoordinateSystem (1.0);
+            cloud_viewer_->addCoordinateSystem (1.0,"coord_sys",0);
             cloud_viewer_->initCameraParameters ();
             cloud_viewer_->setPosition (0, 500);
             cloud_viewer_->setSize (640, 480);

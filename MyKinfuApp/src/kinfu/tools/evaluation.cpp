@@ -35,6 +35,7 @@
  */
 
 #include "evaluation.h"
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include <iostream>
 
@@ -150,7 +151,7 @@ bool Evaluation::grab (double stamp, PtrStepSz<const RGB>& rgb24)
   if(bgr.empty())
       return false;     
       
-  cv::cvtColor(bgr, impl_->rgb_buffer, CV_BGR2RGB);
+  cv::cvtColor(bgr, impl_->rgb_buffer, cv::COLOR_BGR2RGB );
   
   rgb24.data = impl_->rgb_buffer.ptr<RGB>();
   rgb24.cols = impl_->rgb_buffer.cols;
@@ -175,7 +176,7 @@ bool Evaluation::grab (double stamp, PtrStepSz<const unsigned short>& depth)
 
   string file = folder_ + (accociations_.empty() ? depth_stamps_and_filenames_[i].second : accociations_[i].name1);
   
-  cv::Mat d_img = cv::imread(file, CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+  cv::Mat d_img = cv::imread(file, cv::IMREAD_ANYCOLOR | cv::IMREAD_ANYDEPTH );
   if(d_img.empty())
       return false;
    
@@ -219,7 +220,7 @@ bool Evaluation::grab (double stamp, PtrStepSz<const unsigned short>& depth, Ptr
   string depth_file = folder_ + accociations_[i].name1;
   string color_file = folder_ + accociations_[i].name2;
 
-  cv::Mat d_img = cv::imread(depth_file, CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+  cv::Mat d_img = cv::imread(depth_file, cv::IMREAD_ANYDEPTH | cv::IMREAD_ANYCOLOR);
   if(d_img.empty())
       return false;
    
@@ -242,7 +243,7 @@ bool Evaluation::grab (double stamp, PtrStepSz<const unsigned short>& depth, Ptr
   if(bgr.empty())
       return false;     
       
-  cv::cvtColor(bgr, impl_->rgb_buffer, CV_BGR2RGB);
+  cv::cvtColor( bgr, impl_->rgb_buffer, cv::COLOR_BGR2RGB );
   
   rgb24.data = impl_->rgb_buffer.ptr<RGB>();
   rgb24.cols = impl_->rgb_buffer.cols;

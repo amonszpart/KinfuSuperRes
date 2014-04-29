@@ -1,8 +1,11 @@
 #include "YangFiltering.h"
 
+#include <iostream>
+#include <iomanip>
+
 #include "GpuDepthMap.hpp"
 #include "AmCudaUtil.h"
-#include "AMUtil2.h"
+//#include "AMUtil2.h"
 
 #include <opencv2/highgui/highgui.hpp>
 
@@ -23,6 +26,44 @@ extern void subpixelRefine( GpuDepthMap<float> const& minC  ,
 
 template <typename T>
 extern T getMax( GpuDepthMap<T> const& img );
+
+int
+_savePFM( ::cv::Mat const& imgF, std::string path, float scale = -1.f, bool silent = false )
+{
+    if ( imgF.empty() || imgF.type() != CV_32FC1 )
+    {
+        std::cerr << "AMUtil::savePFM: expects non-empty image of type CV_32FC1" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if ( !silent ) std::cout << "saving " << path << "..." << std::endl;
+
+    std::fstream file;
+    file.open( path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios_base::trunc );
+    if ( !file.is_open() )
+    {
+        std::cerr << "AMUtil::savePFM: could not open file at path " << path << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // header
+    file << "Pf" << std::endl;
+    file << imgF.cols << " " << imgF.rows << std::endl;
+    file << scale << std::endl;
+
+    // transposed image
+    for ( int x = 0; x < imgF.cols; ++x )
+    {
+        for ( int y = 0; y < imgF.rows; ++y )
+        {
+            file << std::setprecision(23) << imgF.at<float>(y,x) << " ";
+        }
+        file << std::endl;
+    }
+    file.close();
+
+    return EXIT_SUCCESS;
+}
 
 int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep, const YangFilteringRunParams params, std::string depPath )
 {
@@ -194,7 +235,7 @@ int YangFiltering::run( cv::Mat const& dep16, const cv::Mat &img8, cv::Mat &fDep
         cv::imwrite( title, dep_out, imwrite_params );
 
         sprintf( title, (depPath+"/iteration16_%d.pfm").c_str(), it );
-        am::util::savePFM( fDep, title );
+        _savePFM( fDep, title );
 
         if ( !fDepPrev.empty() )
         {

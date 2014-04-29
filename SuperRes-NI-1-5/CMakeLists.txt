@@ -17,25 +17,24 @@ if(TROLL)
     SET(LIB_CUDA /usr/lib/libcuda.so)
     SET(LIB_CUDART /usr/local/cuda-5.0/lib/libcudart.so)
 else(TROLL) # Ubul
-    SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
-    SET( CUDA_PATH /usr/local/cuda-5.0 )
+    #SET( PCL_LOC ~/workspace/3rdparty/pcl-trunk/install )
+    #SET( CUDA_PATH /usr/local/cuda-5.0 )
     #SET( OPENNI_LOC ~/workspace/3rdparty/OpenNI-Bin-Dev-Linux-x64-v1.5.4.0/)
-    SET(OPENNI_INCLUDE /usr/include/ni)
+    #SET(OPENNI_INCLUDE_DIRS "/usr/include/ni")
     #SET( CMAKE_CXX_COMPILER /usr/lib/nvidia-cuda-toolkit/bin/gcc )
-    SET(LIB_CUDA /usr/lib/nvidia-310-updates/libcuda.so)
-    SET(LIB_CUDART -lcudart)
+    #SET(LIB_CUDA /usr/lib/nvidia-310-updates/libcuda.so)
+    #SET(LIB_CUDART -lcudart)
 endif(TROLL)
 
 # PACKAGES
-FIND_PACKAGE( OpenCV REQUIRED )
-find_package(CUDA REQUIRED)
+SET( OPENNI_INCLUDE_DIRS "/usr/include/ni" )
+SET( OpenCV_DIR "/home/bontius/workspace/3rdparty/opencv-trunk/install/share/OpenCV" )
 
-#FIND_PACKAGE( PCL 1.3 REQUIRED COMPONENTS common io )
-#link_directories(${PCL_LIBRARY_DIRS})
+FIND_PACKAGE( OpenCV REQUIRED )
+FIND_PACKAGE( CUDA REQUIRED )
 
 # DEFS
-add_definitions( -D__x86_64__=1 -Dlinux=1 -DHAVE_OPENCV=1 -DHAVE_OPENNI=1 )
-#add_definitions( ${PCL_DEFINITIONS} )
+add_definitions( -D__x86_64__=1 -Dlinux=1 -DHAVE_OPENCV=1 -DHAVE_OPENNI=1 ${PCL_DEFINITIONS} )
 
 # BUILD
 set( dir ${CMAKE_CURRENT_SOURCE_DIR}/build)
@@ -46,8 +45,11 @@ set( LIBRARY_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 SET(MY_INCLUDES
     /usr/include/eigen3/
     /usr/include/vtk-5.8/
-    ${CUDA_PATH}/include
-    ${OPENNI_INCLUDE}
+    #${CUDA_PATH}/include
+    ${CUDA_INCLUDE_DIRS}
+    ${OPENNI_INCLUDE_DIRS}
+    ${OpenCV_INDLUDE_DIRS}
+    ${PCL_INDLUDE_DIRS}
     #../../ctbf
 )
 
@@ -87,28 +89,31 @@ SET( MY_LIBRARIES
     GL
     GLEW
     imp_bilFilCuda
-    ${LIB_CUDART}
-    ${LIB_CUDA}
+    #${LIB_CUDART}
+    #${LIB_CUDA}
+    ${CUDA_LIBS}
     m
     stdc++
 )
 
 IF(USE_PCL)
+    FIND_PACKAGE( PCL REQUIRED )
     SET( MY_INCLUDES
         ${MY_INCLUDES}
-        ${PCL_LOC}/include/pcl-1.7
-        ${PCL_LOC}/include/pcl-1.7/pcl/visualization
+        ${PCL_INCLUDE_DIRS}
+        #${PCL_LOC}/include/pcl-1.7
+        #${PCL_LOC}/include/pcl-1.7/pcl/visualization
     )
 
     SET( MY_LIBRARIES
         ${MY_LIBRARIES}
-        ${PCL_LOC}/lib/libpcl_common.so
-        ${PCL_LOC}/lib/libpcl_io.so
-        ${PCL_LOC}/lib/libpcl_visualization.so
-        ${PCL_LOC}/lib/libpcl_gpu_kinfu.so
-        ${PCL_LOC}/lib/libpcl_gpu_containers.so
+        ${PCL_LIBS}
+#        ${PCL_LOC}/lib/libpcl_common.so
+#        ${PCL_LOC}/lib/libpcl_io.so
+#        ${PCL_LOC}/lib/libpcl_visualization.so
+#        ${PCL_LOC}/lib/libpcl_gpu_kinfu.so
+#        ${PCL_LOC}/lib/libpcl_gpu_containers.so
     )
-
 endif(USE_PCL)
 
 ######################## PROJECT files ##############################
@@ -123,8 +128,8 @@ SET( HEADERS_LIST
     src/util/XnVUtil.h
     src/util/MaUtil.h
     src/prism_camera_parameters.h
-    ../BilateralFilteringCuda/src/ViewPointMapperCuda.h
-    ../BilateralFilteringCuda/src/BilateralFilterCuda.hpp
+    ../BilateralFilteringCuda/include/ViewPointMapperCuda.h
+    ../BilateralFilteringCuda/include/BilateralFilterCuda.hpp
     ../BilateralFilteringCuda/include/YangFiltering.h
 )
 

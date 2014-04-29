@@ -189,7 +189,7 @@ template <typename T>
 __global__ void
 d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
                            //float *costVolume, size_t costVolumePitch, uint costVolumeZDim,
-                           float e_d, int r, bool onlyZeros = false )
+                           float e_d, int r, unsigned char fillMode = FILL_ALL | SKIP_ZEROS )
 {
     int x = blockIdx.x*blockDim.x + threadIdx.x;
     int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -206,7 +206,7 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
     T      centerPix   = fetchTexture<T>( x, y );
 
     // check for early exit
-    if ( onlyZeros && (centerPix != 0.f) )
+    if ( !(fillMode & FILL_ZEROS) && (centerPix != 0.f) ) // if 0, and NOT FILL_ZEROS
     {
         dOut[y * outPitch + x] = centerPix;
         return;
@@ -221,7 +221,7 @@ d_cross_bilateral_filterF( T *dOut, int w, int h, size_t outPitch,
             T curPix = fetchTexture<T>( x+j, y+i );
 
             // skip, if no data
-            if ( onlyZeros && curPix == 0.f )
+            if ( (fillMode & SKIP_ZEROS) && (curPix == 0.f) )
                 continue;
 
             // read rgb
@@ -285,7 +285,8 @@ double crossBilateralFilterF( T *dDest, uint destPitch,
                               uint *dGuide, uint guidePitch,
                               //float *dCostVolume, uint costVolumePitch,
                               cudaExtent volumeSize,
-                              float e_d, int radius, int iterations, unsigned char fillOnlyZeros,
+                              float e_d, int radius, int iterations
+                              , unsigned char fillMode,
                               StopWatchInterface *timer
                               )
 {
@@ -328,8 +329,11 @@ double crossBilateralFilterF( T *dDest, uint destPitch,
         d_cross_bilateral_filterF<<< gridSize, blockSize>>>( dDest, volumeSize.width, volumeSize.height, destPitch / sizeof(T),
                                                              //dCostVolume, costVolumePitch / sizeof(float), volumeSize.depth,
                                                              e_d, radius,
-                                                             /* fillOnlyZeros: */ (fillOnlyZeros == FILL_ALL) ? false :
-                                                                                         ( fillOnlyZeros == FILL_ONLY_ZEROS ? true : (i>0) )
+                                                             (   (fillMode == FILL_ALL_THEN_FILL_ZEROS)
+                                                               ? ( (i>0) ? (FILL_ZEROS | SKIP_ZEROS) : (FILL_ALL | SKIP_ZEROS) )
+                                                               : fillMode )
+                                                             ///* fillOnlyZeros: */ (fillMode == FILL_ALL) ? false :
+                                                             //                            ( fillMode == FILL_ONLY_ZEROS ? true : (i>0) )
                                                                                                                 );
 
 

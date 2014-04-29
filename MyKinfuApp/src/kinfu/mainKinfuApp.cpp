@@ -4,6 +4,8 @@
 #include "../util/MaUtil.h"
 
 #include <iostream>
+#include "pcl/io/image_grabber.h"
+#include "amImageGrabber.h"
 
 using namespace std;
 using namespace pcl;
@@ -57,14 +59,37 @@ namespace am
         boost::shared_ptr<pcl::Grabber> capture;
 
         bool triggered_capture = false;
+        bool is_image_grabber = false;
 
         float volume_size = 3.f;
         pc::parse_argument ( argc, argv, "-volume_size", volume_size );
 
-        std::string eval_folder, match_file, openni_device, oni_file, pcd_dir;
+
+        std::string eval_folder, match_file, openni_device, oni_file, pcd_dir, images_path;
+        int frames_per_second = 0; // 0 for triggered catch
         try
         {
-            if (pc::parse_argument (argc, argv, "-dev" , openni_device) > 0)
+            if ( pc::parse_argument (argc, argv, "--files" , images_path) > 0 )
+            {
+                if ( !boost::filesystem::exists( images_path ) )
+                {
+                    std::cerr << "images_path " << images_path << " does not exist..." << std::endl;
+                    return EXIT_FAILURE;
+                }
+                capture.reset( new AMImageGrabber( images_path, frames_per_second, false) );
+                AMImageGrabber *p_capture = static_cast<AMImageGrabber*>( capture.get() );
+                if ( !p_capture->size() )
+                {
+                    std::cerr << "[" << __func__ << "]: " << "no images read to imageGrabber...exiting" << std::endl;
+                    return EXIT_FAILURE;
+                }
+                std::cout << "AMImageGrabber has " << p_capture->size() << " images" << std::endl;
+                triggered_capture = true;
+                is_image_grabber = true;
+
+                //static_cast<pcl::ImageGrabber<pcl::PointXYZRGB> >(capture
+            }
+            else if (pc::parse_argument (argc, argv, "-dev" , openni_device) > 0)
             {
                 capture.reset (new pcl::OpenNIGrabber (openni_device));
             }
@@ -128,9 +153,21 @@ namespace am
 
         if (pc::find_switch (argc, argv, "--registration") || pc::find_switch (argc, argv, "-r"))
             app.initRegistration();
+        else if ( is_image_grabber )
+        {
+            std::cerr << "adding -r flag by force (image_grabber gives/needs colours)" << std::endl;
+            app.initRegistration();
+        }
 
         if (pc::find_switch (argc, argv, "--integrate-colors") || pc::find_switch (argc, argv, "-ic"))
+        {
             app.toggleColorIntegration();
+        }
+        else if ( is_image_grabber )
+        {
+            std::cerr << "adding -ic flag by force (image_grabber gives/needs colours)" << std::endl;
+            app.toggleColorIntegration();
+        }
 
         if (pc::find_switch (argc, argv, "--scale-truncation") || pc::find_switch (argc, argv, "-st"))
             app.enableTruncationScaling();
@@ -159,9 +196,9 @@ namespace am
 
         // executing
         try { app.startMainLoop (triggered_capture, limit_frames, start_frame); }
-        catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
-        catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
-        catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
+        catch (const pcl::PCLException& e) { cout << "PCLException: " << e.what() << endl; return EXIT_FAILURE; }
+        catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; return EXIT_FAILURE; }
+        catch (const std::exception& /*e*/) { cout << "Exception" << endl; return EXIT_FAILURE; }
 
 # if 1
         // save computations to files

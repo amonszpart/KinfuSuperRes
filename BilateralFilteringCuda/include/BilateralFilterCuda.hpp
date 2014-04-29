@@ -84,9 +84,12 @@ double crossBilateralFilterRGBA( unsigned *dDest,
                                  StopWatchInterface *timer
                                  );
 enum {
-    FILL_ALL,                 // run on all pixels
-    FILL_ALL_THEN_FILL_ZEROS, // run on all pixels, then zeros only, requires m_iterations to be more than 1
-    FILL_ONLY_ZEROS           // run on zero pixels only
+    FILL_NON_ZEROS             = 1
+    , FILL_ZEROS               = 2
+    , FILL_ALL_THEN_FILL_ZEROS = 4                           // is handled later
+    , SKIP_ZEROS               = 8                           // in averaging
+    , FILL_ALL                 = FILL_ZEROS | FILL_NON_ZEROS // run on all pixels
+    , FILL_ONLY_ZEROS          = FILL_ZEROS                  // run on zero pixels only
 };
 
 template <typename T>
